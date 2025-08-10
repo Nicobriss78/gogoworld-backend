@@ -1,0 +1,54 @@
+[
+  {
+    "id": 1,
+    "title": "Street Food Festival",
+    "description": "Local specialties and live music.",
+    "date": "2025-08-10T19:00:00+02:00",
+    "location": "Piazza del Popolo, Roma",
+    "lat": 41.9109,
+    "lng": 12.4768
+  },
+  {
+    "id": 2,
+    "title": "Poetry Slam Night",
+    "description": "Open mic and spoken word.",
+    "date": "2025-08-11T20:00:00+02:00",
+    "location": "Teatro Off, Napoli",
+    "lat": 40.8518,
+    "lng": 14.2681
+  },
+  {
+    "id": 3,
+    "title": "Sunset Yoga by the Sea",
+    "description": "Bring your mat. Beginners welcome.",
+    "date": "2025-08-09T18:00:00+02:00",
+    "location": "Lungomare Falcone-Borsellino, Palermo",
+    "lat": 38.1157,
+    "lng": 13.3613
+  },
+  {
+    "id": 4,
+    "title": "Indie Live Session",
+    "description": "Two local bands and a DJ set.",
+    "date": "2025-08-12T21:00:00+02:00",
+    "location": "Circolo Arci, Bari",
+    "lat": 41.1171,
+    "lng": 16.8719
+  },
+  {
+    "id": 5,
+    "title": "Urban Photography Walk",
+    "description": "Exploring alleyways and hidden gems.",
+    "date": "2025-08-13T10:00:00+02:00",
+    "location": "Centro Storico, Catania",
+    "lat": 37.5079,
+    "lng": 15.083
+  },
+  {
+    "id": 6,
+    "title": "festa della musica",
+    "description": "concerto in piazza",
+    "location": "salerno",
+    "date": "2025-08-27T06:04:00.000Z"
+  }
+]

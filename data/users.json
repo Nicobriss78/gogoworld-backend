@@ -1,0 +1,135 @@
+[
+  {
+    "id": 10001,
+    "nome": "Mario Rossi",
+    "email": "mariorossi@example.com",
+    "password": "rossi123",
+    "ruolo": "organizzatore",
+    "eventi": {
+      "creati": [
+        "e100",
+        "e101"
+      ],
+      "partecipati": []
+    },
+    "eventsPartecipati": [],
+    "role2": "participant",
+    "currentRole": "participant"
+  },
+  {
+    "id": 10002,
+    "nome": "Giulia Bianchi",
+    "email": "giuliabianchi@example.com",
+    "password": "giulia321",
+    "ruolo": "organizzatore",
+    "eventi": {
+      "creati": [
+        "e102"
+      ],
+      "partecipati": []
+    },
+    "eventsPartecipati": [],
+    "role2": "participant",
+    "currentRole": "organizer"
+  },
+  {
+    "id": 10003,
+    "nome": "Luca Verdi",
+    "email": "lucaverdi@example.com",
+    "password": "luca123",
+    "ruolo": "partecipante",
+    "eventi": {
+      "creati": [],
+      "partecipati": [
+        "e100",
+        "e102",
+        "2",
+        "3",
+        "4"
+      ]
+    },
+    "eventsPartecipati": [
+      6
+    ],
+    "role2": "participant",
+    "currentRole": "organizer"
+  },
+  {
+    "id": 10004,
+    "nome": "Anna Rosa",
+    "email": "annarosa@example.com",
+    "password": "anna456",
+    "ruolo": "partecipante",
+    "eventi": {
+      "creati": [],
+      "partecipati": []
+    },
+    "eventsPartecipati": [],
+    "role2": "participant",
+    "currentRole": "participant"
+  },
+  {
+    "id": 10005,
+    "nome": "nico briss",
+    "email": "nico@gmail.com",
+    "password": "admin02943",
+    "ruolo": "partecipante",
+    "eventi": {
+      "creati": [],
+      "partecipati": []
+    },
+    "eventsPartecipati": [],
+    "role2": "participant",
+    "currentRole": "participant"
+  },
+  {
+    "id": 10006,
+    "nome": "rocco spera",
+    "email": "rocco@gmail.com",
+    "password": "123456",
+    "ruolo": "organizzatore",
+    "eventi": {
+      "creati": [],
+      "partecipati": []
+    },
+    "eventsPartecipati": [],
+    "role2": "participant",
+    "currentRole": "participant"
+  },
+  {
+    "id": 10007,
+    "nome": "canio fortis",
+    "email": "canio@gmail.com",
+    "password": "555555",
+    "ruolo": "partecipante",
+    "eventi": {
+      "creati": [],
+      "partecipati": []
+    },
+    "eventsPartecipati": [],
+    "role2": "participant",
+    "currentRole": "participant"
+  },
+  {
+    "id": 10008,
+    "name": "nico",
+    "email": "nicobriss@gmail.com",
+    "password": "admin02943",
+    "role": "participant",
+    "role2": "participant",
+    "eventsPartecipati": [
+      1
+    ],
+    "currentRole": "participant"
+  },
+  {
+    "id": 10009,
+    "name": "riccardo",
+    "email": "riccardo@gmail.com",
+    "password": "riccardo123",
+    "role": "participant",
+    "role2": "participant",
+    "currentRole": "organizer",
+    "eventsPartecipati": []
+  }
+]
