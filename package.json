@@ -11,8 +11,9 @@
     "dev": "node server.js"
   },
   "dependencies": {
-  "mongoose": "^7.6.1",
-    "cors": "^2.8.5",
     "express": "^5.1.0"
+    "mongoose": "^7.6.1",
+    "cors": "^2.8.5",
+
   }
 }
