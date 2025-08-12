@@ -1,5 +1,7 @@
 const express = require('express');
 const path = require('path');
+const connectDB = require('./db');
+
 const app = express();
 // Ping root per comodità
 app.get('/', (_req, res) => {
@@ -30,10 +32,12 @@ app.use('/api/users', userRoutes);
 // ✅ Rotte eventi (❗mancava questa parte)
 const eventRoutes = require('./routes/eventRoutes');
 app.use('/api/events', eventRoutes);
+connectDB();
 
 // ✅ Avvia il server
 app.listen(PORT, () => {
   console.log(`✅ Server avviato su http://localhost:${PORT}`);
 });
+
 
 
