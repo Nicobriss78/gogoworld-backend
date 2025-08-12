@@ -1,6 +1,15 @@
 const express = require('express');
 const path = require('path');
 const app = express();
+// Ping root per comodità
+app.get('/', (_req, res) => {
+  res.json({ ok: true, name: 'GoGoWorld API', env: process.env.NODE_ENV || 'dev' });
+});
+
+// Info versione
+app.get('/version', (_req, res) => {
+  res.json({ version: '1.0.0', ts: new Date().toISOString() });
+});
 const PORT = process.env.PORT || 5050;
 
 // ✅ Middleware per gestire req.body (fondamentale per /register e /partecipa)
@@ -26,4 +35,5 @@ app.use('/api/events', eventRoutes);
 app.listen(PORT, () => {
   console.log(`✅ Server avviato su http://localhost:${PORT}`);
 });
+
 
