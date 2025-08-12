@@ -1,43 +1,59 @@
+// backend/server.js
 const express = require('express');
 const path = require('path');
+const cors = require('cors');
 const connectDB = require('./db');
 
 const app = express();
-// Ping root per comodità
+const PORT = process.env.PORT || 10000; // default 10000 per Render
+
+// CORS: consenti il tuo frontend Netlify
+app.use(cors({
+  origin: process.env.CORS_ORIGIN_FRONTEND || '*',
+  credentials: false
+}));
+
+// Body parser
+app.use(express.json());
+
+// Ping root
 app.get('/', (_req, res) => {
   res.json({ ok: true, name: 'GoGoWorld API', env: process.env.NODE_ENV || 'dev' });
 });
-
-// Info versione
-app.get('/version', (_req, res) => {
-  res.json({ version: '1.0.0', ts: new Date().toISOString() });
-});
-const PORT = process.env.PORT || 5050;
-
-// ✅ Middleware per gestire req.body (fondamentale per /register e /partecipa)
-app.use(express.json());
 
 // Healthcheck
 app.get('/healthz', (_req, res) => {
   res.status(200).json({ ok: true });
 });
 
-// ✅ Serve i file statici dal frontend
+// Info versione
+app.get('/version', (_req, res) => {
+  res.json({ version: '1.0.0', ts: new Date().toISOString() });
+});
+
+// Static (se ti serve servire /public)
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ✅ Rotte utenti
+// Rotte
 const userRoutes = require('./routes/userRoutes');
 app.use('/api/users', userRoutes);
 
-// ✅ Rotte eventi (❗mancava questa parte)
 const eventRoutes = require('./routes/eventRoutes');
 app.use('/api/events', eventRoutes);
-connectDB();
 
-// ✅ Avvia il server
-app.listen(PORT, () => {
-  console.log(`✅ Server avviato su http://localhost:${PORT}`);
-});
+// Avvio AFTER DB
+(async () => {
+  try {
+    await connectDB();
+    app.listen(PORT, () => {
+      console.log(`🚀 Server listening on http://localhost:${PORT}`);
+    });
+  } catch (err) {
+    console.error('❌ Startup aborted:', err && err.message ? err.message : err);
+    process.exit(1);
+  }
+})();
+
 
 
 
