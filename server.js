@@ -1,47 +1,50 @@
 // backend/server.js
+// ——————————————————————————————————————————
+// GoGoWorld API — server Express per Render
+// ——————————————————————————————————————————
+
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
 const connectDB = require('./db');
 
 const app = express();
-const PORT = process.env.PORT || 10000; // default 10000 per Render
-const app = express();
-const PORT = process.env.PORT || 10000; // default per Render
+const PORT = process.env.PORT || 10000; // default consigliato per Render
 
-// === CORS per consentire il tuo frontend Netlify ===
-const cors = require('cors');
-
+// ================== CORS ====================
+// Legge gli origin permessi da env CORS_ORIGIN_FRONTEND
+// (può essere uno o più URL separati da virgola)
+// Esempio: https://playful-blini-646b72.netlify.app, https://www.tuodominio.it
 const FRONTEND_ORIGIN = process.env.CORS_ORIGIN_FRONTEND || '';
-const allowedOrigins = FRONTEND_ORIGIN.split(',').map(s => s.trim()).filter(Boolean);
+const allowedOrigins = FRONTEND_ORIGIN
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
 
-app.use(cors({
+// Se la whitelist è vuota, consenti tutti (utile in dev)
+const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error('Not allowed by CORS'), false);
+    if (!origin) return callback(null, true); // richieste server-to-server o curl
+    if (allowedOrigins.length === 0) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
   },
-  methods: ['GET','POST','PUT','DELETE','OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: false,
   maxAge: 86400
-}));
+};
 
-app.options('*', cors()); // preflight
-// ================================================
-
-
-// CORS: consenti il tuo frontend Netlify
-app.use(cors({
-  origin: process.env.CORS_ORIGIN_FRONTEND || '*',
-  credentials: false
-}));
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // preflight
+// ===========================================
 
 // Body parser
 app.use(express.json());
 
-// Ping root
+// Root di servizio (utile per verifiche veloci)
 app.get('/', (_req, res) => {
-  res.json({ ok: true, name: 'GoGoWorld API', env: process.env.NODE_ENV || 'dev' });
+  res.json({ ok: true, name: 'GoGoWorld API', env: process.env.NODE_ENV || 'production' });
 });
 
 // Healthcheck
@@ -54,10 +57,10 @@ app.get('/version', (_req, res) => {
   res.json({ version: '1.0.0', ts: new Date().toISOString() });
 });
 
-// Static (se ti serve servire /public)
+// Static (se ti serve servire /public dal backend)
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Rotte
+// Rotte applicative
 const userRoutes = require('./routes/userRoutes');
 app.use('/api/users', userRoutes);
 
@@ -72,10 +75,12 @@ app.use('/api/events', eventRoutes);
       console.log(`🚀 Server listening on http://localhost:${PORT}`);
     });
   } catch (err) {
-    console.error('❌ Startup aborted:', err && err.message ? err.message : err);
+    console.error('❌ Startup aborted:', err?.message || err);
     process.exit(1);
   }
 })();
+
+
 
 
 
