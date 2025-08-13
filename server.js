@@ -6,6 +6,29 @@ const connectDB = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 10000; // default 10000 per Render
+const app = express();
+const PORT = process.env.PORT || 10000; // default per Render
+
+// === CORS per consentire il tuo frontend Netlify ===
+const cors = require('cors');
+
+const FRONTEND_ORIGIN = process.env.CORS_ORIGIN_FRONTEND || '';
+const allowedOrigins = FRONTEND_ORIGIN.split(',').map(s => s.trim()).filter(Boolean);
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'), false);
+  },
+  methods: ['GET','POST','PUT','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: false,
+  maxAge: 86400
+}));
+
+app.options('*', cors()); // preflight
+// ================================================
+
 
 // CORS: consenti il tuo frontend Netlify
 app.use(cors({
@@ -53,6 +76,7 @@ app.use('/api/events', eventRoutes);
     process.exit(1);
   }
 })();
+
 
 
 
