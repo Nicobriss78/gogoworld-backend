@@ -11,6 +11,9 @@ const connectDB = require('./db');
 const app = express();
 const PORT = process.env.PORT || 10000; // default consigliato per Render
 
+// Hardening leggero
+app.disable('x-powered-by');
+
 // ================== CORS ====================
 // Legge gli origin permessi da env CORS_ORIGIN_FRONTEND
 // (può essere uno o più URL separati da virgola)
@@ -29,7 +32,7 @@ const corsOptions = {
     if (allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error('Not allowed by CORS'));
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], // ← aggiunto PATCH
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: false,
   maxAge: 86400
@@ -79,6 +82,7 @@ app.use('/api/events', eventRoutes);
     process.exit(1);
   }
 })();
+
 
 
 
