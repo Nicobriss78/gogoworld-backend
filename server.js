@@ -14,33 +14,10 @@ const PORT = process.env.PORT || 10000; // default consigliato per Render
 // Hardening leggero
 app.disable('x-powered-by');
 
-// ================== CORS ====================
-// Legge gli origin permessi da env CORS_ORIGIN_FRONTEND
-// (può essere uno o più URL separati da virgola)
-// Esempio: https://playful-blini-646b72.netlify.app, https://www.tuodominio.it
-const FRONTEND_ORIGIN = process.env.CORS_ORIGIN_FRONTEND || '';
-const allowedOrigins = FRONTEND_ORIGIN
-  .split(',')
-  .map(s => s.trim())
-  .filter(Boolean);
 
-// Se la whitelist è vuota, consenti tutti (utile in dev)
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true); // richieste server-to-server o curl
-    if (allowedOrigins.length === 0) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error('Not allowed by CORS'));
-  },
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], // ← aggiunto PATCH
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: false,
-  maxAge: 86400
-};
-
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // preflight
-// ===========================================
+const corsMiddleware = require('./middleware/cors');
+app.use(corsMiddleware);
+app.options('*', corsMiddleware); // preflight
 
 // Body parser
 app.use(express.json());
@@ -82,6 +59,7 @@ app.use('/api/events', eventRoutes);
     process.exit(1);
   }
 })();
+
 
 
 
