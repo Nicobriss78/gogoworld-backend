@@ -12,32 +12,34 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// ================== CORS ====================
-// Legge gli origin permessi da env CORS_ORIGIN_FRONTEND
-// (uno o più URL separati da virgola)
-const FRONTEND_ORIGIN = process.env.CORS_ORIGIN_FRONTEND || '';
-const allowedOrigins = FRONTEND_ORIGIN
-  .split(',')
-  .map(s => s.trim())
-  .filter(Boolean);
+// ==================== CORS (prima di QUALSIASI rotta) ====================
+const cors = require('cors');
 
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true); // richieste interne
-    if (allowedOrigins.length === 0) return callback(null, true); // dev: tutti ammessi
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error('Not allowed by CORS'));
+const FRONTEND_ORIGIN =
+  process.env.CORS_ORIGIN_FRONTEND || 'http://localhost:5173';
+
+const allowedOrigins = [FRONTEND_ORIGIN, 'http://localhost:3000', 'http://localhost:5173'];
+
+app.use(cors({
+  origin(origin, cb) {
+    if (!origin) return cb(null, true); // consenti richieste senza Origin (Postman, healthz, ecc.)
+    if (allowedOrigins.includes(origin)) return cb(null, true);
+    return cb(new Error('Not allowed by CORS'));
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: false,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   maxAge: 86400
-};
+}));
 
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
-// ===========================================
-
+// Risposta esplicita ai preflight (alcuni proxy la richiedono)
+app.options('*', cors({
+  origin: FRONTEND_ORIGIN,
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
+}));
+// ========================================================================
 // Body parser
 app.use(express.json());
 
@@ -80,6 +82,7 @@ const eventRoutes = require('./routes/eventRoutes');
     process.exit(1);
   }
 })();
+
 
 
 
