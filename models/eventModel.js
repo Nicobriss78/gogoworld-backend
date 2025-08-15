@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const EventSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true },
-    date: { type: String, required: true }, // TODO: passare a Date nella fase avanzata
+    date: { type: String, required: true }, // TODO: passare a Date in fase avanzata
     location: { type: String, required: true, trim: true },
     description: { type: String, default: '' },
     organizerId: { type: String, required: true }, // userId string (compatibilità attuale)
@@ -14,8 +14,3 @@ const EventSchema = new mongoose.Schema(
 );
 
 module.exports = mongoose.model('Event', EventSchema);
-module.exports = {
-  getAllEvents,
-  saveAllEvents
-};
-
