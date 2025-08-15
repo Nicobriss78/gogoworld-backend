@@ -1,7 +1,5 @@
 // backend/server.js
-// ——————————————————————————————————————————
-// GoGoWorld API — server Express per Render
-// ——————————————————————————————————————————
+// GoGoWorld API – server Express per Render
 
 const express = require('express');
 const path = require('path');
@@ -12,76 +10,80 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// ==================== CORS (prima di QUALSIASI rotta) ====================
+/* ======================= CORS =======================
 
+   - Legge gli origin ammessi da CORS_ORIGIN_FRONTEND (separati da virgola)
+   - Confronto “normalizzato” senza slash finale
+   - Consente anche le richieste senza header Origin (curl, server-to-server)
+   - Espone metodi/headers che usiamo (incl. Authorization)
 
-const FRONTEND_ORIGIN =
-  process.env.CORS_ORIGIN_FRONTEND || 'http://localhost:5173';
+   Su Render imposta ad es.:
+   CORS_ORIGIN_FRONTEND = https://playful-blini-646b72.netlify.app,http://localhost:3000
+*/
+const FRONTEND_ORIGINS = (process.env.CORS_ORIGIN_FRONTEND || '')
+  .split(',')
+  .map(s => s.trim().replace(/\/$/, '')) // rimuove slash finale
+  .filter(Boolean);
 
-const allowedOrigins = [FRONTEND_ORIGIN, 'http://localhost:3000', 'http://localhost:5173'];
+function isAllowedOrigin(origin) {
+  if (!origin) return true; // richieste senza Origin
+  const o = origin.replace(/\/$/, '');
+  if (FRONTEND_ORIGINS.length === 0) return true; // fallback permissivo in dev
+  if (FRONTEND_ORIGINS.includes(o)) return true;
+  // opzionale: consenti tutti i sottodomini *.netlify.app se ne hai uno in lista
+  if (FRONTEND_ORIGINS.some(a => a.endsWith('.netlify.app')) && o.endsWith('.netlify.app')) return true;
+  return false;
+}
 
-app.use(cors({
+const corsOptions = {
   origin(origin, cb) {
-    if (!origin) return cb(null, true); // consenti richieste senza Origin (Postman, healthz, ecc.)
-    if (allowedOrigins.includes(origin)) return cb(null, true);
-    return cb(new Error('Not allowed by CORS'));
+    if (isAllowedOrigin(origin)) return cb(null, true);
+    return cb(new Error(`Not allowed by CORS: ${origin}`));
   },
-  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  maxAge: 86400
-}));
+  credentials: false,
+  maxAge: 86400,
+};
 
-// Risposta esplicita ai preflight (alcuni proxy la richiedono)
-app.options('*', cors({
-  origin: FRONTEND_ORIGIN,
-  credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
-}));
-// ========================================================================
-// Body parser
+app.use(cors(corsOptions)); // CORS prima di QUALSIASI rotta
+app.options('*', cors(corsOptions)); // preflight
+
+/* ==================== Middlewares =================== */
 app.use(express.json());
 
-// Root di servizio
+/* ======================= Routes ===================== */
 app.get('/', (_req, res) => {
-  res.json({ ok: true, name: 'GoGoWorld API', env: process.env.NODE_ENV || 'production' });
+  res.json({ ok: true, name: 'GoGoWorld API', env: process.env.NODE_ENV || 'dev' });
 });
 
-// Healthcheck
-app.get('/healthz', (_req, res) => {
-  res.status(200).json({ ok: true });
-});
+app.get('/healthz', (_req, res) => res.status(200).json({ ok: true }));
 
-// Info versione
 app.get('/version', (_req, res) => {
   res.json({ version: '1.0.0', ts: new Date().toISOString() });
 });
 
-// Static files (es. /public)
-app.use(express.static(path.join(__dirname, 'public')));
+// API
+app.use('/api/users', require('./routes/userRoutes'));
+app.use('/api/events', require('./routes/eventRoutes'));
 
-// Rotte applicative — le carichiamo DOPO la connessione al DB
-const userRoutes = require('./routes/userRoutes');
-const eventRoutes = require('./routes/eventRoutes');
-
-// Avvio AFTER DB
-(async () => {
-  try {
-    await connectDB();
-    console.log('✅ Connessione a MongoDB stabilita');
-    
-    app.use('/api/users', userRoutes);
-    app.use('/api/events', eventRoutes);
-
+/* ==================== Avvio server ================== */
+connectDB()
+  .then(() => {
+    console.log('MongoDB connected');
+    console.log('Connessione a MongoDB stabilita');
     app.listen(PORT, () => {
       console.log(`🚀 Server listening on http://localhost:${PORT}`);
+      console.log('✨ Your service is live');
     });
-  } catch (err) {
-    console.error('❌ Errore di connessione al database:', err?.message || err);
+  })
+  .catch((err) => {
+    console.error('Errore connessione MongoDB:', err);
     process.exit(1);
-  }
-})();
+  });
+
+module.exports = app;
+
 
 
 
