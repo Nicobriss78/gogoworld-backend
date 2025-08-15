@@ -1,181 +1,196 @@
 // backend/controllers/userController.js
-// Versione 2025-08-09 – schema attuale, senza librerie esterne
+// Controller utenti – versione MongoDB + JWT
+// Mantiene le stesse rotte attuali e la UX di cambio ruolo senza riloggare.
 
-const fs = require("fs");
-const path = require("path");
+const jwt = require('jsonwebtoken');
+const User = require('../models/userModel');
+const Event = require('../models/eventModel');
 
-const USERS_PATH = path.join(__dirname, "..", "data", "users.json");
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-change-me';
 
-// -------------------- utilità file --------------------
-function readUsers() {
+// firma un JWT con id e ruolo corrente
+function signToken(payload) {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+}
+
+// ========== LISTA UTENTI (DEBUG/UTILITY) ==========
+// GET /api/users (protetta nelle routes: organizer)
+exports.list = async (_req, res) => {
   try {
-    const txt = fs.readFileSync(USERS_PATH, "utf8");
-    return JSON.parse(txt || "[]");
-  } catch {
-    return [];
+    const users = await User.find().select('name email role currentRole createdAt updatedAt');
+    return res.json(users);
+  } catch (err) {
+    console.error('users.list error:', err);
+    return res.status(500).json({ error: 'Server error' });
   }
-}
-function writeUsers(arr) {
-  fs.writeFileSync(USERS_PATH, JSON.stringify(arr, null, 2), "utf8");
-}
-
-// -------------------- utilità dati --------------------
-function ensureUserShape(u) {
-  // campi minimi / retro-compat
-  if (!Array.isArray(u.eventsPartecipati)) u.eventsPartecipati = [];
-  if (u.role2 === undefined) u.role2 = u.role || "participant";
-  if (!u.currentRole) u.currentRole = u.role || "participant"; // ruolo attivo per lo switch
-  return u;
-}
-function validPassword(pw) {
-  return typeof pw === "string" &&
-         pw.length >= 8 &&
-         /[A-Za-z]/.test(pw) &&
-         /\d/.test(pw);
-}
-function nextId(list) {
-  return list.length ? Math.max(...list.map(x => Number(x.id) || 0)) + 1 : 1;
-}
-
-// -------------------- handlers --------------------
-
-// GET /api/users (facoltativo, debug)
-exports.list = (req, res) => {
-  const users = readUsers().map(ensureUserShape).map(u => ({
-    id: u.id, name: u.name, email: u.email, role: u.role, currentRole: u.currentRole
-  }));
-  res.json(users);
 };
 
-// GET /api/users/:id
-exports.getById = (req, res) => {
-  const id = Number(req.params.id);
-  const users = readUsers().map(ensureUserShape);
-  const u = users.find(x => Number(x.id) === id);
-  if (!u) return res.status(404).json({ error: "User not found" });
-  const { password, ...safe } = u;
-  return res.json(safe);
+// ========== DETTAGLIO UTENTE ==========
+// GET /api/users/:id (protetta nelle routes: auth)
+exports.getById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const u = await User.findById(id).select('-password');
+    if (!u) return res.status(404).json({ error: 'User not found' });
+    return res.json(u);
+  } catch (err) {
+    console.error('users.getById error:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
 };
 
-// POST /api/users/register
-// body: { name, email, password, role, acceptTerms }
-exports.register = (req, res) => {
-  const { name, email, password, role, acceptTerms } = req.body || {};
+// ========== REGISTRAZIONE ==========
+// POST /api/users/register (pubblica)
+exports.register = async (req, res) => {
+  try {
+    const { name, email, password, role } = req.body || {};
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Missing fields' });
+    }
 
-  if (!name || !email || !password || !role || !acceptTerms) {
-    return res.status(400).json({ error: "Tutti i campi sono obbligatori" });
+    const exists = await User.findOne({ email });
+    if (exists) return res.status(409).json({ error: 'Email already registered' });
+
+    const baseRole = role === 'organizer' ? 'organizer' : 'participant';
+    const user = await User.create({
+      name,
+      email,
+      password, // TODO: hash/bcrypt nella fase avanzata
+      role: baseRole,
+      currentRole: baseRole
+    });
+
+    // opzionalmente puoi emettere subito un token al register; ora rispondiamo semplice
+    return res.status(201).json({
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.currentRole
+    });
+  } catch (err) {
+    console.error('users.register error:', err);
+    return res.status(500).json({ error: 'Server error' });
   }
-  if (!validPassword(password)) {
-    return res.status(400).json({ error: "Password non valida (min 8, 1 lettera e 1 numero)" });
-  }
-  const allowed = ["participant", "organizer"];
-  const roleNorm = allowed.includes(role) ? role : "participant";
-
-  const users = readUsers().map(ensureUserShape);
-  const emailTaken = users.some(u => (u.email || "").toLowerCase() === String(email).toLowerCase());
-  if (emailTaken) {
-    return res.status(409).json({ error: "Email già registrata" });
-  }
-
-  const user = {
-    id: nextId(users),
-    name: String(name).trim(),
-    email: String(email).trim(),
-    // NOTE: dev-only, in prod usare bcrypt
-    password: String(password),
-    role: roleNorm,
-    role2: roleNorm, // compat con tua logica precedente
-    currentRole: roleNorm, // ruolo attivo (switchabile)
-    eventsPartecipati: []
-  };
-
-  users.push(user);
-  writeUsers(users);
-
-  return res.status(201).json({ id: user.id, name: user.name, email: user.email, role: user.role, currentRole: user.currentRole });
 };
 
-// POST /api/users/login
-// body: { email, password }
-exports.login = (req, res) => {
-  const { email, password } = req.body || {};
-  if (!email || !password) {
-    return res.status(400).json({ error: "Email e password sono obbligatorie" });
+// ========== LOGIN ==========
+// POST /api/users/login (pubblica)
+exports.login = async (req, res) => {
+  try {
+    const { email, password } = (req.body || {});
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Missing credentials' });
+    }
+
+    // NB: in questa fase confrontiamo in chiaro (come nei tuoi JSON originali)
+    const u = await User.findOne({ email, password });
+    if (!u) return res.status(401).json({ error: 'Invalid credentials' });
+
+    const role = u.currentRole || u.role || 'participant';
+    const token = signToken({ id: u._id.toString(), role });
+
+    return res.json({
+      id: u._id,
+      name: u.name,
+      email: u.email,
+      role,
+      token
+    });
+  } catch (err) {
+    console.error('users.login error:', err);
+    return res.status(500).json({ error: 'Server error' });
   }
-
-  const users = readUsers().map(ensureUserShape);
-  const u = users.find(x =>
-    String(x.email).toLowerCase() === String(email).toLowerCase() &&
-    String(x.password) === String(password)
-  );
-
-  if (!u) return res.status(401).json({ error: "Credenziali non valide" });
-
-  const { password: _, ...safe } = u;
-  // includo currentRole così il front può usarlo subito
-  return res.json({ id: safe.id, name: safe.name, email: safe.email, role: safe.role, currentRole: safe.currentRole });
 };
 
-// POST /api/users/:id/partecipa
-// body: { eventId }
-exports.partecipa = (req, res) => {
-  const id = Number(req.params.id);
-  const { eventId } = req.body || {};
-  const evId = Number(eventId);
+// ========== CAMBIO RUOLO ATTIVO (senza riloggare) ==========
+// PUT /api/users/:id/role (protetta nelle routes: auth)
+exports.switchRole = async (req, res) => {
+  try {
+    const { id } = req.params;
+    let { role } = req.body || {};
 
-  if (!evId) return res.status(400).json({ error: "eventId obbligatorio" });
+    // accettiamo sia newRole che role (compat con codice esistente)
+    role = role || req.body?.newRole;
 
-  const users = readUsers().map(ensureUserShape);
-  const idx = users.findIndex(u => Number(u.id) === id);
-  if (idx === -1) return res.status(404).json({ error: "User not found" });
+    const allowed = ['organizer', 'participant'];
+    if (!allowed.includes(role)) {
+      return res.status(400).json({ error: 'Ruolo non valido' });
+    }
 
-  const set = new Set((users[idx].eventsPartecipati || []).map(n => Number(n)));
-  set.add(evId);
+    // sicurezza: l’utente può cambiare SOLO il proprio ruolo
+    if (String(req.user.id) !== String(id)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
 
-  users[idx].eventsPartecipati = Array.from(set);
-  writeUsers(users);
+    const u = await User.findByIdAndUpdate(
+      id,
+      { currentRole: role },
+      { new: true }
+    );
 
-  return res.json({ ok: true, userId: id, eventsPartecipati: users[idx].eventsPartecipati });
-};
+    if (!u) return res.status(404).json({ error: 'User not found' });
 
-// POST /api/users/:id/annulla
-// body: { eventId }
-exports.annulla = (req, res) => {
-  const id = Number(req.params.id);
-  const { eventId } = req.body || {};
-  const evId = Number(eventId);
+    // emetti nuovo token con ruolo aggiornato
+    const token = signToken({ id: u._id.toString(), role: u.currentRole });
 
-  if (!evId) return res.status(400).json({ error: "eventId obbligatorio" });
-
-  const users = readUsers().map(ensureUserShape);
-  const idx = users.findIndex(u => Number(u.id) === id);
-  if (idx === -1) return res.status(404).json({ error: "User not found" });
-
-  const arr = (users[idx].eventsPartecipati || []).map(n => Number(n));
-  users[idx].eventsPartecipati = arr.filter(n => n !== evId);
-  writeUsers(users);
-
-  return res.json({ ok: true, userId: id, eventsPartecipati: users[idx].eventsPartecipati });
-};
-
-// PUT /api/users/:id/role
-// body: { newRole: "participant" | "organizer" }
-exports.switchRole = (req, res) => {
-  const id = Number(req.params.id);
-  const { newRole } = req.body || {};
-  const allowed = ["participant", "organizer"];
-
-  if (!allowed.includes(newRole)) {
-    return res.status(400).json({ error: "Ruolo non valido" });
+    return res.json({
+      token,
+      role: u.currentRole
+    });
+  } catch (err) {
+    console.error('users.switchRole error:', err);
+    return res.status(500).json({ error: 'Server error' });
   }
+};
 
-  const users = readUsers().map(ensureUserShape);
-  const idx = users.findIndex(u => Number(u.id) === id);
-  if (idx === -1) return res.status(404).json({ error: "User not found" });
+// ========== PARTECIPAZIONE EVENTO ==========
+// POST /api/users/:id/partecipa (protetta: auth + roleRequired('participant') nelle routes)
+exports.partecipa = async (req, res) => {
+  try {
+    const { id } = req.params; // userId
+    const { eventId } = req.body || {};
 
-  // logica flessibile: consenti il cambio tra i due ruoli supportati
-  users[idx].currentRole = newRole;
-  writeUsers(users);
+    if (!eventId) return res.status(400).json({ error: 'Missing eventId' });
+    if (String(req.user.id) !== String(id)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
 
-  return res.json({ ok: true, userId: id, currentRole: users[idx].currentRole });
+    const ev = await Event.findByIdAndUpdate(
+      eventId,
+      { $addToSet: { participants: id } },
+      { new: true }
+    );
+    if (!ev) return res.status(404).json({ error: 'Event not found' });
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('users.partecipa error:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+};
+
+// ========== ANNULLA PARTECIPAZIONE ==========
+// POST /api/users/:id/annulla (protetta: auth + roleRequired('participant') nelle routes)
+exports.annulla = async (req, res) => {
+  try {
+    const { id } = req.params; // userId
+    const { eventId } = req.body || {};
+
+    if (!eventId) return res.status(400).json({ error: 'Missing eventId' });
+    if (String(req.user.id) !== String(id)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const ev = await Event.findByIdAndUpdate(
+      eventId,
+      { $pull: { participants: id } },
+      { new: true }
+    );
+    if (!ev) return res.status(404).json({ error: 'Event not found' });
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('users.annulla error:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
 };
