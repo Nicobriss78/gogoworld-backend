@@ -13,7 +13,7 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 
 // ==================== CORS (prima di QUALSIASI rotta) ====================
-const cors = require('cors');
+
 
 const FRONTEND_ORIGIN =
   process.env.CORS_ORIGIN_FRONTEND || 'http://localhost:5173';
@@ -82,6 +82,7 @@ const eventRoutes = require('./routes/eventRoutes');
     process.exit(1);
   }
 })();
+
 
 
 
