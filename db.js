@@ -1,22 +1,26 @@
 // backend/db.js
 const mongoose = require('mongoose');
 
+mongoose.set('strictQuery', true);
+
 async function connectDB() {
   const uri = process.env.MONGODB_URI;
   if (!uri) {
-    throw new Error('MONGODB_URI is not set');
+    throw new Error('MONGODB_URI non impostata nelle environment variables');
   }
 
-  // Opzionale: specifica il nome del DB (puoi cambiarlo)
-  const dbName = 'gogo_dev';
-
   try {
-    await mongoose.connect(uri, { dbName });
+    await mongoose.connect(uri, {
+      // lascia le opzioni di default per le versioni recenti
+      // serverSelectionTimeoutMS evita attese infinite
+      serverSelectionTimeoutMS: 15000
+    });
     console.log('✅ MongoDB connected');
   } catch (err) {
-    console.error('❌ MongoDB connection error:', err.message);
-    throw err; // rilancia per fermare il boot (meglio vedere il motivo nei log)
+    console.error('❌ MongoDB connection error:', err?.message || err);
+    throw err;
   }
 }
 
 module.exports = connectDB;
+
