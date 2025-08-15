@@ -1,97 +1,106 @@
-const fs = require("fs");
-const path = require("path");
+// backend/controllers/eventController.js
+// Controller eventi – versione MongoDB (Mongoose)
+// Le route pubbliche GET restano libere; POST/PUT/DELETE sono protette a livello di routes.
 
-const EVENTS_PATH = path.join(__dirname, "..", "data", "events.json");
+const Event = require('../models/eventModel');
 
-// --- util ---
-function safeRead() {
+// ========== LISTA EVENTI ==========
+// GET /api/events (pubblica)
+exports.list = async (_req, res) => {
   try {
-    const txt = fs.readFileSync(EVENTS_PATH, "utf8");
-    return JSON.parse(txt || "[]");
-  } catch (_) {
-    return [];
+    const events = await Event.find().sort({ createdAt: -1 });
+    return res.json(events);
+  } catch (err) {
+    console.error('events.list error:', err);
+    return res.status(500).json({ error: 'Server error' });
   }
-}
+};
 
-function safeWrite(data) {
-  fs.writeFileSync(EVENTS_PATH, JSON.stringify(data, null, 2), "utf8");
-}
-
-/**
- * Normalizza un evento sullo schema ufficiale:
- * { id:number, title:string, description:string, date:ISO string, location:string, lat?:number, lng?:number }
- */
-function normalize(input) {
-  const out = {
-    id: input.id != null ? Number(input.id) : undefined,
-    title: (input.title ?? "").toString().trim(),
-    description: (input.description ?? "").toString().trim(),
-    location: (input.location ?? "").toString().trim(),
-  };
-
-  // Date: proviamo a normalizzare in ISO, ma se non valida lasciamo stringa così com’è
-  if (input.date) {
-    const d = new Date(input.date);
-    out.date = isNaN(d.getTime()) ? String(input.date) : d.toISOString();
-  } else {
-    out.date = null;
+// ========== DETTAGLIO EVENTO ==========
+// GET /api/events/:id (pubblica)
+exports.get = async (req, res) => {
+  try {
+    const ev = await Event.findById(req.params.id);
+    if (!ev) return res.status(404).json({ error: 'Event not found' });
+    return res.json(ev);
+  } catch (err) {
+    console.error('events.get error:', err);
+    return res.status(500).json({ error: 'Server error' });
   }
-
-  if (input.lat !== undefined) out.lat = Number(input.lat);
-  if (input.lng !== undefined) out.lng = Number(input.lng);
-
-  return out;
-}
-
-exports.list = (req, res) => {
-  const data = safeRead().map(normalize);
-  res.json(data);
 };
 
-exports.get = (req, res) => {
-  const id = Number(req.params.id);
-  const data = safeRead();
-  const found = data.find(e => Number(e.id) === id);
-  if (!found) return res.status(404).json({ error: "Event not found" });
-  res.json(normalize(found));
-};
+// ========== CREA EVENTO ==========
+// POST /api/events (protetta: auth + roleRequired('organizer') nelle routes)
+exports.create = async (req, res) => {
+  try {
+    const { title, date, location, description } = req.body || {};
+    if (!title || !date || !location) {
+      return res.status(400).json({ error: 'Missing required fields (title, date, location)' });
+    }
 
-exports.create = (req, res) => {
-  const data = safeRead();
-  const body = normalize(req.body || {});
+    const ev = await Event.create({
+      title,
+      date,
+      location,
+      description: description || '',
+      organizerId: String(req.user.id), // da token
+      participants: []
+    });
 
-  // campi minimi richiesti
-  if (!body.title || !body.date || !body.location) {
-    return res.status(400).json({ error: "title, date, location are required" });
+    return res.status(201).json(ev);
+  } catch (err) {
+    console.error('events.create error:', err);
+    return res.status(500).json({ error: 'Server error' });
   }
-
-  const nextId = data.length ? Math.max(...data.map(e => Number(e.id) || 0)) + 1 : 1;
-  body.id = nextId;
-  data.push(body);
-  safeWrite(data);
-  res.status(201).json(body);
 };
 
-exports.update = (req, res) => {
-  const id = Number(req.params.id);
-  const data = safeRead();
-  const idx = data.findIndex(e => Number(e.id) === id);
-  if (idx === -1) return res.status(404).json({ error: "Event not found" });
+// ========== AGGIORNA EVENTO ==========
+// PUT /api/events/:id (protetta: auth + roleRequired('organizer') nelle routes)
+exports.update = async (req, res) => {
+  try {
+    const { id } = req.params;
 
-  const merged = { ...data[idx], ...req.body, id };
-  const normalized = normalize(merged);
-  data[idx] = normalized;
-  safeWrite(data);
-  res.json(normalized);
+    // opzionale: controllare che sia l’organizer dell’evento
+    // const evCheck = await Event.findById(id);
+    // if (!evCheck) return res.status(404).json({ error: 'Event not found' });
+    // if (String(evCheck.organizerId) !== String(req.user.id)) {
+    // return res.status(403).json({ error: 'Forbidden' });
+    // }
+
+    const allowed = ['title', 'date', 'location', 'description'];
+    const patch = {};
+    for (const k of allowed) if (k in (req.body || {})) patch[k] = req.body[k];
+
+    const ev = await Event.findByIdAndUpdate(id, patch, { new: true });
+    if (!ev) return res.status(404).json({ error: 'Event not found' });
+
+    return res.json(ev);
+  } catch (err) {
+    console.error('events.update error:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
 };
 
-exports.remove = (req, res) => {
-  const id = Number(req.params.id);
-  const data = safeRead();
-  const idx = data.findIndex(e => Number(e.id) === id);
-  if (idx === -1) return res.status(404).json({ error: "Event not found" });
+// ========== ELIMINA EVENTO ==========
+// DELETE /api/events/:id (protetta: auth + roleRequired('organizer') nelle routes)
+exports.remove = async (req, res) => {
+  try {
+    const { id } = req.params;
 
-  const deleted = data.splice(idx, 1)[0];
-  safeWrite(data);
-  res.json({ ok: true, deleted: normalize(deleted) });
+    // opzionale: verifica ownership come sopra
+    // const evCheck = await Event.findById(id);
+    // if (!evCheck) return res.status(404).json({ error: 'Event not found' });
+    // if (String(evCheck.organizerId) !== String(req.user.id)) {
+    // return res.status(403).json({ error: 'Forbidden' });
+    // }
+
+    const out = await Event.findByIdAndDelete(id);
+    if (!out) return res.status(404).json({ error: 'Event not found' });
+
+    return res.status(204).end();
+  } catch (err) {
+    console.error('events.remove error:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
 };
+
