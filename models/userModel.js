@@ -1,33 +1,28 @@
-const fs = require('fs');
-const path = require('path');
+// backend/models/userModel.js
+const mongoose = require('mongoose');
 
-const usersFilePath = path.join(__dirname, '../data/users.json');
+const UserSchema = new mongoose.Schema(
+  {
+    name: { type: String, trim: true, required: true },
+    email: { type: String, trim: true, unique: true, index: true, required: true },
+    password: { type: String, default: '' }, // TODO: bcrypt in fase avanzata
+    role: {
+      type: String,
+      enum: ['participant', 'organizer'],
+      default: 'participant'
+    },
+    currentRole: {
+      type: String,
+      enum: ['participant', 'organizer'],
+      default: 'participant'
+    }
+  },
+  { timestamps: true }
+);
 
-// Leggi tutti gli utenti dal file JSON
-function getAllUsers() {
-  try {
-    const data = fs.readFileSync(usersFilePath, 'utf8');
-    return JSON.parse(data);
-  } catch (err) {
-    return [];
-  }
-}
-
-// Scrivi tutti gli utenti nel file JSON
-function saveAllUsers(users) {
-  fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
-}
-
-// Genera il prossimo ID disponibile (incrementale)
-function getNextUserId() {
-  const users = getAllUsers();
-  if (users.length === 0) return 1;
-  const maxId = Math.max(...users.map(u => u.id));
-  return maxId + 1;
-}
-
-module.exports = {
+module.exports = mongoose.model('User', UserSchema);
   getAllUsers,
   saveAllUsers,
   getNextUserId
 };
+
