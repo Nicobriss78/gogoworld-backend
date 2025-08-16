@@ -16,11 +16,12 @@ exports.list = async (_req, res) => {
   }
 };
 
-// ========== DETTAGLIO EVENTO ==========
+// ========== SINGOLO EVENTO ==========
 // GET /api/events/:id (pubblica)
 exports.get = async (req, res) => {
   try {
-    const ev = await Event.findById(req.params.id);
+    const { id } = req.params;
+    const ev = await Event.findById(id);
     if (!ev) return res.status(404).json({ error: 'Event not found' });
     return res.json(ev);
   } catch (err) {
@@ -67,11 +68,14 @@ exports.update = async (req, res) => {
     // return res.status(403).json({ error: 'Forbidden' });
     // }
 
-    const allowed = ['title', 'date', 'location', 'description'];
-    const patch = {};
-    for (const k of allowed) if (k in (req.body || {})) patch[k] = req.body[k];
+    const { title, date, location, description } = req.body || {};
+    const upd = {};
+    if (title !== undefined) upd.title = title;
+    if (date !== undefined) upd.date = date;
+    if (location !== undefined) upd.location = location;
+    if (description !== undefined) upd.description = description;
 
-    const ev = await Event.findByIdAndUpdate(id, patch, { new: true });
+    const ev = await Event.findByIdAndUpdate(id, upd, { new: true });
     if (!ev) return res.status(404).json({ error: 'Event not found' });
 
     return res.json(ev);
@@ -103,4 +107,3 @@ exports.remove = async (req, res) => {
     return res.status(500).json({ error: 'Server error' });
   }
 };
-
