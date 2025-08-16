@@ -2,7 +2,6 @@
 // GoGoWorld API – server Express per Render
 
 const express = require('express');
-const path = require('path');
 const cors = require('cors');
 const connectDB = require('./db');
 require('dotenv').config();
@@ -14,8 +13,6 @@ const PORT = process.env.PORT || 10000;
 
    - Legge gli origin ammessi da CORS_ORIGIN_FRONTEND (separati da virgola)
    - Confronto “normalizzato” senza slash finale
-   - Consente anche le richieste senza header Origin (curl, server-to-server)
-   - Espone metodi/headers che usiamo (incl. Authorization)
 
    Su Render imposta ad es.:
    CORS_ORIGIN_FRONTEND = https://playful-blini-646b72.netlify.app,http://localhost:3000
@@ -46,10 +43,10 @@ const corsOptions = {
   maxAge: 86400,
 };
 
-app.use(cors(corsOptions)); // CORS prima di QUALSIASI rotta
-app.options('*', cors(corsOptions)); // preflight
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
-/* ==================== Middlewares =================== */
+/* =================== Parsers & Logs ================= */
 app.use(express.json());
 
 /* ======================= Routes ===================== */
@@ -66,15 +63,14 @@ app.get('/version', (_req, res) => {
 // API
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/events', require('./routes/eventRoutes'));
+app.use('/welcome', require('./routes/welcome'));
 
 /* ==================== Avvio server ================== */
 connectDB()
   .then(() => {
     console.log('MongoDB connected');
-    console.log('Connessione a MongoDB stabilita');
     app.listen(PORT, () => {
-      console.log(`🚀 Server listening on http://localhost:${PORT}`);
-      console.log('✨ Your service is live');
+      console.log(`🚀 Server listening on port ${PORT}`);
     });
   })
   .catch((err) => {
@@ -83,6 +79,7 @@ connectDB()
   });
 
 module.exports = app;
+
 
 
 
