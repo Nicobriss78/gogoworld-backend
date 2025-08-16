@@ -14,10 +14,10 @@ function signToken(payload) {
 }
 
 // ========== LISTA UTENTI (DEBUG/UTILITY) ==========
-// GET /api/users (protetta nelle routes: organizer)
+// GET /api/users (protetta: organizer)
 exports.list = async (_req, res) => {
   try {
-    const users = await User.find().select('name email role currentRole createdAt updatedAt');
+    const users = await User.find({}, { password: 0 }).sort({ createdAt: -1 });
     return res.json(users);
   } catch (err) {
     console.error('users.list error:', err);
@@ -25,14 +25,19 @@ exports.list = async (_req, res) => {
   }
 };
 
-// ========== DETTAGLIO UTENTE ==========
-// GET /api/users/:id (protetta nelle routes: auth)
+// ========== GET BY ID ==========
+// GET /api/users/:id (protetta: auth)
 exports.getById = async (req, res) => {
   try {
     const { id } = req.params;
-    const u = await User.findById(id).select('-password');
-    if (!u) return res.status(404).json({ error: 'User not found' });
-    return res.json(u);
+    if (String(req.user.id) !== String(id)) {
+      // facoltativo: solo organizer può leggere altri
+      // per ora, se non è lui, rifiuta
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const user = await User.findById(id, { password: 0 });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    return res.json(user);
   } catch (err) {
     console.error('users.getById error:', err);
     return res.status(500).json({ error: 'Server error' });
@@ -43,15 +48,15 @@ exports.getById = async (req, res) => {
 // POST /api/users/register (pubblica)
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body || {};
+    const { name, email, password, role } = (req.body || {});
     if (!name || !email || !password) {
-      return res.status(400).json({ error: 'Missing fields' });
+      return res.status(400).json({ error: 'Missing required fields (name, email, password)' });
     }
+    const baseRole = role && ['participant', 'organizer'].includes(role) ? role : 'participant';
 
-    const exists = await User.findOne({ email });
-    if (exists) return res.status(409).json({ error: 'Email already registered' });
+    const existing = await User.findOne({ email });
+    if (existing) return res.status(409).json({ error: 'Email already registered' });
 
-    const baseRole = role === 'organizer' ? 'organizer' : 'participant';
     const user = await User.create({
       name,
       email,
@@ -60,7 +65,7 @@ exports.register = async (req, res) => {
       currentRole: baseRole
     });
 
-    // opzionalmente puoi emettere subito un token al register; ora rispondiamo semplice
+    // risposta semplice (senza token). Il FE deciderà se auto-login successivo.
     return res.status(201).json({
       id: user._id,
       name: user.name,
@@ -86,15 +91,12 @@ exports.login = async (req, res) => {
     const u = await User.findOne({ email, password });
     if (!u) return res.status(401).json({ error: 'Invalid credentials' });
 
-    const role = u.currentRole || u.role || 'participant';
-    const token = signToken({ id: u._id.toString(), role });
-
+    const token = signToken({ id: String(u._id), role: u.currentRole });
     return res.json({
+      token,
       id: u._id,
       name: u.name,
-      email: u.email,
-      role,
-      token
+      role: u.currentRole
     });
   } catch (err) {
     console.error('users.login error:', err);
@@ -102,40 +104,34 @@ exports.login = async (req, res) => {
   }
 };
 
-// ========== CAMBIO RUOLO ATTIVO (senza riloggare) ==========
-// PUT /api/users/:id/role (protetta nelle routes: auth)
+// ========== CAMBIO RUOLO ==========
+// PUT /api/users/:id/role (protetta: auth)
 exports.switchRole = async (req, res) => {
   try {
     const { id } = req.params;
-    let { role } = req.body || {};
-
-    // accettiamo sia newRole che role (compat con codice esistente)
-    role = role || req.body?.newRole;
-
-    const allowed = ['organizer', 'participant'];
-    if (!allowed.includes(role)) {
-      return res.status(400).json({ error: 'Ruolo non valido' });
+    const { role } = (req.body || {});
+    if (!role || !['participant', 'organizer'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role' });
     }
-
-    // sicurezza: l’utente può cambiare SOLO il proprio ruolo
     if (String(req.user.id) !== String(id)) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    const u = await User.findByIdAndUpdate(
+    const updated = await User.findByIdAndUpdate(
       id,
       { currentRole: role },
-      { new: true }
+      { new: true, projection: { password: 0 } }
     );
+    if (!updated) return res.status(404).json({ error: 'User not found' });
 
-    if (!u) return res.status(404).json({ error: 'User not found' });
-
-    // emetti nuovo token con ruolo aggiornato
-    const token = signToken({ id: u._id.toString(), role: u.currentRole });
+    // emettiamo un nuovo token con il ruolo aggiornato
+    const token = signToken({ id: String(updated._id), role: updated.currentRole });
 
     return res.json({
-      token,
-      role: u.currentRole
+      id: updated._id,
+      name: updated.name,
+      role: updated.currentRole,
+      token
     });
   } catch (err) {
     console.error('users.switchRole error:', err);
@@ -194,3 +190,4 @@ exports.annulla = async (req, res) => {
     return res.status(500).json({ error: 'Server error' });
   }
 };
+
