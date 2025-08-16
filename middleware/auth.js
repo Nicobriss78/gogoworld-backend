@@ -16,10 +16,11 @@ function authRequired(req, res, next) {
   if (!token) return res.status(401).json({ error: 'Missing token' });
 
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-    // payload dovrebbe contenere almeno { id, role, ... }
-    req.user = payload;
-    next();
+    const secret = process.env.JWT_SECRET || 'dev-change-me';
+    const payload = jwt.verify(token, secret);
+    // payload tipico: { id, role }
+    req.user = { id: payload.id, role: payload.role };
+    return next();
   } catch (err) {
     return res.status(401).json({ error: 'Invalid token' });
   }
