@@ -2,10 +2,7 @@
 const mongoose = require('mongoose');
 
 const CoordinatesSchema = new mongoose.Schema(
-  {
-    lat: { type: Number, min: -90, max: 90 },
-    lng: { type: Number, min: -180, max: 180 },
-  },
+  { lat: { type: Number, min: -90, max: 90 }, lng: { type: Number, min: -180, max: 180 } },
   { _id: false }
 );
 
@@ -21,27 +18,28 @@ const ExternalSchema = new mongoose.Schema(
 const EventSchema = new mongoose.Schema(
   {
     // Identità
-    eventIdExt: { type: String, default: null }, // dall’excel: event_id_ext
+    eventIdExt: { type: String, default: null }, // dall’excel
 
-    // Base legacy (compat con FE attuale)
+    // Legacy (compat FE attuale)
     title: { type: String, required: true, trim: true },
     date: { type: String, default: '' }, // legacy: string
     location: { type: String, default: '', trim: true }, // legacy
+    description: { type: String, default: '' },
 
-    description: { type: String, default: '' }, // legacy breve
+    // Descrizioni estese
     shortDescription: { type: String, default: '' },
     longDescription: { type: String, default: '' },
 
-    // Data/Orari moderni
+    // Date moderne
     dateStart: { type: Date, default: null },
     dateEnd: { type: Date, default: null },
     timezone: { type: String, default: 'Europe/Rome' },
 
     // Luogo strutturato
     venueName: { type: String, default: '' },
-    address: { type: String, default: '' }, // address_line1
+    address: { type: String, default: '' },
     city: { type: String, default: '' },
-    province: { type: String, default: '' }, // o 'provincia'
+    province: { type: String, default: '' },
     region: { type: String, default: '' },
     country: { type: String, default: '' },
     coords: { type: CoordinatesSchema, default: undefined },
@@ -52,24 +50,24 @@ const EventSchema = new mongoose.Schema(
     type: { type: String, default: '' },
     tags: { type: [String], default: [] },
 
-    // Capienza & Prezzi
-    capacity: { type: Number, default: 0 }, // 0 = illimitato
+    // Capienza & prezzi
+    capacity: { type: Number, default: 0 },
     isFree: { type: Boolean, default: false },
     priceMin: { type: Number, default: 0 },
     priceMax: { type: Number, default: 0 },
     currency: { type: String, default: 'EUR' },
 
-    // Stato/Visibilità
+    // Stato/visibilità
     status: { type: String, enum: ['draft', 'published', 'cancelled'], default: 'published' },
     visibility: { type: String, enum: ['public', 'private', 'unlisted'], default: 'public' },
 
-    // Media & Meta
-    images: { type: [String], default: [] }, // URL
+    // Media & meta
+    images: { type: [String], default: [] },
     language: { type: String, default: 'it' },
-    accessibility: { type: [String], default: [] }, // es: ['wheelchair','sign-language']
+    accessibility: { type: [String], default: [] },
     ageRestriction: { type: String, default: '' },
 
-    // Servizi & Sorgente
+    // Servizi & sorgente
     services: { type: [String], default: [] },
     sourceName: { type: String, default: '' },
     sourceUrl: { type: String, default: '' },
@@ -78,25 +76,25 @@ const EventSchema = new mongoose.Schema(
     moderationStatus: { type: String, default: '' },
     notesInternal: { type: String, default: '' },
 
-    // Registrazione/Contatti
+    // Registrazione / contatti
     registrationRequired: { type: Boolean, default: false },
     externalUrl: { type: String, default: '' },
     contactEmail: { type: String, default: '' },
     contactPhone: { type: String, default: '' },
 
-    // Ownership & Partecipazioni
-    organizerId: { type: String, required: true }, // id utente (string)
-    participants: { type: [String], default: [] }, // array di userId (string)
+    // Ownership & partecipazioni
+    organizerId: { type: String, required: true },
+    participants: { type: [String], default: [] },
 
-    // Integrazioni esterne (Onira, ecc.)
+    // Integrazioni
     external: { type: ExternalSchema, default: undefined },
   },
   { timestamps: true }
 );
 
-// Indici utili
+// Indici
 EventSchema.index({ dateStart: 1, dateEnd: 1 });
-EventSchema.index({ city: 1, province: 1, country: 1, region: 1 });
+EventSchema.index({ city: 1, province: 1, region: 1, country: 1 });
 EventSchema.index({ category: 1, subcategory: 1, tags: 1, type: 1 });
 EventSchema.index({ organizerId: 1 });
 EventSchema.index({ status: 1, visibility: 1 });
