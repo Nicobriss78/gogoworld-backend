@@ -1,6 +1,4 @@
 // backend/controllers/eventController.js
-// Controller eventi – versione MongoDB (Mongoose)
-
 const Event = require('../models/eventModel');
 
 /* ---------- Helpers ---------- */
@@ -93,56 +91,76 @@ function normalizePayload(body, opts = {}) {
   return doc;
 }
 
+/* costruisce un filtro “tollerante” che, se manca il campo strutturato,
+   prova a cercare anche nella stringa legacy `location` */
 function buildFilters(qs = {}) {
-  const where = {};
+  const whereAnd = [];
+  const whereOr = [];
 
   // testo
   if (qs.q && String(qs.q).trim()) {
-    where.$text = { $search: String(qs.q).trim() };
+    whereAnd.push({ $text: { $search: String(qs.q).trim() } });
   }
 
   // geo/classificazione
-  if (qs.city) where.city = qs.city;
-  if (qs.province) where.province = qs.province;
-  if (qs.region) where.region = qs.region;
-  if (qs.country) where.country = qs.country;
+  const geoFields = [
+    { key: 'city', field: 'city' },
+    { key: 'province', field: 'province' },
+    { key: 'region', field: 'region' },
+    { key: 'country', field: 'country' },
+  ];
 
-  if (qs.category) where.category = qs.category;
-  if (qs.type) where.type = qs.type;
-  if (qs.tag) where.tags = qs.tag;
+  geoFields.forEach(({ key, field }) => {
+    const val = qs[key];
+    if (val) {
+      // se il campo strutturato esiste, filtriamo su quello
+      whereOr.push({ [field]: String(val) });
+      // fallback su `location` legacy che contiene il testo
+      whereOr.push({ location: { $regex: new RegExp(String(val).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') } });
+    }
+  });
 
-  // date range (su dateStart moderne; gli eventi legacy senza dateStart non verranno filtrati)
+  if (qs.category) whereAnd.push({ category: qs.category });
+  if (qs.type) whereAnd.push({ type: qs.type });
+  if (qs.tag) whereAnd.push({ tags: qs.tag });
+
+  // date range (su dateStart moderne)
   const from = toDateOrNull(qs.dateFrom);
   const to = toDateOrNull(qs.dateTo);
   if (from || to) {
-    where.dateStart = {};
-    if (from) where.dateStart.$gte = from;
-    if (to) where.dateStart.$lte = to;
+    const cond = {};
+    if (from) cond.$gte = from;
+    if (to) cond.$lte = to;
+    whereAnd.push({ dateStart: cond });
   }
 
-  // isFree / prezzi
-  if (qs.isFree !== undefined) where.isFree = String(qs.isFree) === 'true';
-  if (qs.priceMin !== undefined) where.priceMin = { $gte: Number(qs.priceMin) };
-  if (qs.priceMax !== undefined) where.priceMax = Object.assign(where.priceMax || {}, { $lte: Number(qs.priceMax) });
+  if (qs.isFree !== undefined) whereAnd.push({ isFree: String(qs.isFree) === 'true' });
+  if (qs.priceMin !== undefined) whereAnd.push({ priceMin: { $gte: Number(qs.priceMin) } });
+  if (qs.priceMax !== undefined) whereAnd.push({ priceMax: { $lte: Number(qs.priceMax) } });
 
-  // stato/visibilità – solo se richiesto (nessun default, per non nascondere eventi legacy)
-  if (qs.status) where.status = qs.status;
-  if (qs.visibility) where.visibility = qs.visibility;
+  if (qs.status) whereAnd.push({ status: qs.status });
+  if (qs.visibility) whereAnd.push({ visibility: qs.visibility });
 
-  // organizerId (facoltativo, es. per FE future)
-  if (qs.organizerId) where.organizerId = String(qs.organizerId);
+  if (qs.organizerId) whereAnd.push({ organizerId: String(qs.organizerId) });
 
+  const where = {};
+  if (whereAnd.length && whereOr.length) {
+    where.$and = [...whereAnd, { $or: whereOr }];
+  } else if (whereAnd.length) {
+    where.$and = whereAnd;
+  } else if (whereOr.length) {
+    where.$or = whereOr;
+  }
   return where;
 }
 
 /* ---------- LISTA PUBBLICA (array) ---------- */
-// GET /api/events
 exports.list = async (req, res) => {
   try {
     const where = buildFilters(req.query);
     const sort = req.query.sort || '-createdAt';
     const events = await Event.find(where).sort(sort).lean();
-    return res.json(events); // array (retro-compat con FE attuale)
+    return res.json(events); // array (retro-compat)
   } catch (err) {
     console.error('events.list error:', err);
     return res.status(500).json({ error: 'Server error' });
@@ -150,11 +168,10 @@ exports.list = async (req, res) => {
 };
 
 /* ---------- I MIEI EVENTI (organizer) ---------- */
-// GET /api/events/mine
 exports.listMine = async (req, res) => {
   try {
     const where = buildFilters(req.query);
-    where.organizerId = String(req.user.id);
+    where.$and = (where.$and || []).concat({ organizerId: String(req.user.id) });
     const sort = req.query.sort || '-createdAt';
     const events = await Event.find(where).sort(sort).lean();
     return res.json(events);
@@ -164,12 +181,10 @@ exports.listMine = async (req, res) => {
   }
 };
 
-/* ---------- SINGOLO EVENTO (pubblico) ---------- */
-// GET /api/events/:id
+/* ---------- SINGOLO ---------- */
 exports.get = async (req, res) => {
   try {
-    const { id } = req.params;
-    const ev = await Event.findById(id);
+    const ev = await Event.findById(req.params.id);
     if (!ev) return res.status(404).json({ error: 'Event not found' });
     return res.json(ev);
   } catch (err) {
@@ -178,15 +193,12 @@ exports.get = async (req, res) => {
   }
 };
 
-/* ---------- CREA EVENTO (organizer) ---------- */
-// POST /api/events
+/* ---------- CREATE ---------- */
 exports.create = async (req, res) => {
   try {
     const { title } = req.body || {};
     if (!title) return res.status(400).json({ error: 'Missing required field: title' });
-
     const payload = normalizePayload(req.body, { organizerId: req.user.id });
-    // Compat: se arriva solo legacy 'date'/'location' va comunque bene
     const ev = await Event.create(payload);
     return res.status(201).json(ev);
   } catch (err) {
@@ -195,21 +207,16 @@ exports.create = async (req, res) => {
   }
 };
 
-/* ---------- UPDATE EVENTO (solo owner) ---------- */
-// PUT /api/events/:id
+/* ---------- UPDATE (solo owner) ---------- */
 exports.update = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    const evCheck = await Event.findById(id);
+    const evCheck = await Event.findById(req.params.id);
     if (!evCheck) return res.status(404).json({ error: 'Event not found' });
-
     if (String(evCheck.organizerId) !== String(req.user.id)) {
       return res.status(403).json({ error: 'Forbidden: not your event' });
     }
-
     const payload = normalizePayload(req.body);
-    const ev = await Event.findByIdAndUpdate(id, payload, { new: true });
+    const ev = await Event.findByIdAndUpdate(req.params.id, payload, { new: true });
     return res.json(ev);
   } catch (err) {
     console.error('events.update error:', err);
@@ -217,24 +224,21 @@ exports.update = async (req, res) => {
   }
 };
 
-/* ---------- DELETE EVENTO (solo owner) ---------- */
-// DELETE /api/events/:id
+/* ---------- DELETE (solo owner) ---------- */
 exports.remove = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    const evCheck = await Event.findById(id);
+    const evCheck = await Event.findById(req.params.id);
     if (!evCheck) return res.status(404).json({ error: 'Event not found' });
-
     if (String(evCheck.organizerId) !== String(req.user.id)) {
       return res.status(403).json({ error: 'Forbidden: not your event' });
     }
-
-    await Event.findByIdAndDelete(id);
+    await Event.findByIdAndDelete(req.params.id);
     return res.status(204).end();
   } catch (err) {
     console.error('events.remove error:', err);
     return res.status(500).json({ error: 'Server error' });
   }
 };
+
+
 
