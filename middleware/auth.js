@@ -1,40 +1,68 @@
 // backend/middleware/auth.js
-// Middleware di autenticazione (JWT) e controllo ruoli
+const jwt = require("jsonwebtoken");
 
-const jwt = require('jsonwebtoken');
+const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 
-// Estrae il token Bearer dall'header Authorization
-function getBearerToken(req) {
-  const h = req.headers.authorization || '';
-  const m = h.match(/^Bearer\s+(.+)$/i);
-  return m ? m[1] : null;
-}
-
-// Richiede un JWT valido, altrimenti 401
+/**
+ * Verifica la presenza del token Bearer e decodifica il JWT.
+ * Imposta req.user = { id, role, ... } se valido.
+ */
 function authRequired(req, res, next) {
-  const token = getBearerToken(req);
-  if (!token) return res.status(401).json({ error: 'Missing token' });
-
   try {
-    const secret = process.env.JWT_SECRET || 'dev-change-me';
-    const payload = jwt.verify(token, secret);
-    // payload tipico: { id, role }
-    req.user = { id: payload.id, role: payload.role };
-    return next();
+    const hdr = req.headers.authorization || req.headers.Authorization;
+    if (!hdr || !hdr.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Missing token" });
+    }
+    const token = hdr.slice("Bearer ".length).trim();
+    const payload = jwt.verify(token, JWT_SECRET);
+
+    // payload atteso: { id, email, role, iat, exp, ... }
+    if (!payload || !payload.id) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+
+    req.user = {
+      id: String(payload.id),
+      email: payload.email || "",
+      role: payload.role || "participant",
+    };
+    next();
   } catch (err) {
-    return res.status(401).json({ error: 'Invalid token' });
+    // token scaduto / non valido
+    return res.status(401).json({ error: "Invalid or expired token" });
   }
 }
 
-// Richiede che l'utente autenticato abbia uno dei ruoli indicati, altrimenti 403
-function roleRequired(...roles) {
-  return (req, res, next) => {
-    if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ error: 'Forbidden' });
+/**
+ * Richiede un certo ruolo applicativo.
+ * Allineato alla logica di GoGo.World:
+ * - se è richiesto "participant", **consentiamo** anche a chi ha ruolo "organizer"
+ * (permette lo switch senza rifare login).
+ * - se è richiesto "organizer", serve realmente organizer.
+ */
+function roleRequired(requiredRole) {
+  return function (req, res, next) {
+    const userRole = (req.user && req.user.role) || "";
+
+    // Organizer eredita i permessi di Participant
+    if (requiredRole === "participant") {
+      if (userRole === "participant" || userRole === "organizer") {
+        return next();
+      }
+      return res.status(403).json({ error: "Forbidden" });
     }
-    next();
+
+    // Ruoli "forti" devono combaciare
+    if (userRole === requiredRole) {
+      return next();
+    }
+
+    return res.status(403).json({ error: "Forbidden" });
   };
 }
 
-module.exports = { authRequired, roleRequired };
+module.exports = {
+  authRequired,
+  roleRequired,
+};
+
