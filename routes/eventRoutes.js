@@ -5,7 +5,8 @@ const eventController = require("../controllers/eventController");
 const { authRequired, roleRequired } = require("../middleware/auth");
 
 // Pubbliche
-router.get("/", eventController.list); // lista eventi
+router.get("/", eventController.list); // lista eventi (array, con filtri opzionali)
+router.get("/mine", authRequired, roleRequired("organizer"), eventController.listMine); // solo i miei (organizer)
 router.get("/:id", eventController.get); // singolo evento
 
 // Solo ORGANIZZATORE
@@ -31,5 +32,4 @@ router.delete(
 );
 
 module.exports = router;
-
 
