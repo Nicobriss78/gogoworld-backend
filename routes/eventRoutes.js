@@ -5,31 +5,16 @@ const eventController = require("../controllers/eventController");
 const { authRequired, roleRequired } = require("../middleware/auth");
 
 // Pubbliche
-router.get("/", eventController.list); // lista eventi (array, con filtri opzionali)
-router.get("/mine", authRequired, roleRequired("organizer"), eventController.listMine); // solo i miei (organizer)
-router.get("/:id", eventController.get); // singolo evento
+router.get("/", eventController.list);
+router.get("/mine", authRequired, roleRequired("organizer"), eventController.listMine);
+router.get("/:id", eventController.get);
 
 // Solo ORGANIZZATORE
-router.post(
-  "/",
-  authRequired,
-  roleRequired("organizer"),
-  eventController.create
-);
-
-router.put(
-  "/:id",
-  authRequired,
-  roleRequired("organizer"),
-  eventController.update
-);
-
-router.delete(
-  "/:id",
-  authRequired,
-  roleRequired("organizer"),
-  eventController.remove
-);
+router.post("/", authRequired, roleRequired("organizer"), eventController.create);
+router.put("/:id", authRequired, roleRequired("organizer"), eventController.update);
+router.delete("/:id", authRequired, roleRequired("organizer"), eventController.remove);
 
 module.exports = router;
+
+
 
