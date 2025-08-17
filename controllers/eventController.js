@@ -29,8 +29,7 @@ function normalizePayload(body, opts = {}) {
   } = body || {};
 
   const doc = {};
-
-  // base legacy
+  // legacy
   if (title !== undefined) doc.title = title;
   if (description !== undefined) doc.description = description;
   if (date !== undefined) doc.date = String(date);
@@ -87,35 +86,29 @@ function normalizePayload(body, opts = {}) {
   if (eventIdExt !== undefined) doc.eventIdExt = eventIdExt;
 
   if (opts.organizerId) doc.organizerId = String(opts.organizerId);
-
   return doc;
 }
 
-/* costruisce un filtro “tollerante” che, se manca il campo strutturato,
-   prova a cercare anche nella stringa legacy `location` */
+/* filtri “tolleranti”: se city/province/region/country non sono popolati
+   nei record, cerchiamo anche nel legacy `location` */
 function buildFilters(qs = {}) {
   const whereAnd = [];
   const whereOr = [];
 
-  // testo
   if (qs.q && String(qs.q).trim()) {
     whereAnd.push({ $text: { $search: String(qs.q).trim() } });
   }
 
-  // geo/classificazione
   const geoFields = [
     { key: 'city', field: 'city' },
     { key: 'province', field: 'province' },
     { key: 'region', field: 'region' },
     { key: 'country', field: 'country' },
   ];
-
   geoFields.forEach(({ key, field }) => {
     const val = qs[key];
     if (val) {
-      // se il campo strutturato esiste, filtriamo su quello
       whereOr.push({ [field]: String(val) });
-      // fallback su `location` legacy che contiene il testo
       whereOr.push({ location: { $regex: new RegExp(String(val).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') } });
     }
   });
@@ -124,7 +117,6 @@ function buildFilters(qs = {}) {
   if (qs.type) whereAnd.push({ type: qs.type });
   if (qs.tag) whereAnd.push({ tags: qs.tag });
 
-  // date range (su dateStart moderne)
   const from = toDateOrNull(qs.dateFrom);
   const to = toDateOrNull(qs.dateTo);
   if (from || to) {
@@ -140,17 +132,13 @@ function buildFilters(qs = {}) {
 
   if (qs.status) whereAnd.push({ status: qs.status });
   if (qs.visibility) whereAnd.push({ visibility: qs.visibility });
-
   if (qs.organizerId) whereAnd.push({ organizerId: String(qs.organizerId) });
 
   const where = {};
-  if (whereAnd.length && whereOr.length) {
-    where.$and = [...whereAnd, { $or: whereOr }];
-  } else if (whereAnd.length) {
-    where.$and = whereAnd;
-  } else if (whereOr.length) {
-    where.$or = whereOr;
-  }
+  if (whereAnd.length && whereOr.length) where.$and = [...whereAnd, { $or: whereOr }];
+  else if (whereAnd.length) where.$and = whereAnd;
+  else if (whereOr.length) where.$or = whereOr;
+
   return where;
 }
 
@@ -239,6 +227,7 @@ exports.remove = async (req, res) => {
     return res.status(500).json({ error: 'Server error' });
   }
 };
+
 
 
 
