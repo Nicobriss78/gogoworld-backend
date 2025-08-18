@@ -1,5 +1,5 @@
-// backend/gogoworld-backend-main/server.js
-// GoGoWorld API – server Express per Render
+// backend/server.js
+// GoGoWorld API – server Express
 
 const express = require('express');
 const cors = require('cors');
@@ -10,17 +10,14 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-/* ======================= CORS =======================
-   Su Render imposta ad es.:
-   CORS_ORIGIN_FRONTEND = https://<tuo-netlify>.netlify.app,http://localhost:3000
-*/
+/* ======================= CORS ======================= */
 const FRONTEND_ORIGINS = (process.env.CORS_ORIGIN_FRONTEND || '')
   .split(',')
   .map(s => s.trim().replace(/\/$/, ''))
   .filter(Boolean);
 
 function isAllowedOrigin(origin) {
-  if (!origin) return true; // richieste senza Origin
+  if (!origin) return true;
   const o = origin.replace(/\/$/, '');
   if (FRONTEND_ORIGINS.length === 0) return true;
   if (FRONTEND_ORIGINS.includes(o)) return true;
@@ -46,33 +43,33 @@ app.options('*', cors(corsOptions));
 app.use(express.json());
 
 /* ================== Internal Namespace =================
-   Monta /internal via feature flag con path ASSOLUTI (niente require relativi fragili).
-   Struttura attesa:
-   - questo file: backend/gogoworld-backend-main/server.js
-   - flags: backend/src/config/featureFlags.json (+ flags.js)
-   - router: backend/src/internal/index.js
+   Qui assumiamo con certezza:
+   - server.js è in: backend/
+   - flags in: backend/src/config/flags.js
+   - router /internal in: backend/src/internal/index.js
 */
 (() => {
   try {
-    const flagsPath = path.resolve(__dirname, '..', 'src', 'config', 'flags.js');
-    const internalRouterPath = path.resolve(__dirname, '..', 'src', 'internal');
+    const flagsPath = path.resolve(__dirname, 'src', 'config', 'flags.js');
+    const routerPath = path.resolve(__dirname, 'src', 'internal');
+
+    // Log di diagnostica (una volta in avvio)
+    console.log('[/internal] flagsPath:', flagsPath);
+    console.log('[/internal] routerPath:', routerPath);
 
     const { isEnabled } = require(flagsPath);
-    const internalEnabled = isEnabled('internal.enabled');
+    const enabled = isEnabled('internal.enabled');
+    console.log('[/internal] featureFlags.internal.enabled =', enabled);
 
-    console.log(`[/internal] flagsPath=${flagsPath}`);
-    console.log(`[/internal] routerPath=${internalRouterPath}`);
-    console.log(`[/internal] featureFlags.internal.enabled=${internalEnabled}`);
-
-    if (internalEnabled) {
-      app.use('/internal', require(internalRouterPath));
+    if (enabled) {
+      app.use('/internal', require(routerPath));
       console.log('[/internal] namespace MONTATO');
     } else {
       console.log('[/internal] namespace NON montato (feature flag false)');
     }
   } catch (e) {
-    console.warn('[/internal] NON montato (errore nel caricamento di flags/router):', e.message);
-    console.warn('Suggerimenti: verificare che backend/src/* sia stato committato e deployato su Render.');
+    console.warn('[/internal] NON montato:', e.message);
+    console.warn('Verifica che backend/src/config/* e backend/src/internal/* esistano nel deploy.');
   }
 })();
 
@@ -106,6 +103,8 @@ connectDB()
   });
 
 module.exports = app;
+
+
 
 
 
