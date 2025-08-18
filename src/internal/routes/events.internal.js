@@ -2,12 +2,12 @@
 const express = require('express');
 const router = express.Router();
 
-// Import corretto del modello Event
+// Import del modello Event per struttura: backend/models/eventModel.js
 let EventModel;
 try {
-  EventModel = require('../../../gogoworld-backend-main/models/eventModel');
+  EventModel = require('../../../models/eventModel');
 } catch (e) {
-  console.error("Errore nel require di eventModel.js:", e.message);
+  console.error("Errore nel require di models/eventModel.js:", e.message);
 }
 
 router.post('/create', async (req, res) => {
