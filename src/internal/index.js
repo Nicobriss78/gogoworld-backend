@@ -1,4 +1,4 @@
-// src/internal/index.js
+// backend/src/internal/index.js
 // Router principale /internal
 const express = require('express');
 const router = express.Router();
@@ -12,9 +12,9 @@ router.get('/health', (req, res) => {
   res.status(200).json({ ok: true, service: 'internal', time: new Date().toISOString() });
 });
 
-// Events internal endpoints
+// Events internal endpoints (protetti + idem + audit)
 router.use('/events', internalAuth, withIdempotency, auditLog, require('./routes/events.internal'));
 
-// TODO: in futuro: moderation, sync, ecc.
+// TODO: in futuro -> moderation, sync, ecc.
 
 module.exports = router;
