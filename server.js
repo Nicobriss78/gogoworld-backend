@@ -49,6 +49,22 @@ app.options('*', cors(corsOptions));
 /* =================== Parsers & Logs ================= */
 app.use(express.json());
 
+/* ================== Internal Namespace =================
+   Monta il namespace /internal solo se abilitato da feature flag.
+   Nota: server.js è in gogoworld-backend-main/, mentre src/ è un livello sopra → usa path ../src/...
+*/
+try {
+  const { isEnabled } = require('../src/config/flags');
+  if (isEnabled('internal.enabled')) {
+    app.use('/internal', require('../src/internal'));
+    console.log('[/internal] namespace abilitato');
+  } else {
+    console.log('[/internal] namespace disabilitato via feature flag');
+  }
+} catch (e) {
+  console.warn('[/internal] non montato (flags/config mancanti o path differente):', e.message);
+}
+
 /* ======================= Routes ===================== */
 app.get('/', (_req, res) => {
   res.json({ ok: true, name: 'GoGoWorld API', env: process.env.NODE_ENV || 'dev' });
@@ -79,6 +95,7 @@ connectDB()
   });
 
 module.exports = app;
+
 
 
 
