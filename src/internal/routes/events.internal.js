@@ -1,4 +1,4 @@
-// src/internal/routes/events.internal.js
+// backend/src/internal/routes/events.internal.js
 const express = require('express');
 const router = express.Router();
 
@@ -17,7 +17,7 @@ try {
 function normalizeEventPayload(payload = {}) {
   const safe = {};
 
-  // campi base comunemente presenti nel tuo model
+  // campi base
   if (payload.title) safe.title = payload.title;
   if (payload.description) safe.description = payload.description;
   if (payload.category) safe.category = payload.category;
@@ -30,34 +30,37 @@ function normalizeEventPayload(payload = {}) {
   if (payload.region) safe.region = payload.region;
   if (payload.country) safe.country = payload.country;
   if (payload.address) safe.address = payload.address;
-  if (payload.location) safe.location = payload.location; // se usi un unico campo testuale
+  if (payload.location) safe.location = payload.location;
 
   // link/media (se presenti)
   if (payload.image) safe.image = payload.image;
   if (payload.link) safe.link = payload.link;
 
-  // campi di integrazione Onira già previsti nel tuo model
+  // integrazione Onira
   if (payload.external?.oniraEventId) {
     safe.external = { oniraEventId: payload.external.oniraEventId };
   }
 
-  // status / syncStatus: di default quando creiamo da /internal
-  // non imponiamo status se il tuo model gestisce default interni; altrimenti:
-  if (payload.status) safe.status = payload.status; // lascia passare se esplicitato
-  safe.syncStatus = payload.syncStatus || 'proposed'; // o 'created_internal' se preferisci
+  // status / syncStatus
+  if (payload.status) safe.status = payload.status;
+  safe.syncStatus = payload.syncStatus || 'proposed';
+
+  // relazioni
+  if (payload.organizerId) safe.organizerId = payload.organizerId;
 
   return safe;
 }
 
 /**
- * Validazione minima (non invadente): richiediamo almeno un titolo
- * Aggiungi altre regole se ti servono (dateStart obbligatoria, ecc.)
+ * Validazione minima (espandi in base al tuo schema).
  */
 function validateForCreate(data) {
   const errors = [];
   if (!data.title || typeof data.title !== 'string' || !data.title.trim()) {
     errors.push('title is required');
   }
+  // se organizerId è required nel tuo schema, tieni attiva questa riga:
+  // if (!data.organizerId) errors.push('organizerId is required');
   return errors;
 }
 
@@ -106,9 +109,6 @@ router.post('/:id/publish', async (req, res) => {
     if (!EventModel) throw new Error('EventModel non trovato. Controllare il path in events.internal.js');
 
     const update = { status: 'published', syncStatus: 'published' };
-    // se nel tuo schema hai campi tipo publishedAt o publishDate, puoi sbloccarli qui:
-    // update.publishedAt = new Date();
-
     const doc = await EventModel.findByIdAndUpdate(id, update, { new: true });
     if (!doc) return res.status(404).json({ ok: false, error: 'Event not found' });
 
@@ -119,3 +119,4 @@ router.post('/:id/publish', async (req, res) => {
 });
 
 module.exports = router;
+
