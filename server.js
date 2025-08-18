@@ -43,29 +43,41 @@ app.options('*', cors(corsOptions));
 app.use(express.json());
 
 /* ================== Internal Namespace =================
-   Qui assumiamo con certezza:
-   - server.js è in: backend/
-   - flags in: backend/src/config/flags.js
-   - router /internal in: backend/src/internal/index.js
+   Struttura certa:
+   - questo file: backend/server.js
+   - flags: backend/src/config/flags.js
+   - router /internal: backend/src/internal/index.js
+
+   Override via ENV:
+   - INTERNAL_ENABLED="true" -> forza ON
+   - INTERNAL_ENABLED="false" -> forza OFF
+   - unset/null -> usa featureFlags.json
 */
 (() => {
   try {
     const flagsPath = path.resolve(__dirname, 'src', 'config', 'flags.js');
     const routerPath = path.resolve(__dirname, 'src', 'internal');
 
-    // Log di diagnostica (una volta in avvio)
-    console.log('[/internal] flagsPath:', flagsPath);
-    console.log('[/internal] routerPath:', routerPath);
-
     const { isEnabled } = require(flagsPath);
-    const enabled = isEnabled('internal.enabled');
-    console.log('[/internal] featureFlags.internal.enabled =', enabled);
+
+    const envOverride = process.env.INTERNAL_ENABLED;
+    let enabled;
+    if (envOverride === 'true') {
+      enabled = true;
+      console.log('[/internal] override ENV: INTERNAL_ENABLED=true -> FORZATO ON');
+    } else if (envOverride === 'false') {
+      enabled = false;
+      console.log('[/internal] override ENV: INTERNAL_ENABLED=false -> FORZATO OFF');
+    } else {
+      enabled = isEnabled('internal.enabled');
+      console.log('[/internal] featureFlags.internal.enabled =', enabled);
+    }
 
     if (enabled) {
       app.use('/internal', require(routerPath));
       console.log('[/internal] namespace MONTATO');
     } else {
-      console.log('[/internal] namespace NON montato (feature flag false)');
+      console.log('[/internal] namespace NON montato');
     }
   } catch (e) {
     console.warn('[/internal] NON montato:', e.message);
@@ -103,6 +115,7 @@ connectDB()
   });
 
 module.exports = app;
+
 
 
 
