@@ -1,4 +1,4 @@
-// src/config/flags.js
+// backend/src/config/flags.js
 const fs = require('fs');
 const path = require('path');
 
