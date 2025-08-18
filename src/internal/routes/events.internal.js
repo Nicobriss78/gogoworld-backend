@@ -2,12 +2,12 @@
 const express = require('express');
 const router = express.Router();
 
-// Lazy require per evitare dipendenze cicliche
+// Import corretto del modello Event
 let EventModel;
 try {
-  EventModel = require('../../models/eventModel');
+  EventModel = require('../../../gogoworld-backend-main/models/eventModel');
 } catch (e) {
-  // Il progetto potrebbe avere un path diverso, adegua qui se necessario.
+  console.error("Errore nel require di eventModel.js:", e.message);
 }
 
 router.post('/create', async (req, res) => {
@@ -18,7 +18,7 @@ router.post('/create', async (req, res) => {
   }
 
   try {
-    if (!EventModel) throw new Error('EventModel non trovato. Controllare il path in src/internal/routes/events.internal.js');
+    if (!EventModel) throw new Error('EventModel non trovato. Controllare il path in events.internal.js');
     const doc = await EventModel.create(payload);
     return res.status(201).json({ ok: true, simulate: false, event: doc });
   } catch (err) {
@@ -35,7 +35,7 @@ router.post('/:id/publish', async (req, res) => {
   }
 
   try {
-    if (!EventModel) throw new Error('EventModel non trovato. Controllare il path in src/internal/routes/events.internal.js');
+    if (!EventModel) throw new Error('EventModel non trovato. Controllare il path in events.internal.js');
     const doc = await EventModel.findByIdAndUpdate(
       id,
       { status: 'published', syncStatus: 'published' },
