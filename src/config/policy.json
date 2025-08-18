@@ -1,0 +1,6 @@
+{
+  "events": {
+    "publishRequiresReview": true,
+    "maxAutoPublishPerHour": 20
+  }
+}
