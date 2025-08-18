@@ -1,6 +1,6 @@
 {
   "internal": {
-    "enabled": true
+    "enabled": false
   },
   "onira": {
     "copilot": false,
