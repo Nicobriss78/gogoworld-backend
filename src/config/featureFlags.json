@@ -1,0 +1,10 @@
+{
+  "internal": {
+    "enabled": true
+  },
+  "onira": {
+    "copilot": false,
+    "autonomous": false,
+    "killSwitch": true
+  }
+}
