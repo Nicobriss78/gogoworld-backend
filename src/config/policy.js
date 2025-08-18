@@ -1,4 +1,4 @@
-// src/config/policy.js
+// backend/src/config/policy.js
 const policy = require('./policy.json');
 
 function getPolicy(section) {
