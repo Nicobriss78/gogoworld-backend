@@ -1,4 +1,4 @@
-// src/internal/middleware/auditLog.js
+// backend/src/internal/middleware/auditLog.js
 const fs = require('fs');
 const path = require('path');
 
@@ -20,7 +20,6 @@ function auditLog(req, res, next) {
       fs.appendFileSync(auditPath, JSON.stringify(obj) + '\n');
     } catch (err) {
       // non bloccare la request per errori di logging
-      // console.error('Audit write error', err);
     }
   };
   write({ type: 'request', ...entry });
@@ -34,3 +33,4 @@ function auditLog(req, res, next) {
 }
 
 module.exports = { auditLog };
+
