@@ -1,8 +1,9 @@
-// backend/server.js
+// backend/gogoworld-backend-main/server.js
 // GoGoWorld API – server Express per Render
 
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const connectDB = require('./db');
 require('dotenv').config();
 
@@ -10,24 +11,19 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 
 /* ======================= CORS =======================
-
-   - Legge gli origin ammessi da CORS_ORIGIN_FRONTEND (separati da virgola)
-   - Confronto “normalizzato” senza slash finale
-
    Su Render imposta ad es.:
-   CORS_ORIGIN_FRONTEND = https://playful-blini-646b72.netlify.app,http://localhost:3000
+   CORS_ORIGIN_FRONTEND = https://<tuo-netlify>.netlify.app,http://localhost:3000
 */
 const FRONTEND_ORIGINS = (process.env.CORS_ORIGIN_FRONTEND || '')
   .split(',')
-  .map(s => s.trim().replace(/\/$/, '')) // rimuove slash finale
+  .map(s => s.trim().replace(/\/$/, ''))
   .filter(Boolean);
 
 function isAllowedOrigin(origin) {
   if (!origin) return true; // richieste senza Origin
   const o = origin.replace(/\/$/, '');
-  if (FRONTEND_ORIGINS.length === 0) return true; // fallback permissivo in dev
+  if (FRONTEND_ORIGINS.length === 0) return true;
   if (FRONTEND_ORIGINS.includes(o)) return true;
-  // opzionale: consenti tutti i sottodomini *.netlify.app se ne hai uno in lista
   if (FRONTEND_ORIGINS.some(a => a.endsWith('.netlify.app')) && o.endsWith('.netlify.app')) return true;
   return false;
 }
@@ -50,20 +46,35 @@ app.options('*', cors(corsOptions));
 app.use(express.json());
 
 /* ================== Internal Namespace =================
-   Monta il namespace /internal solo se abilitato da feature flag.
-   Nota: server.js è in gogoworld-backend-main/, mentre src/ è un livello sopra → usa path ../src/...
+   Monta /internal via feature flag con path ASSOLUTI (niente require relativi fragili).
+   Struttura attesa:
+   - questo file: backend/gogoworld-backend-main/server.js
+   - flags: backend/src/config/featureFlags.json (+ flags.js)
+   - router: backend/src/internal/index.js
 */
-try {
-  const { isEnabled } = require('../src/config/flags');
-  if (isEnabled('internal.enabled')) {
-    app.use('/internal', require('../src/internal'));
-    console.log('[/internal] namespace abilitato');
-  } else {
-    console.log('[/internal] namespace disabilitato via feature flag');
+(() => {
+  try {
+    const flagsPath = path.resolve(__dirname, '..', 'src', 'config', 'flags.js');
+    const internalRouterPath = path.resolve(__dirname, '..', 'src', 'internal');
+
+    const { isEnabled } = require(flagsPath);
+    const internalEnabled = isEnabled('internal.enabled');
+
+    console.log(`[/internal] flagsPath=${flagsPath}`);
+    console.log(`[/internal] routerPath=${internalRouterPath}`);
+    console.log(`[/internal] featureFlags.internal.enabled=${internalEnabled}`);
+
+    if (internalEnabled) {
+      app.use('/internal', require(internalRouterPath));
+      console.log('[/internal] namespace MONTATO');
+    } else {
+      console.log('[/internal] namespace NON montato (feature flag false)');
+    }
+  } catch (e) {
+    console.warn('[/internal] NON montato (errore nel caricamento di flags/router):', e.message);
+    console.warn('Suggerimenti: verificare che backend/src/* sia stato committato e deployato su Render.');
   }
-} catch (e) {
-  console.warn('[/internal] non montato (flags/config mancanti o path differente):', e.message);
-}
+})();
 
 /* ======================= Routes ===================== */
 app.get('/', (_req, res) => {
@@ -95,6 +106,7 @@ connectDB()
   });
 
 module.exports = app;
+
 
 
 
