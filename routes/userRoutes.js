@@ -1,25 +1,23 @@
-// backend/routes/userRoutes.js
+// routes/userRoutes.js — coerente con i controller attuali
 const express = require("express");
 const router = express.Router();
-const userController = require("../controllers/userController");
-const { authRequired, roleRequired } = require("../middleware/auth");
 
-// Lista utenti (debug/utility) — solo ORGANIZZATORE
-router.get("/", authRequired, roleRequired("organizer"), userController.list);
+const { authRequired } = require("../middleware/auth");
+const userCtrl = require("../controllers/userController");
 
-// Dati utente — accesso autenticato (ognuno vede il proprio o chi l'org. autorizza)
-router.get("/:id", authRequired, userController.getById);
+// Registrazione & Login
+router.post("/register", userCtrl.register);
+router.post("/login", userCtrl.login);
 
-// Registrazione & Login — pubblici
-router.post("/register", userController.register);
-router.post("/login", userController.login);
+// Info utente corrente
+router.get("/me", authRequired, userCtrl.me);
 
-// Partecipazioni — solo PARTECIPANTE
-router.post("/:id/partecipa", authRequired, roleRequired("participant"), userController.partecipa);
-router.post("/:id/annulla", authRequired, roleRequired("participant"), userController.annulla);
+// Switch ruolo (usa l'utente autenticato; l'ID in path è legacy e non viene usato dal controller)
+router.put("/:id/role", authRequired, userCtrl.switchRole);
 
-// Cambio ruolo attivo (switch flessibile) — solo autenticati
-router.put("/:id/role", authRequired, userController.switchRole);
+// Partecipazione eventi
+router.post("/:id/partecipa", authRequired, userCtrl.join);
+router.post("/:id/annulla", authRequired, userCtrl.leave);
 
 module.exports = router;
 
