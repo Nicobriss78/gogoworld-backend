@@ -1,6 +1,7 @@
-// services/usersService.js — registeredRole in DB, sessionRole nel token
+// services/usersService.js — registeredRole in DB, sessionRole nel token + creazione profilo
 const User = require("../models/userModel");
 const Event = require("../models/eventModel");
+const UserProfile = require("../models/userProfileModel");
 const jwt = require("jsonwebtoken");
 
 const ALLOWED_ROLES = ["participant", "organizer"];
@@ -13,7 +14,7 @@ function signToken({ id, registeredRole, sessionRole }) {
   );
 }
 
-async function register({ name, email, password, role }) {
+async function register({ name, email, password, role, profile }) {
   const exists = await User.findOne({ email });
   if (exists) {
     const err = new Error("EMAIL_IN_USE");
@@ -26,6 +27,37 @@ async function register({ name, email, password, role }) {
     role: registeredRole, // persistito per statistiche
     currentRole: registeredRole, // compat legacy
   });
+
+  // Crea il profilo opzionale (se fornito)
+  try {
+    if (profile && typeof profile === "object") {
+      await UserProfile.create({
+        userId: user._id,
+        phone: profile.phone ?? undefined,
+        city: profile.city ?? undefined,
+        province: profile.province ?? undefined,
+        region: profile.region ?? undefined,
+        country: profile.country ?? undefined,
+        favoriteCategories: Array.isArray(profile.favoriteCategories) ? profile.favoriteCategories : [],
+        availability: Array.isArray(profile.availability) ? profile.availability : [],
+        travelWillingness: profile.travelWillingness ?? undefined,
+        social: {
+          instagram: profile.social?.instagram ?? undefined,
+          facebook: profile.social?.facebook ?? undefined,
+          website: profile.social?.website ?? undefined,
+        },
+        bio: profile.bio ?? undefined,
+        languages: Array.isArray(profile.languages) ? profile.languages : [],
+        gender: profile.gender ?? undefined,
+        birthDate: profile.birthDate ? new Date(profile.birthDate) : undefined,
+        newsletterOptIn: !!profile.newsletterOptIn,
+      });
+    }
+  } catch (e) {
+    // Non blocchiamo la registrazione se il profilo fallisce: log e si prosegue
+    console.error("UserProfile create failed:", e?.message);
+  }
+
   return user;
 }
 
@@ -48,7 +80,6 @@ async function setSessionRole(userId, sessionRole) {
     e.status = 422;
     throw e;
   }
-  // Non aggiorniamo il DB: emettiamo solo un NUOVO token
   const user = await User.findById(userId);
   if (!user) { const e = new Error("USER_NOT_FOUND"); e.status = 404; throw e; }
 
