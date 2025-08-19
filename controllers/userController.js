@@ -1,8 +1,5 @@
-// controllers/userController.js
-// Controller utenti: delega ai services e usa next(err)
-
+// controllers/userController.js — login/registrazione + sessionRole switch
 const usersService = require("../services/usersService");
-const jwtSecret = process.env.JWT_SECRET;
 
 async function register(req, res, next) {
   try {
@@ -13,36 +10,38 @@ async function register(req, res, next) {
 
 async function login(req, res, next) {
   try {
-    const { token, user } = await usersService.login(req.body, { jwtSecret });
+    const { token, user, registeredRole, sessionRole } = await usersService.login(req.body);
     res.json({
       token,
       userId: user._id,
-      role: user.role,
-      currentRole: user.currentRole,
+      registeredRole,
+      sessionRole,
     });
+  } catch (err) { next(err); }
+}
+
+// Nuovo: cambia SOLO il ruolo di sessione e restituisce un nuovo token
+async function setSessionRole(req, res, next) {
+  try {
+    const userId = req.user?.id;
+    const { sessionRole } = req.body || {};
+    const out = await usersService.setSessionRole(userId, sessionRole);
+    res.json({ ok: true, ...out });
   } catch (err) { next(err); }
 }
 
 async function me(req, res, next) {
   try {
-    res.json({ ok: true, userId: req.user.id, role: req.user.role, currentRole: req.user.currentRole });
-  } catch (err) { next(err); }
-}
-
-async function switchRole(req, res, next) {
-  try {
-    const userId = req.user?.id;
-    const nextRole = req.body?.role;
-    const updated = await usersService.switchRole(userId, nextRole);
     res.json({
       ok: true,
-      userId: updated._id,
-      role: updated.role,
-      currentRole: updated.currentRole,
+      userId: req.user.id,
+      registeredRole: req.user.registeredRole,
+      sessionRole: req.user.sessionRole,
     });
   } catch (err) { next(err); }
 }
 
+// Join/leave invariati — si appoggiano al sessionRole nei middleware di rotta
 async function join(req, res, next) {
   try {
     const userId = req.user?.id;
@@ -64,10 +63,11 @@ async function leave(req, res, next) {
 module.exports = {
   register,
   login,
+  setSessionRole,
   me,
-  switchRole,
   join,
   leave,
 };
+
 
 
