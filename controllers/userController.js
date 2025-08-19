@@ -1,9 +1,9 @@
-// controllers/userController.js — login/registrazione + sessionRole switch
+// controllers/userController.js — login/registrazione + sessionRole switch (con profilo)
 const usersService = require("../services/usersService");
 
 async function register(req, res, next) {
   try {
-    const user = await usersService.register(req.body);
+    const user = await usersService.register(req.body); // req.body include { ..., profile: {...} }
     res.status(201).json({ ok: true, userId: user._id });
   } catch (err) { next(err); }
 }
@@ -20,7 +20,6 @@ async function login(req, res, next) {
   } catch (err) { next(err); }
 }
 
-// Nuovo: cambia SOLO il ruolo di sessione e restituisce un nuovo token
 async function setSessionRole(req, res, next) {
   try {
     const userId = req.user?.id;
@@ -67,6 +66,8 @@ module.exports = {
   join,
   leave,
 };
+
+
 
 
 
