@@ -41,7 +41,6 @@ async function me(req, res, next) {
   } catch (err) { next(err); }
 }
 
-// Join/leave invariati — si appoggiano al sessionRole nei middleware di rotta
 async function join(req, res, next) {
   try {
     const userId = req.user?.id;
@@ -68,6 +67,7 @@ module.exports = {
   join,
   leave,
 };
+
 
 
 
