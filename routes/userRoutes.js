@@ -1,23 +1,23 @@
-// routes/userRoutes.js — coerente con i controller attuali
+// routes/userRoutes.js — aggiunta rotta sessionRole
 const express = require("express");
 const router = express.Router();
 
-const { authRequired } = require("../middleware/auth");
+const { authRequired, roleRequired } = require("../middleware/auth");
 const userCtrl = require("../controllers/userController");
 
 // Registrazione & Login
 router.post("/register", userCtrl.register);
 router.post("/login", userCtrl.login);
 
-// Info utente corrente
+// Info utente
 router.get("/me", authRequired, userCtrl.me);
 
-// Switch ruolo (usa l'utente autenticato; l'ID in path è legacy e non viene usato dal controller)
-router.put("/:id/role", authRequired, userCtrl.switchRole);
+// Switch di RUOLO DI SESSIONE (non persistente): ritorna NUOVO token
+router.put("/session-role", authRequired, userCtrl.setSessionRole);
 
-// Partecipazione eventi
-router.post("/:id/partecipa", authRequired, userCtrl.join);
-router.post("/:id/annulla", authRequired, userCtrl.leave);
+// Partecipazione eventi (richiedono sessionRole = participant)
+router.post("/:id/partecipa", authRequired, roleRequired("participant"), userCtrl.join);
+router.post("/:id/annulla", authRequired, roleRequired("participant"), userCtrl.leave);
 
 module.exports = router;
 
