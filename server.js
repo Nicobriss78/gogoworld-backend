@@ -32,6 +32,11 @@ if (morgan) app.use(morgan("dev"));
 // DB
 require("./db");
 
+// 🔹 Healthcheck/warm‑up molto leggero
+app.get("/api/health", (req, res) => {
+  res.json({ ok: true, uptime: process.uptime() });
+});
+
 // Routes
 app.use("/api/users", userRoutes);
 app.use("/api/events", eventRoutes);
@@ -47,6 +52,8 @@ const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`GoGo.World backend running on port ${PORT}`);
 });
+
+
 
 
 
