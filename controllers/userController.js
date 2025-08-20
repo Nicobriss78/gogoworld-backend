@@ -5,7 +5,7 @@ const User = require("../models/userModel");
 
 async function register(req, res, next) {
   try {
-    const { userId } = await usersService.register(req.body);
+    const { userId } = await usersService.register(req.body || {});
     return res.status(201).json({ ok: true, userId });
   } catch (err) { next(err); }
 }
@@ -14,6 +14,7 @@ async function login(req, res, next) {
   try {
     const { email, password, desiredRole } = req.body || {};
     const out = await usersService.login({ email, password, desiredRole });
+    // il FE non richiede 'ok', ma non fa male includerlo
     return res.json({ ok: true, ...out });
   } catch (err) { next(err); }
 }
@@ -63,6 +64,7 @@ async function leave(req, res, next) {
 }
 
 module.exports = { register, login, setSessionRole, me, join, leave };
+
 
 
 
