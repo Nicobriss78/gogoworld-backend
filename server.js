@@ -45,6 +45,12 @@ app.use("/welcome", welcomeRoutes);
 // (montaggio condizionale /internal in base ai flag esistenti)
 // ... il tuo codice attuale qui resta invariato ...
 
+// Health check
+app.get("/api/health", (req, res) => {
+  res.json({ ok: true, uptime: process.uptime(), timestamp: Date.now() });
+});
+
+
 // Error handler — deve rimanere l’ULTIMO middleware
 app.use(errorHandler);
 
@@ -52,6 +58,7 @@ const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`GoGo.World backend running on port ${PORT}`);
 });
+
 
 
 
