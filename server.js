@@ -1,63 +1,47 @@
-// server.js (versione aggiornata – morgan opzionale)
+// server.js — GoGo.World (vNext) — 2025-08-20
 const express = require("express");
-const app = express();
 const cors = require("cors");
-
-// morgan opzionale: se non installato, non blocca il runtime
-function tryRequire(name) {
-  try { return require(name); } catch { return null; }
-}
-const morgan = tryRequire("morgan");
-
 const dotenv = require("dotenv");
 dotenv.config();
 
-const userRoutes = require("./routes/userRoutes");
-const eventRoutes = require("./routes/eventRoutes");
-const welcomeRoutes = require("./routes/welcome");
-const { errorHandler } = require("./middleware/error"); // presente
+const app = express();
 
-// CORS (se in server unico si può rimuovere/lasciare vuoto)
-const origins = (process.env.CORS_ORIGIN_FRONTEND || "")
-  .split(",")
-  .map(s => s.trim())
-  .filter(Boolean);
-
-app.use(cors(origins.length ? { origin: origins } : {}));
-app.use(express.json());
-
-// Attiva morgan solo se disponibile
-if (morgan) app.use(morgan("dev"));
+// Log (opzionale)
+let morgan = null;
+try { morgan = require("morgan"); } catch { /* opzionale */ }
 
 // DB
-require("./db");
+const connectDB = require("./db");
+connectDB();
 
-// 🔹 Healthcheck/warm‑up molto leggero
+// Middleware base
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true }));
+if (morgan) app.use(morgan("dev"));
+
+// CORS
+const CORS_ORIGIN = process.env.CORS_ORIGIN_FRONTEND || "*";
+app.use(cors({ origin: CORS_ORIGIN }));
+
+// Healthcheck (usato per Render cold start)
 app.get("/api/health", (req, res) => {
-  res.json({ ok: true, uptime: process.uptime() });
+  res.json({ ok: true, service: "gogoworld-api", ts: Date.now() });
 });
 
 // Routes
-app.use("/api/users", userRoutes);
-app.use("/api/events", eventRoutes);
-app.use("/welcome", welcomeRoutes);
+app.use("/api/users", require("./routes/userRoutes"));
+app.use("/api/events", require("./routes/eventRoutes"));
 
-// (montaggio condizionale /internal in base ai flag esistenti)
-// ... il tuo codice attuale qui resta invariato ...
-
-// Health check
-app.get("/api/health", (req, res) => {
-  res.json({ ok: true, uptime: process.uptime(), timestamp: Date.now() });
-});
-
-
-// Error handler — deve rimanere l’ULTIMO middleware
+// Error handler
+const { errorHandler } = require("./middleware/error");
 app.use(errorHandler);
 
+// Avvio
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
-  console.log(`GoGo.World backend running on port ${PORT}`);
+  console.log(`GoGo.World API listening on ${PORT}`);
 });
+
 
 
 
