@@ -1,34 +1,37 @@
-// backend/src/internal/middleware/auditLog.js
-const fs = require('fs');
-const path = require('path');
+// backend/src/internal/middleware/auditLog.js — logging NON bloccante su file JSONL
+const fs = require("fs");
+const path = require("path");
 
-const auditPath = process.env.AUDIT_FILE || path.join(process.cwd(), 'storage', 'audit.jsonl');
+const storageDir = path.join(process.cwd(), "storage");
+const auditPath = process.env.AUDIT_FILE || path.join(storageDir, "audit.jsonl");
+try { fs.mkdirSync(storageDir, { recursive: true }); } catch {}
 
 function auditLog(req, res, next) {
   const start = Date.now();
   const { method, originalUrl, headers, body } = req;
-  const entry = {
+
+  const write = (obj) => {
+    try { fs.appendFileSync(auditPath, JSON.stringify(obj) + "\n"); }
+    catch { /* non bloccare mai */ }
+  };
+
+  write({
+    type: "request",
     ts: new Date().toISOString(),
     method,
     url: originalUrl,
     ip: req.ip,
-    ua: headers['user-agent'],
+    ua: headers["user-agent"],
     body
-  };
-  const write = (obj) => {
-    try {
-      fs.appendFileSync(auditPath, JSON.stringify(obj) + '\n');
-    } catch (err) {
-      // non bloccare la request per errori di logging
-    }
-  };
-  write({ type: 'request', ...entry });
+  });
+
   const oldJson = res.json.bind(res);
   res.json = (data) => {
     const dur = Date.now() - start;
-    write({ type: 'response', url: originalUrl, status: res.statusCode, durMs: dur });
+    write({ type: "response", ts: new Date().toISOString(), url: originalUrl, status: res.statusCode, durMs: dur });
     return oldJson(data);
   };
+
   next();
 }
 
