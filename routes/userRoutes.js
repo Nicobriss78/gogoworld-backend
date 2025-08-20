@@ -1,22 +1,21 @@
-// routes/userRoutes.js — aggiunta rotta session-role, protezioni su sessionRole
+// routes/userRoutes.js
 const express = require("express");
 const router = express.Router();
-
+const ctrl = require("../controllers/userController");
 const { authRequired, roleRequired } = require("../middleware/auth");
-const userCtrl = require("../controllers/userController");
 
-// Registrazione & Login
-router.post("/register", userCtrl.register);
-router.post("/login", userCtrl.login);
+// Public
+router.post("/register", ctrl.register);
+router.post("/login", ctrl.login);
 
-// Info utente
-router.get("/me", authRequired, userCtrl.me);
+// Auth
+router.get("/me", authRequired, ctrl.me);
+router.put("/session-role", authRequired, ctrl.setSessionRole);
 
-// Switch RUOLO DI SESSIONE (non persistente): ritorna NUOVO token
-router.put("/session-role", authRequired, userCtrl.setSessionRole);
-
-// Partecipazione eventi (requisisce sessionRole = participant)
-router.post("/:id/partecipa", authRequired, roleRequired("participant"), userCtrl.join);
-router.post("/:id/annulla", authRequired, roleRequired("participant"), userCtrl.leave);
+// Partecipazione eventi (solo se loggato come participant in sessione)
+router.post("/:id/partecipa", authRequired, roleRequired("participant"), ctrl.join);
+router.post("/:id/annulla", authRequired, roleRequired("participant"), ctrl.leave);
 
 module.exports = router;
+
+
