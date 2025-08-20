@@ -10,14 +10,10 @@ function signToken({ id, registeredRole, sessionRole }) {
   return jwt.sign({ id, registeredRole, sessionRole }, process.env.JWT_SECRET, { expiresIn: "7d" });
 }
 
-async function register(body) {
-  const { name, email, password = "", role = "participant", profile } = body || {};
-  if (!name || !email) {
-    const e = new Error("NAME_EMAIL_REQUIRED"); e.status = 400; throw e;
-  }
-  if (!ALLOWED_ROLES.includes(role)) {
-    const e = new Error("INVALID_ROLE"); e.status = 400; throw e;
-  }
+async function register(body = {}) {
+  const { name, email, password = "", role = "participant", profile } = body;
+  if (!name || !email) { const e = new Error("NAME_EMAIL_REQUIRED"); e.status = 400; throw e; }
+  if (!ALLOWED_ROLES.includes(role)) { const e = new Error("INVALID_ROLE"); e.status = 400; throw e; }
 
   const exists = await User.findOne({ email });
   if (exists) { const e = new Error("EMAIL_EXISTS"); e.status = 409; throw e; }
@@ -33,7 +29,6 @@ function computeSessionRole(registeredRole, desiredRole) {
   if (registeredRole === "organizer") {
     return ALLOWED_ROLES.includes(desiredRole) ? desiredRole : "organizer";
   }
-  // registered participant → session only participant
   return "participant";
 }
 
@@ -41,7 +36,7 @@ async function login({ email, password, desiredRole }) {
   const user = await User.findOne({ email });
   if (!user) { const e = new Error("USER_NOT_FOUND"); e.status = 404; throw e; }
 
-  // Nota: password in chiaro (fase base). In futuro bcrypt compare.
+  // password in chiaro in questa fase base
   if ((user.password || "") !== (password || "")) {
     const e = new Error("INVALID_CREDENTIALS"); e.status = 401; throw e;
   }
@@ -54,9 +49,7 @@ async function login({ email, password, desiredRole }) {
 }
 
 async function setSessionRole(userId, requestedRole) {
-  if (!ALLOWED_ROLES.includes(requestedRole)) {
-    const e = new Error("INVALID_SESSION_ROLE"); e.status = 400; throw e;
-  }
+  if (!ALLOWED_ROLES.includes(requestedRole)) { const e = new Error("INVALID_SESSION_ROLE"); e.status = 400; throw e; }
   const user = await User.findById(userId);
   if (!user) { const e = new Error("USER_NOT_FOUND"); e.status = 404; throw e; }
 
@@ -88,3 +81,4 @@ async function leaveEvent(userId, eventId) {
 }
 
 module.exports = { register, login, setSessionRole, joinEvent, leaveEvent };
+
