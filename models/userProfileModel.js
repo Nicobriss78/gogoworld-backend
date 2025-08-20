@@ -1,37 +1,45 @@
-// models/userProfileModel.js
+// models/userProfileModel.js — profilo esteso
 const mongoose = require("mongoose");
+const { Schema } = mongoose;
 
-const userProfileSchema = new mongoose.Schema(
+const socialSchema = new Schema(
   {
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", index: true, required: true, unique: true },
+    instagram: { type: String, default: "" },
+    facebook: { type: String, default: "" },
+    website: { type: String, default: "" },
+  },
+  { _id: false }
+);
 
-    // Dati anagrafici/contatto
-    phone: { type: String },
-    city: { type: String },
-    province: { type: String },
-    region: { type: String },
-    country: { type: String },
+const userProfileSchema = new Schema(
+  {
+    userId: { type: Schema.Types.ObjectId, ref: "User", unique: true, required: true },
 
-    // Preferenze & interessi
-    favoriteCategories: [{ type: String }], // multi-select
-    availability: { type: [String], default: [] }, // es: ["weekend","sera"]
-    travelWillingness: { type: String }, // es: "città" | "provincia" | "regione" | "nazionale"
+    // Contatti & geo
+    phone: { type: String, default: "" },
+    address: { type: String, default: "" },
+    city: { type: String, default: "" },
+    province: { type: String, default: "" },
+    region: { type: String, default: "" },
+    country: { type: String, default: "" },
 
-    // Social & connessioni
-    social: {
-      instagram: { type: String },
-      facebook: { type: String },
-      website: { type: String },
-    },
+    // Preferenze
+    favoriteCategories: { type: [String], default: [] },
+    availability: { type: [String], default: [] },
+    travelWillingness: { type: String, default: "" },
 
-    // Note & altro
-    bio: { type: String, maxlength: 500 },
-    languages: { type: [String], default: [] }, // es: ["it","en"]
-    gender: { type: String }, // libero o con enum in futuro
-    birthDate: { type: Date }, // opzionale
+    // Social
+    social: { type: socialSchema, default: undefined },
+
+    // Profilo
+    languages: { type: [String], default: [] },
+    bio: { type: String, default: "" },
+    gender: { type: String, default: "" },
+    birthDate: { type: Date, default: undefined },
     newsletterOptIn: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
 
 module.exports = mongoose.model("UserProfile", userProfileSchema);
+
