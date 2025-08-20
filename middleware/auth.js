@@ -30,3 +30,4 @@ function roleRequired(role) {
 }
 
 module.exports = { authRequired, roleRequired };
+
