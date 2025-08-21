@@ -12,6 +12,16 @@ async function list(req, res, next) {
   }
 }
 
+// GET /api/events/mine/list (organizer)
+async function listMine(req, res, next) {
+  try {
+    const events = await eventsService.listMine(req.user.id);
+    return res.json(events);
+  } catch (err) {
+    return next(err);
+  }
+}
+
 // GET /api/events/:id
 async function getById(req, res, next) {
   try {
@@ -57,7 +67,7 @@ async function remove(req, res, next) {
   }
 }
 
-module.exports = { list, getById, create, update, remove };
+module.exports = { list, listMine, getById, create, update, remove };
 
 
 
