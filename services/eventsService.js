@@ -5,16 +5,22 @@ const Event = require("../models/eventModel");
 function buildListWhere(q = {}) {
   const where = {};
 
+  // 🔹 NUOVO: helper per regex esatta ma case-insensitive
+  const rxEqI = (s) =>
+    new RegExp("^" + String(s).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$", "i");
+
   // campi diretti
   if (q.status) where.status = q.status;
   if (q.visibility) where.visibility = q.visibility;
-  if (q.city) where.city = q.city;
-  if (q.province) where.province = q.province;
-  if (q.region) where.region = q.region;
-  if (q.country) where.country = q.country;
-  if (q.category) where.category = q.category;
-  if (q.subcategory) where.subcategory = q.subcategory;
-  if (q.type) where.type = q.type;
+
+  // 🔹 CAMBIO: campi geografici/categorici → match esatto, case-insensitive
+  if (q.city) where.city = rxEqI(q.city);
+  if (q.province) where.province = rxEqI(q.province);
+  if (q.region) where.region = rxEqI(q.region);
+  if (q.country) where.country = rxEqI(q.country);
+  if (q.category) where.category = rxEqI(q.category);
+  if (q.subcategory) where.subcategory = rxEqI(q.subcategory);
+  if (q.type) where.type = rxEqI(q.type);
 
   // booleano (arriva come stringa “true/false”)
   if (typeof q.isFree !== "undefined" && q.isFree !== "") {
@@ -155,4 +161,3 @@ async function remove(id, userId) {
 }
 
 module.exports = { list, listMine, getById, create, update, remove };
-
