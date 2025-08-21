@@ -7,6 +7,11 @@ async function list({ status }) {
   return Event.find(q).lean();
 }
 
+// Elenco eventi dell'organizzatore loggato
+async function listMine(ownerId) {
+  return Event.find({ owner: ownerId }).sort({ createdAt: -1 }).lean();
+}
+
 async function getById(id) {
   return Event.findById(id).lean();
 }
@@ -36,7 +41,7 @@ async function create(userId, body = {}) {
     contactEmail: body.contactEmail,
     contactPhone: body.contactPhone,
     externalUrl: body.externalUrl,
-    owner: userId,
+    owner: userId, // <— chi crea è il proprietario
     participants: [],
   });
   return ev.toObject();
@@ -76,4 +81,4 @@ async function remove(id, userId) {
   return ev;
 }
 
-module.exports = { list, getById, create, update, remove };
+module.exports = { list, listMine, getById, create, update, remove };
