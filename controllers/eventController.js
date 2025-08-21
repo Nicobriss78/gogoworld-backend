@@ -1,53 +1,63 @@
-// controllers/eventController.js — inoltra a eventsService (risposte semplici)
+// controllers/eventController.js — gestione eventi (completo)
 const eventsService = require("../services/eventsService");
 
-// RITORNA direttamente un ARRAY di eventi (non wrappato), così è coerente con register.js
+// GET /api/events?status=published
 async function list(req, res, next) {
   try {
-    const rows = await eventsService.list(req.query || {});
-    return res.json(rows);
-  } catch (err) { next(err); }
+    const { status } = req.query;
+    const events = await eventsService.list({ status });
+    return res.json(events);
+  } catch (err) {
+    return next(err);
+  }
 }
 
-// RITORNA un ARRAY di eventi dell'organizzatore loggato
-async function listMine(req, res, next) {
+// GET /api/events/:id
+async function getById(req, res, next) {
   try {
-    const rows = await eventsService.listMine(req.user.id, req.query || {});
-    return res.json(rows);
-  } catch (err) { next(err); }
+    const event = await eventsService.getById(req.params.id);
+    if (!event) {
+      const e = new Error("EVENT_NOT_FOUND");
+      e.status = 404;
+      throw e;
+    }
+    return res.json(event); // oggetto diretto (coerente con evento.js FE)
+  } catch (err) {
+    return next(err);
+  }
 }
 
-// RITORNA un singolo evento (oggetto, non wrappato)
-async function get(req, res, next) {
-  try {
-    const item = await eventsService.getById(req.params.id);
-    if (!item) return res.status(404).json({ ok: false, error: "EVENT_NOT_FOUND" });
-    return res.json(item);
-  } catch (err) { next(err); }
-}
-
+// POST /api/events
 async function create(req, res, next) {
   try {
-    const item = await eventsService.create(req.user.id, req.body || {});
-    return res.status(201).json(item);
-  } catch (err) { next(err); }
+    const ev = await eventsService.create(req.user.id, req.body || {});
+    return res.status(201).json(ev);
+  } catch (err) {
+    return next(err);
+  }
 }
 
+// PUT /api/events/:id
 async function update(req, res, next) {
   try {
-    const item = await eventsService.update(req.user.id, req.params.id, req.body || {});
-    return res.json(item);
-  } catch (err) { next(err); }
+    const ev = await eventsService.update(req.params.id, req.user.id, req.body || {});
+    return res.json(ev);
+  } catch (err) {
+    return next(err);
+  }
 }
 
+// DELETE /api/events/:id
 async function remove(req, res, next) {
   try {
-    const out = await eventsService.remove(req.user.id, req.params.id);
-    return res.json(out);
-  } catch (err) { next(err); }
+    const ev = await eventsService.remove(req.params.id, req.user.id);
+    return res.json({ ok: true, id: ev._id });
+  } catch (err) {
+    return next(err);
+  }
 }
 
-module.exports = { list, listMine, get, create, update, remove };
+module.exports = { list, getById, create, update, remove };
 
 
 
