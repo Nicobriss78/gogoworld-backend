@@ -15,7 +15,7 @@ async function list(req, res, next) {
 // GET /api/events/mine/list (organizer)
 async function listMine(req, res, next) {
   try {
-    const events = await eventsService.listMine(req.user.id);
+    const events = await eventsService.listMine(req.user.id, req.query || {});
     return res.json(events);
   } catch (err) {
     return next(err);
@@ -25,13 +25,9 @@ async function listMine(req, res, next) {
 // GET /api/events/:id
 async function getById(req, res, next) {
   try {
-    const event = await eventsService.getById(req.params.id);
-    if (!event) {
-      const e = new Error("EVENT_NOT_FOUND");
-      e.status = 404;
-      throw e;
-    }
-    return res.json(event); // oggetto diretto (coerente con evento.js FE)
+    const ev = await eventsService.getById(req.params.id);
+    if (!ev) return res.status(404).json({ error: "NOT_FOUND" });
+    return res.json(ev);
   } catch (err) {
     return next(err);
   }
@@ -68,6 +64,8 @@ async function remove(req, res, next) {
 }
 
 module.exports = { list, listMine, getById, create, update, remove };
+
+
 
 
 
