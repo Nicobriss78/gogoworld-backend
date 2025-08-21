@@ -1,4 +1,4 @@
-// models/eventModel.js — schema PRO con participants[]
+// models/eventModel.js — schema completo, coerente con services, con ownerId e participants[]
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
 
@@ -37,7 +37,8 @@ const EventSchema = new Schema(
     contactEmail: { type: String, default: "" },
     contactPhone: { type: String, default: "" },
 
-    ownerId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    // Proprietà di ownership e partecipazione
+    ownerId: { type: Schema.Types.ObjectId, ref: "User", index: true },
     participants: { type: [Schema.Types.ObjectId], ref: "User", default: [] },
   },
   { timestamps: true }
@@ -45,10 +46,10 @@ const EventSchema = new Schema(
 
 // Indici utili
 EventSchema.index({ status: 1, visibility: 1 });
-EventSchema.index({ ownerId: 1 });
 EventSchema.index({ city: 1, region: 1, country: 1 });
 EventSchema.index({ category: 1, subcategory: 1, type: 1 });
 EventSchema.index({ dateStart: 1, dateEnd: 1 });
 
 module.exports = mongoose.model("Event", EventSchema);
+
 
