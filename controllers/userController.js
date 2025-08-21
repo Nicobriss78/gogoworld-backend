@@ -39,6 +39,17 @@ async function setSessionRole(req, res, next) {
   }
 }
 
+// ✅ PUT /api/users/upgrade — upgrade permanente a organizer
+async function upgradeToOrganizer(req, res, next) {
+  try {
+    const out = await usersService.upgradeToOrganizer(req.user.id);
+    // out: { token, registeredRole:"organizer", sessionRole:"organizer" }
+    return res.json({ ok: true, ...out });
+  } catch (err) {
+    return next(err);
+  }
+}
+
 // GET /api/users/me
 async function me(req, res, next) {
   try {
@@ -98,15 +109,8 @@ module.exports = {
   register,
   login,
   setSessionRole,
+  upgradeToOrganizer, // ✅ export aggiunto
   me,
   join,
   leave,
 };
-
-
-
-
-
-
-
-
