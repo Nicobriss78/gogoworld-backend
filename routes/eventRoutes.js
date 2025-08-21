@@ -1,15 +1,15 @@
-// routes/eventRoutes.js
+
+// routes/eventRoutes.js — mappa endpoint eventi (completo)
 const express = require("express");
 const router = express.Router();
 const ctrl = require("../controllers/eventController");
 const { authRequired, roleRequired } = require("../middleware/auth");
 
-// Listing pubblico (filtri: status, visibility, city, region, country, category, isFree, dateFrom, dateTo)
+// Pubblici
 router.get("/", ctrl.list);
-router.get("/:id", ctrl.get);
+router.get("/:id", ctrl.getById);
 
-// Organizer area
-router.get("/mine/list", authRequired, roleRequired("organizer"), ctrl.listMine);
+// Protetti (solo organizzatore può creare/modificare/eliminare)
 router.post("/", authRequired, roleRequired("organizer"), ctrl.create);
 router.put("/:id", authRequired, roleRequired("organizer"), ctrl.update);
 router.delete("/:id", authRequired, roleRequired("organizer"), ctrl.remove);
