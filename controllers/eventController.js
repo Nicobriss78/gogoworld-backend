@@ -1,11 +1,11 @@
 // controllers/eventController.js — gestione eventi (completo)
 const eventsService = require("../services/eventsService");
 
-// GET /api/events?status=published
+// GET /api/events → lista con filtri da req.query
 async function list(req, res, next) {
   try {
-    const { status } = req.query;
-    const events = await eventsService.list({ status });
+    // ✅ INOLTRO TUTTI I FILTRI: non solo "status"
+    const events = await eventsService.list(req.query || {});
     return res.json(events);
   } catch (err) {
     return next(err);
@@ -68,6 +68,7 @@ async function remove(req, res, next) {
 }
 
 module.exports = { list, listMine, getById, create, update, remove };
+
 
 
 
