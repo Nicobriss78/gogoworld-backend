@@ -12,11 +12,15 @@ router.post("/login", ctrl.login);
 router.get("/me", authRequired, ctrl.me);
 router.put("/session-role", authRequired, ctrl.setSessionRole);
 
+// ✅ Upgrade ruolo (participant → organizer)
+router.put("/upgrade", authRequired, ctrl.upgradeToOrganizer);
+
 // Partecipazione eventi (solo sessionRole=participant)
 router.post("/:id/partecipa", authRequired, roleRequired("participant"), ctrl.join);
 router.post("/:id/annulla", authRequired, roleRequired("participant"), ctrl.leave);
 
 module.exports = router;
+
 
 
 
