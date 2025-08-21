@@ -8,15 +8,15 @@ const EventSchema = new Schema(
     description: { type: String, default: "" },
 
     status: { type: String, enum: ["draft", "published", "cancelled"], default: "draft" },
-    visibility: { type: String, enum: ["public", "private"], default: "public" },
+    visibility: { type: String, enum: ["public", "private", "unlisted"], default: "public" },
 
     type: { type: String, default: "" },
     category: { type: String, default: "" },
     subcategory: { type: String, default: "" },
     tags: { type: [String], default: [] },
 
-    dateStart: { type: Date, default: undefined },
-    dateEnd: { type: Date, default: undefined },
+    dateStart: { type: Date, default: null },
+    dateEnd: { type: Date, default: null },
     timezone: { type: String, default: "Europe/Rome" },
 
     venueName: { type: String, default: "" },
@@ -26,19 +26,19 @@ const EventSchema = new Schema(
     region: { type: String, default: "" },
     country: { type: String, default: "" },
 
-    capacity: { type: Number, default: 0 },
     isFree: { type: Boolean, default: true },
     priceMin: { type: Number, default: 0 },
     priceMax: { type: Number, default: 0 },
     currency: { type: String, default: "EUR" },
+
+    capacity: { type: Number, default: undefined },
 
     images: { type: [String], default: [] },
     externalUrl: { type: String, default: "" },
     contactEmail: { type: String, default: "" },
     contactPhone: { type: String, default: "" },
 
-    // Proprietà di ownership e partecipazione
-    ownerId: { type: Schema.Types.ObjectId, ref: "User", index: true },
+    ownerId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     participants: { type: [Schema.Types.ObjectId], ref: "User", default: [] },
   },
   { timestamps: true }
@@ -51,5 +51,6 @@ EventSchema.index({ category: 1, subcategory: 1, type: 1 });
 EventSchema.index({ dateStart: 1, dateEnd: 1 });
 
 module.exports = mongoose.model("Event", EventSchema);
+
 
 
