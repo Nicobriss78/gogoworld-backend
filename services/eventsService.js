@@ -1,10 +1,54 @@
-// services/eventsService.js — logica eventi, uniforme con schema (ownerId)
+// services/eventsService.js — logica eventi, filtri completi + ownerId
 const Event = require("../models/eventModel");
 
-async function list({ status }) {
-  const q = {};
-  if (status) q.status = status; // es. published
-  return Event.find(q).lean();
+// Costruisce il "where" in base ai parametri che il FE invia
+function buildListWhere(q = {}) {
+  const where = {};
+
+  // campi diretti
+  if (q.status) where.status = q.status;
+  if (q.visibility) where.visibility = q.visibility;
+  if (q.city) where.city = q.city;
+  if (q.province) where.province = q.province;
+  if (q.region) where.region = q.region;
+  if (q.country) where.country = q.country;
+  if (q.category) where.category = q.category;
+  if (q.subcategory) where.subcategory = q.subcategory;
+  if (q.type) where.type = q.type;
+
+  // booleano (arriva come stringa “true/false”)
+  if (typeof q.isFree !== "undefined" && q.isFree !== "") {
+    where.isFree = (q.isFree === true || q.isFree === "true");
+  }
+
+  // intervallo date (usa dateStart)
+  if (q.dateFrom || q.dateTo) {
+    where.dateStart = {};
+    if (q.dateFrom) where.dateStart.$gte = new Date(q.dateFrom);
+    if (q.dateTo) where.dateStart.$lte = new Date(q.dateTo);
+  }
+
+  // ricerca semplice su alcuni campi
+  if (q.q) {
+    const rx = new RegExp(String(q.q).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    where.$or = [
+      { title: rx },
+      { description: rx },
+      { city: rx },
+      { region: rx },
+      { country: rx },
+      { category: rx },
+      { type: rx },
+    ];
+  }
+
+  return where;
+}
+
+async function list(query = {}) {
+  const where = buildListWhere(query);
+  // Ordina per data di inizio (prima gli eventi imminenti)
+  return Event.find(where).sort({ dateStart: 1, createdAt: -1 }).lean();
 }
 
 // Elenco eventi dell'organizzatore loggato
@@ -43,8 +87,7 @@ async function create(userId, body = {}) {
     externalUrl: body.externalUrl || "",
     contactEmail: body.contactEmail || "",
     contactPhone: body.contactPhone || "",
-
-    ownerId: userId, // ⬅️ uniformato allo schema
+    ownerId: userId,
     participants: [],
   });
   return ev.toObject();
@@ -112,3 +155,4 @@ async function remove(id, userId) {
 }
 
 module.exports = { list, listMine, getById, create, update, remove };
+
