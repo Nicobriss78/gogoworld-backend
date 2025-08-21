@@ -37,18 +37,15 @@ async function register(body = {}) {
 
   const user = await User.create({ name, email, password, role });
   if (profile && typeof profile === "object") {
-    // salva profilo esteso se presente
     await UserProfile.create({ userId: user._id, ...profile });
   }
   return { userId: user._id };
 }
 
 function computeSessionRole(registeredRole, desiredRole) {
-  // organizer può attivare sessione organizer o participant
   if (registeredRole === "organizer") {
     return ALLOWED_ROLES.includes(desiredRole) ? desiredRole : "organizer";
   }
-  // participant resta participant
   return "participant";
 }
 
@@ -60,7 +57,6 @@ async function login({ email, password, desiredRole }) {
     throw e;
   }
 
-  // in questa fase base, password in chiaro
   if ((user.password || "") !== (password || "")) {
     const e = new Error("INVALID_CREDENTIALS");
     e.status = 401;
@@ -93,6 +89,24 @@ async function setSessionRole(userId, requestedRole) {
   return { token, sessionRole };
 }
 
+// ✅ Nuovo: upgrade permanente a organizer (idempotente)
+async function upgradeToOrganizer(userId) {
+  const user = await User.findById(userId);
+  if (!user) {
+    const e = new Error("USER_NOT_FOUND");
+    e.status = 404;
+    throw e;
+  }
+  if (user.role !== "organizer") {
+    user.role = "organizer";
+    await user.save();
+  }
+  const registeredRole = "organizer";
+  const sessionRole = "organizer";
+  const token = signToken({ id: user._id, registeredRole, sessionRole });
+  return { token, registeredRole, sessionRole };
+}
+
 async function joinEvent(userId, eventId) {
   const ev = await Event.findById(eventId);
   if (!ev) {
@@ -100,10 +114,7 @@ async function joinEvent(userId, eventId) {
     e.status = 404;
     throw e;
   }
-
-  const already = (ev.participants || []).some(
-    (pid) => String(pid) === String(userId)
-  );
+  const already = (ev.participants || []).some((pid) => String(pid) === String(userId));
   if (!already) {
     ev.participants.push(userId);
     await ev.save();
@@ -118,10 +129,7 @@ async function leaveEvent(userId, eventId) {
     e.status = 404;
     throw e;
   }
-
-  ev.participants = (ev.participants || []).filter(
-    (pid) => String(pid) !== String(userId)
-  );
+  ev.participants = (ev.participants || []).filter((pid) => String(pid) !== String(userId));
   await ev.save();
   return ev;
 }
@@ -130,7 +138,9 @@ module.exports = {
   register,
   login,
   setSessionRole,
+  upgradeToOrganizer, // ✅ export aggiunto
   joinEvent,
   leaveEvent,
 };
+
 
