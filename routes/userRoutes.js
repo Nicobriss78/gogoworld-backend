@@ -1,25 +1,24 @@
-// routes/userRoutes.js — mappa endpoint utenti (completo)
+// routes/userRoutes.js — completo con gestione ruolo coerente
 const express = require("express");
 const router = express.Router();
 const ctrl = require("../controllers/userController");
-const { authRequired, roleRequired } = require("../middleware/auth");
+const { authRequired } = require("../middleware/auth");
 
-// Pubbliche
+// Registrazione / login
 router.post("/register", ctrl.register);
 router.post("/login", ctrl.login);
 
-// Autenticate
+// Profilo
 router.get("/me", authRequired, ctrl.me);
+
+// Aggiorna ruolo registrato a organizer
+router.put("/upgrade", authRequired, ctrl.upgrade);
+
+// Cambia ruolo di sessione (participant <-> organizer)
 router.put("/session-role", authRequired, ctrl.setSessionRole);
 
-// ✅ Upgrade ruolo (participant → organizer)
-router.put("/upgrade", authRequired, ctrl.upgradeToOrganizer);
-
-// Partecipazione eventi (solo sessionRole=participant)
-router.post("/:id/partecipa", authRequired, roleRequired("participant"), ctrl.join);
-router.post("/:id/annulla", authRequired, roleRequired("participant"), ctrl.leave);
-
 module.exports = router;
+
 
 
 
