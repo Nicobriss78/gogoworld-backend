@@ -1,11 +1,10 @@
-// services/eventsService.js — logica eventi + filtri
+// services/eventsService.js — logica eventi + filtri + validazione date
 const Event = require("../models/eventModel");
 
 function rxEqI(s) {
   return new RegExp("^" + String(s).trim().replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&") + "$", "i");
 }
 
-// 🔸 helper: normalizza un campo testo in array di URL (una per riga o separatore virgola)
 function parseImages(input) {
   if (!input) return [];
   if (Array.isArray(input)) {
@@ -16,6 +15,18 @@ function parseImages(input) {
     .split(/\r?\n|,/g)
     .map(s => s.trim())
     .filter(Boolean);
+}
+
+// 🔒 Validazione server-side sul range date
+function assertValidDateRange(dateStart, dateEnd) {
+  if (!dateStart || !dateEnd) return; // uno dei due manca: non validiamo qui
+  const s = new Date(dateStart).getTime();
+  const e = new Date(dateEnd).getTime();
+  if (Number.isFinite(s) && Number.isFinite(e) && e < s) {
+    const err = new Error("INVALID_DATE_RANGE");
+    err.status = 400;
+    throw err;
+  }
 }
 
 // Costruisce il "where" in base ai parametri che il FE invia
@@ -72,8 +83,11 @@ async function getById(id) {
 }
 
 async function create(ownerId, body) {
-  const imagesFromText = parseImages(body.imagesText || body.images); // supporta textarea o array
-  const singleImageFallback = body.imageUrl ? [String(body.imageUrl).trim()] : []; // compat vecchio
+  // validazione date
+  assertValidDateRange(body.dateStart, body.dateEnd);
+
+  const imagesFromText = parseImages(body.imagesText || body.images);
+  const singleImageFallback = body.imageUrl ? [String(body.imageUrl).trim()] : [];
 
   const ev = await Event.create({
     ownerId,
@@ -103,7 +117,6 @@ async function create(ownerId, body) {
     currency: body.currency || "EUR",
     capacity: typeof body.capacity === "number" ? body.capacity : undefined,
 
-    // 🔹 NUOVO: cover + galleria
     coverImage: (body.coverImage || body.imageUrl || "").trim(),
     images: imagesFromText.length ? imagesFromText : singleImageFallback,
 
@@ -115,13 +128,12 @@ async function create(ownerId, body) {
 }
 
 async function update(id, userId, body) {
+  // validazione date
+  assertValidDateRange(body.dateStart, body.dateEnd);
+
   const ev = await Event.findById(id);
-  if (!ev) {
-    const e = new Error("EVENT_NOT_FOUND"); e.status = 404; throw e;
-  }
-  if (String(ev.ownerId) !== String(userId)) {
-    const e = new Error("NOT_OWNER"); e.status = 403; throw e;
-  }
+  if (!ev) { const e = new Error("EVENT_NOT_FOUND"); e.status = 404; throw e; }
+  if (String(ev.ownerId) !== String(userId)) { const e = new Error("NOT_OWNER"); e.status = 403; throw e; }
 
   const imagesFromText = parseImages(body.imagesText || body.images);
 
@@ -148,7 +160,6 @@ async function update(id, userId, body) {
     country: body.country ?? ev.country,
     capacity: (typeof body.capacity === "number" ? body.capacity : ev.capacity),
 
-    // 🔹 NUOVO: cover + galleria
     coverImage: (typeof body.coverImage === "string") ? body.coverImage.trim() : ev.coverImage,
     images: imagesFromText.length ? imagesFromText : (Array.isArray(body.images) ? body.images : ev.images),
 
