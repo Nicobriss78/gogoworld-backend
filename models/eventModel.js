@@ -1,4 +1,4 @@
-// models/eventModel.js — schema completo, coerente con services, con ownerId e participants[]
+// models/eventModel.js — schema eventi
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
 
@@ -33,7 +33,10 @@ const EventSchema = new Schema(
 
     capacity: { type: Number, default: undefined },
 
+    // 🔹 NUOVO
+    coverImage: { type: String, default: "" },
     images: { type: [String], default: [] },
+
     externalUrl: { type: String, default: "" },
     contactEmail: { type: String, default: "" },
     contactPhone: { type: String, default: "" },
@@ -51,6 +54,7 @@ EventSchema.index({ category: 1, subcategory: 1, type: 1 });
 EventSchema.index({ dateStart: 1, dateEnd: 1 });
 
 module.exports = mongoose.model("Event", EventSchema);
+
 
 
 
