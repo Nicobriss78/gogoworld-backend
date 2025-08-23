@@ -1,59 +1,69 @@
-// routes/userRoutes.js — completo + guardia per /session-role
+// routes/userRoutes.js — mappatura utenti — 2025-08-23 (Fase 5)
+// Aggiunge remap per alias /users/join|leave/:eventId -> req.params.id
+
 const express = require("express");
 const router = express.Router();
 
 const ctrl = require("../controllers/userController");
 const { authRequired } = require("../middleware/auth");
 
-// Utility: verifica che una funzione esista nel controller
-function pick(fnNames = []) {
-  for (const name of fnNames) {
-    if (name && typeof ctrl[name] === "function") return ctrl[name];
+// Utility: prende il primo handler presente
+function handlerOr501(names) {
+  for (const n of names) {
+    if (n && typeof ctrl[n] === "function") return ctrl[n];
   }
-  return null;
+  return (_req, res) => {
+    res.status(501).json({
+      ok: false,
+      error: "HANDLER_NOT_IMPLEMENTED",
+      message: `Nessuna delle funzioni [${names.join(", ")}] è presente in userController.`,
+    });
+  };
 }
 
-// ---------------------------
-// Auth base
-// ---------------------------
-router.post("/register", ctrl.register);
-router.post("/login", ctrl.login);
-
-// Profilo
-router.get("/me", authRequired, ctrl.me);
-
-// Upgrade a organizer (ruolo registrato)
-router.put("/upgrade", authRequired, ctrl.upgrade);
-
-// ---------------------------
-// Switch ruolo di SESSIONE
-// Accetta sia body vuoto che { sessionRole } / { role }
-// Non facciamo crashare il server se il metodo nel controller
-// ha un nome diverso: proviamo più alias comuni.
-// ---------------------------
-const sessionRoleHandler =
-  pick(["setSessionRole", "sessionRole", "switchSessionRole", "switchRole", "changeSessionRole"]);
-
-router.put("/session-role", authRequired, (req, res, next) => {
-  // Normalizziamo l'input per massima compatibilità lato controller
-  if (req && req.body && !req.body.sessionRole && req.body.role) {
-    req.body.sessionRole = req.body.role;
+// Remap middleware per alias di compatibilità
+function remapEventParam(req, _res, next) {
+  if (!req.params) req.params = {};
+  if (req.params.eventId && !req.params.id) {
+    req.params.id = req.params.eventId;
   }
+  next();
+}
 
-  if (sessionRoleHandler) {
-    // Deleghiamo al controller esistente
-    return sessionRoleHandler(req, res, next);
-  }
+// Pubblici
+router.post("/register", handlerOr501(["register", "signup"]));
+router.post("/login", handlerOr501(["login", "signin"]));
 
-  // Fallback sicuro: non crasha e rende visibile il problema
-  return res.status(501).json({
-    error: "SESSION_ROLE_HANDLER_MISSING",
-    message:
-      "Nel controller userController non è presente alcun handler fra: setSessionRole, sessionRole, switchSessionRole, switchRole, changeSessionRole.",
-  });
-});
+// Profilo utente corrente
+router.get("/me", authRequired, handlerOr501(["me", "getMe"]));
+
+// Aggiornamento ruolo di sessione (switch senza nuovo login)
+router.post(
+  "/session-role",
+  authRequired,
+  handlerOr501([
+    "setSessionRole",
+    "handleSessionRole",
+    "switchSessionRole",
+    "switchRole",
+    "changeSessionRole",
+  ])
+);
+
+// Partecipazione eventi (mapping standard lato /users)
+router.post("/join/:eventId", authRequired, remapEventParam, handlerOr501(["join", "joinEvent"]));
+router.post("/leave/:eventId", authRequired, remapEventParam, handlerOr501(["leave", "leaveEvent"]));
+
+// Alias legacy (se il FE usasse /users/:id/join|leave)
+router.post("/:id/join", authRequired, handlerOr501(["join", "joinEvent"]));
+router.post("/:id/leave", authRequired, handlerOr501(["leave", "leaveEvent"]));
+
+// (Opzionale) upgrade statistico del ruolo registrato
+router.post("/upgrade", authRequired, handlerOr501(["upgrade"]));
 
 module.exports = router;
+
+
 
 
 
