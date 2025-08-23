@@ -1,116 +1,240 @@
-// controllers/userController.js — orchestratore Users (completo)
-const usersService = require("../services/usersService");
-const UserProfile = require("../models/userProfileModel");
-const User = require("../models/userModel");
+// controllers/userController.js — completo
+// Coerenza con le dinamiche attese:
+// - Login/Register → ritorna { token, userId, registeredRole, sessionRole }
+// - Upgrade → passa registeredRole=organizer e sessionRole=organizer, ritorna nuovo token
+// - setSessionRole → accetta body vuoto o { sessionRole } / { role } e ritorna sempre { registeredRole, sessionRole, token }
+// - join/leave → gestisce partecipazione evento (usato anche da /api/events/:id/join|leave)
 
-// POST /api/users/register
-async function register(req, res, next) {
-  try {
-    const { userId } = await usersService.register(req.body || {});
-    return res.status(201).json({ ok: true, userId });
-  } catch (err) {
-    return next(err);
-  }
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const User = require("../models/User");
+const Event = require("../models/Event");
+
+const JWT_SECRET = process.env.JWT_SECRET || "CHANGE_ME_SECRET";
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
+
+// -------------------------------------
+// helpers
+// -------------------------------------
+function pickSafeUser(u) {
+  return {
+    id: String(u._id),
+    email: u.email,
+    name: u.name || "",
+    registeredRole: u.registeredRole || "participant",
+  };
 }
 
-// POST /api/users/login
-// body: { email, password, desiredRole? }
-async function login(req, res, next) {
-  try {
-    const { email, password, desiredRole } = req.body || {};
-    const out = await usersService.login({ email, password, desiredRole });
-    // out: { token, userId, registeredRole, sessionRole }
-    return res.json({ ok: true, ...out });
-  } catch (err) {
-    return next(err);
-  }
+function signToken(userDoc, sessionRole) {
+  const payload = {
+    uid: String(userDoc._id),
+    registeredRole: userDoc.registeredRole || "participant",
+    sessionRole: sessionRole || userDoc.registeredRole || "participant",
+  };
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 }
 
-// PUT /api/users/session-role
-// body: { sessionRole: "participant" | "organizer" }
-async function setSessionRole(req, res, next) {
-  try {
-    const { sessionRole } = req.body || {};
-    const out = await usersService.setSessionRole(req.user.id, sessionRole);
-    // out: { token, sessionRole }
-    return res.json({ ok: true, ...out });
-  } catch (err) {
-    return next(err);
-  }
+function getSessionRoleFromReq(req) {
+  // authRequired dovrebbe aver popolato req.user dal JWT
+  // fallback: participant
+  return (req.user && req.user.sessionRole) || (req.user && req.user.registeredRole) || "participant";
 }
 
-// ✅ PUT /api/users/upgrade — upgrade permanente a organizer
-async function upgradeToOrganizer(req, res, next) {
-  try {
-    const out = await usersService.upgradeToOrganizer(req.user.id);
-    // out: { token, registeredRole:"organizer", sessionRole:"organizer" }
-    return res.json({ ok: true, ...out });
-  } catch (err) {
-    return next(err);
+// Normalizza eventuali alias dal body
+function normalizeSessionRoleBody(body = {}) {
+  if (!body) return {};
+  const out = { ...body };
+  if (!out.sessionRole && out.role) out.sessionRole = out.role;
+  if (out.sessionRole !== "organizer" && out.sessionRole !== "participant") {
+    delete out.sessionRole;
   }
+  return out;
 }
 
-// GET /api/users/me
-async function me(req, res, next) {
+// -------------------------------------
+// Auth
+// -------------------------------------
+exports.register = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).lean();
-    const profile = await UserProfile.findOne({ userId: req.user.id }).lean();
-    return res.json({
-      ok: true,
-      user: {
-        id: user?._id,
-        name: user?.name,
-        email: user?.email,
-        registeredRole: user?.role || "participant",
-        sessionRole: req.user.sessionRole,
-      },
-      profile: profile || null,
+    const { email, password, name } = req.body || {};
+    if (!email || !password) return res.status(400).json({ error: "EMAIL_PASSWORD_REQUIRED" });
+
+    const exists = await User.findOne({ email: email.toLowerCase() });
+    if (exists) return res.status(409).json({ error: "EMAIL_ALREADY_REGISTERED" });
+
+    const hash = await bcrypt.hash(password, 10);
+    const user = await User.create({
+      email: email.toLowerCase(),
+      passwordHash: hash,
+      name: name || "",
+      // Ruolo registrato: di default participant (il ruolo scelto in registrazione è solo statistico)
+      registeredRole: "participant",
+    });
+
+    const sessionRole = "participant";
+    const token = signToken(user, sessionRole);
+    return res.status(201).json({
+      token,
+      userId: String(user._id),
+      registeredRole: user.registeredRole,
+      sessionRole,
+      user: pickSafeUser(user),
     });
   } catch (err) {
-    return next(err);
+    return res.status(500).json({ error: "REGISTER_FAILED", message: err.message });
   }
-}
+};
 
-// POST /api/users/:id/partecipa
-// body: { eventId }
-async function join(req, res, next) {
+exports.login = async (req, res) => {
   try {
-    const eventId = req.body?.eventId;
-    if (!eventId) {
-      const e = new Error("EVENT_ID_REQUIRED");
-      e.status = 400;
-      throw e;
-    }
-    const ev = await usersService.joinEvent(req.user.id, eventId);
-    return res.json({ ok: true, eventId: ev._id, participants: ev.participants });
-  } catch (err) {
-    return next(err);
-  }
-}
+    const { email, password } = req.body || {};
+    if (!email || !password) return res.status(400).json({ error: "EMAIL_PASSWORD_REQUIRED" });
 
-// POST /api/users/:id/annulla
-// body: { eventId }
-async function leave(req, res, next) {
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) return res.status(401).json({ error: "INVALID_CREDENTIALS" });
+
+    const ok = await bcrypt.compare(password, user.passwordHash);
+    if (!ok) return res.status(401).json({ error: "INVALID_CREDENTIALS" });
+
+    // sessionRole iniziale = registeredRole (dinamiche attese)
+    const sessionRole = user.registeredRole || "participant";
+    const token = signToken(user, sessionRole);
+
+    return res.json({
+      token,
+      userId: String(user._id),
+      registeredRole: user.registeredRole || "participant",
+      sessionRole,
+      user: pickSafeUser(user),
+    });
+  } catch (err) {
+    return res.status(500).json({ error: "LOGIN_FAILED", message: err.message });
+  }
+};
+
+exports.me = async (req, res) => {
   try {
-    const eventId = req.body?.eventId;
-    if (!eventId) {
-      const e = new Error("EVENT_ID_REQUIRED");
-      e.status = 400;
-      throw e;
-    }
-    const ev = await usersService.leaveEvent(req.user.id, eventId);
-    return res.json({ ok: true, eventId: ev._id, participants: ev.participants });
+    const user = await User.findById(req.user.uid || req.user._id);
+    if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+    return res.json({
+      user: pickSafeUser(user),
+      sessionRole: getSessionRoleFromReq(req),
+      registeredRole: user.registeredRole || "participant",
+    });
   } catch (err) {
-    return next(err);
+    return res.status(500).json({ error: "ME_FAILED", message: err.message });
   }
-}
+};
 
-module.exports = {
-  register,
-  login,
-  setSessionRole,
-  upgradeToOrganizer, // ✅ export aggiunto
-  me,
-  join,
-  leave,
+// -------------------------------------
+// Upgrade: registeredRole → organizer
+// (e sessionRole allineato ad organizer)
+// -------------------------------------
+exports.upgrade = async (req, res) => {
+  try {
+    const uid = req.user.uid || req.user._id;
+    const user = await User.findById(uid);
+    if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+
+    if (user.registeredRole !== "organizer") {
+      user.registeredRole = "organizer";
+      await user.save();
+    }
+
+    const sessionRole = "organizer";
+    const token = signToken(user, sessionRole);
+
+    return res.json({
+      token,
+      userId: String(user._id),
+      registeredRole: user.registeredRole,
+      sessionRole,
+      user: pickSafeUser(user),
+    });
+  } catch (err) {
+    return res.status(500).json({ error: "UPGRADE_FAILED", message: err.message });
+  }
+};
+
+// -------------------------------------
+// setSessionRole: participant ↔ organizer
+// Accetta body vuoto o { sessionRole } / { role }
+// Se assente, fa toggle dall’attuale ruolo di sessione
+// -------------------------------------
+exports.setSessionRole = async (req, res) => {
+  try {
+    const uid = req.user.uid || req.user._id;
+    const user = await User.findById(uid);
+    if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+
+    const body = normalizeSessionRoleBody(req.body || {});
+    const currentSession = getSessionRoleFromReq(req);
+    let next = body.sessionRole;
+
+    if (!next) {
+      // toggle
+      next = currentSession === "organizer" ? "participant" : "organizer";
+    }
+
+    // Non permettere sessionRole organizer se registeredRole non è organizer
+    const registeredRole = user.registeredRole || "participant";
+    if (next === "organizer" && registeredRole !== "organizer") {
+      // se non è ancora organizer “registrato”, rimane participant
+      next = "participant";
+    }
+
+    const token = signToken(user, next);
+
+    return res.json({
+      token,
+      userId: String(user._id),
+      registeredRole,
+      sessionRole: next,
+      user: pickSafeUser(user),
+    });
+  } catch (err) {
+    return res.status(500).json({ error: "SESSION_ROLE_FAILED", message: err.message });
+  }
+};
+
+// -------------------------------------
+// Partecipazione eventi (riusata da eventRoutes /:id/join|leave)
+// Richiede authRequired e (idealmente) roleRequired('participant')
+// -------------------------------------
+exports.join = async (req, res) => {
+  try {
+    const eventId = req.params.id;
+    const uid = req.user.uid || req.user._id;
+
+    const ev = await Event.findById(eventId);
+    if (!ev) return res.status(404).json({ error: "EVENT_NOT_FOUND" });
+
+    const already = (ev.participants || []).some(p => String(p) === String(uid));
+    if (!already) {
+      ev.participants = Array.isArray(ev.participants) ? ev.participants : [];
+      ev.participants.push(uid);
+      await ev.save();
+    }
+
+    return res.json(ev);
+  } catch (err) {
+    return res.status(500).json({ error: "JOIN_FAILED", message: err.message });
+  }
+};
+
+exports.leave = async (req, res) => {
+  try {
+    const eventId = req.params.id;
+    const uid = req.user.uid || req.user._id;
+
+    const ev = await Event.findById(eventId);
+    if (!ev) return res.status(404).json({ error: "EVENT_NOT_FOUND" });
+
+    ev.participants = (ev.participants || []).filter(p => String(p) !== String(uid));
+    await ev.save();
+
+    return res.json(ev);
+  } catch (err) {
+    return res.status(500).json({ error: "LEAVE_FAILED", message: err.message });
+  }
 };
