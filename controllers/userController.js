@@ -1,8 +1,8 @@
-// controllers/userController.js — allineato ai tuoi modelli:
+// controllers/userController.js — aderente ai tuoi modelli:
 // - Usa ../models/userModel e ../models/eventModel
-// - Campi User: name, email, password (plain), role ("participant"|"organizer"), currentRole (legacy)
+// - Campi User: name, email, password (plain), role ("participant"|"organizer")
 // - "registeredRole" = user.role
-// - "sessionRole" è solo nel JWT (non persistiamo altro, salvo currentRole legacy se già usato)
+// - "sessionRole" solo nel JWT (non persistiamo altro; aggiorniamo currentRole se già presente nel modello)
 // - Tutte le risposte di login/upgrade/setSessionRole ritornano: { token, userId, registeredRole, sessionRole, user }
 
 const jwt = require("jsonwebtoken");
@@ -22,9 +22,11 @@ function safeUser(u) {
   };
 }
 
+// ⚠️ Compatibilità middleware: includo SIA id SIA uid nel payload
 function signToken(userDoc, sessionRole) {
   const payload = {
-    uid: String(userDoc._id),
+    id: String(userDoc._id), // compatibile con authRequired che legge decoded.id
+    uid: String(userDoc._id), // retro-compatibilità con codice che legge uid
     registeredRole: userDoc.role || "participant",
     sessionRole: sessionRole || userDoc.role || "participant",
   };
@@ -32,7 +34,7 @@ function signToken(userDoc, sessionRole) {
 }
 
 function getSessionRoleFromReq(req) {
-  return (req.user && req.user.sessionRole) || (req.user && req.user.registeredRole) || "participant";
+  return (req.user && (req.user.sessionRole || req.user.registeredRole)) || "participant";
 }
 
 function normalizeSessionRoleBody(body = {}) {
@@ -57,7 +59,7 @@ exports.register = async (req, res) => {
       email: email.toLowerCase(),
       password, // ⚠️ nel tuo modello è plain (TODO bcrypt in futuro)
       name,
-      role: "participant", // registeredRole iniziale
+      role: "participant",
     });
 
     const sessionRole = "participant";
@@ -78,6 +80,9 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body || {};
+    // ruolo desiderato (opzionale) scelto in homepage e inviato dal FE
+    const desiredRole = (req.body && (req.body.desiredRole || req.body.sessionRole || req.body.role)) || null;
+
     if (!email || !password) return res.status(400).json({ error: "EMAIL_PASSWORD_REQUIRED" });
 
     const user = await User.findOne({ email: email.toLowerCase() });
@@ -88,7 +93,23 @@ exports.login = async (req, res) => {
       return res.status(401).json({ error: "INVALID_CREDENTIALS" });
     }
 
-    const sessionRole = user.role || "participant";
+    // sessionRole di default = registeredRole
+    let sessionRole = user.role || "participant";
+
+    // Se il FE ha espresso un desiredRole, lo rispettiamo se coerente
+    if (desiredRole === "organizer" && user.role === "organizer") {
+      sessionRole = "organizer";
+    } else if (desiredRole === "participant") {
+      sessionRole = "participant";
+    }
+    // Altrimenti resta il default (registeredRole)
+
+    // opzionale: se usi currentRole legacy, lo allineo
+    if ("currentRole" in user) {
+      user.currentRole = sessionRole;
+      try { await user.save(); } catch {}
+    }
+
     const token = signToken(user, sessionRole);
 
     return res.json({
@@ -105,7 +126,7 @@ exports.login = async (req, res) => {
 
 exports.me = async (req, res) => {
   try {
-    const user = await User.findById(req.user.uid || req.user._id);
+    const user = await User.findById(req.user.id || req.user.uid || req.user._id);
     if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
     return res.json({
       user: safeUser(user),
@@ -120,7 +141,7 @@ exports.me = async (req, res) => {
 // --------------------- Upgrade (registeredRole → organizer) ---------------------
 exports.upgrade = async (req, res) => {
   try {
-    const uid = req.user.uid || req.user._id;
+    const uid = req.user.id || req.user.uid || req.user._id;
     const user = await User.findById(uid);
     if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
 
@@ -147,7 +168,7 @@ exports.upgrade = async (req, res) => {
 // --------------------- setSessionRole (toggle o esplicito) ---------------------
 exports.setSessionRole = async (req, res) => {
   try {
-    const uid = req.user.uid || req.user._id;
+    const uid = req.user.id || req.user.uid || req.user._id;
     const user = await User.findById(uid);
     if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
 
@@ -161,10 +182,9 @@ exports.setSessionRole = async (req, res) => {
       next = "participant";
     }
 
-    // opzionale: se usi currentRole legacy, lo aggiorno senza vincolarti
     if ("currentRole" in user) {
       user.currentRole = next;
-      try { await user.save(); } catch (_) {}
+      try { await user.save(); } catch {}
     }
 
     const token = signToken(user, next);
@@ -184,7 +204,7 @@ exports.setSessionRole = async (req, res) => {
 exports.join = async (req, res) => {
   try {
     const eventId = req.params.id;
-    const uid = req.user.uid || req.user._id;
+    const uid = req.user.id || req.user.uid || req.user._id;
 
     const ev = await Event.findById(eventId);
     if (!ev) return res.status(404).json({ error: "EVENT_NOT_FOUND" });
@@ -205,7 +225,7 @@ exports.join = async (req, res) => {
 exports.leave = async (req, res) => {
   try {
     const eventId = req.params.id;
-    const uid = req.user.uid || req.user._id;
+    const uid = req.user.id || req.user.uid || req.user._id;
 
     const ev = await Event.findById(eventId);
     if (!ev) return res.status(404).json({ error: "EVENT_NOT_FOUND" });
@@ -218,4 +238,5 @@ exports.leave = async (req, res) => {
     return res.status(500).json({ error: "LEAVE_FAILED", message: err.message });
   }
 };
+
 
