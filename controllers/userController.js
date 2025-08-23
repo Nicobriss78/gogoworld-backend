@@ -1,242 +1,194 @@
-// controllers/userController.js — aderente ai tuoi modelli:
-// - Usa ../models/userModel e ../models/eventModel
-// - Campi User: name, email, password (plain), role ("participant"|"organizer")
-// - "registeredRole" = user.role
-// - "sessionRole" solo nel JWT (non persistiamo altro; aggiorniamo currentRole se già presente nel modello)
-// - Tutte le risposte di login/upgrade/setSessionRole ritornano: { token, userId, registeredRole, sessionRole, user }
+// controllers/userController.js — GoGo.World — 2025-08-23
+// Implementazioni essenziali e coerenti con le dinamiche concordate.
+// - registeredRole: campo statistico dell'utente (persistente)
+// - sessionRole: ruolo ATTIVO nella sessione (solo nel JWT), può essere cambiato in ogni momento
+// - join/leave: gestiti su utente (lista joinedEvents) per ricostruire stato Partecipante
 
 const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
 const User = require("../models/userModel");
 const Event = require("../models/eventModel");
 
-const JWT_SECRET = process.env.JWT_SECRET || "CHANGE_ME_SECRET";
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
+// --- Helpers
 
-// --------------------- helpers ---------------------
+function signToken(user, sessionRole) {
+  const payload = {
+    sub: String(user._id),
+    email: user.email,
+    sessionRole: sessionRole || "participant",
+  };
+  const opts = { expiresIn: process.env.JWT_EXPIRES_IN || "7d" };
+  return jwt.sign(payload, process.env.JWT_SECRET || "dev_secret", opts);
+}
+
 function safeUser(u) {
+  if (!u) return null;
   return {
-    id: String(u._id),
+    _id: u._id,
     email: u.email,
     name: u.name || "",
-    registeredRole: u.role || "participant",
+    registeredRole: u.registeredRole || "participant",
+    joinedEvents: Array.isArray(u.joinedEvents) ? u.joinedEvents : [],
+    createdAt: u.createdAt,
+    updatedAt: u.updatedAt,
   };
 }
 
-// ⚠️ Compatibilità middleware: includo SIA id SIA uid nel payload
-function signToken(userDoc, sessionRole) {
-  const payload = {
-    id: String(userDoc._id), // compatibile con authRequired che legge decoded.id
-    uid: String(userDoc._id), // retro-compatibilità con codice che legge uid
-    registeredRole: userDoc.role || "participant",
-    sessionRole: sessionRole || userDoc.role || "participant",
-  };
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+function normalizeRole(val) {
+  const v = String(val || "").toLowerCase();
+  return v === "organizer" ? "organizer" : "participant";
 }
 
-function getSessionRoleFromReq(req) {
-  return (req.user && (req.user.sessionRole || req.user.registeredRole)) || "participant";
-}
+// --- Controllers
 
-function normalizeSessionRoleBody(body = {}) {
-  const out = { ...body };
-  if (!out.sessionRole && out.role) out.sessionRole = out.role;
-  if (out.sessionRole !== "organizer" && out.sessionRole !== "participant") delete out.sessionRole;
-  return out;
-}
-
-// --------------------- Auth ---------------------
+// POST /api/users/register
 exports.register = async (req, res) => {
   try {
-    const { email, password, name } = req.body || {};
-    if (!email || !password || !name) {
-      return res.status(400).json({ error: "EMAIL_PASSWORD_NAME_REQUIRED" });
+    const { email, password, role } = req.body || {};
+    if (!email || !password) {
+      return res.status(400).json({ ok: false, error: "BAD_REQUEST", message: "Email e password sono obbligatorie." });
     }
-
-    const exists = await User.findOne({ email: email.toLowerCase() });
-    if (exists) return res.status(409).json({ error: "EMAIL_ALREADY_REGISTERED" });
-
+    const exists = await User.findOne({ email });
+    if (exists) {
+      return res.status(409).json({ ok: false, error: "EMAIL_EXISTS", message: "Email già registrata." });
+    }
+    const hash = await bcrypt.hash(password, 10);
     const user = await User.create({
-      email: email.toLowerCase(),
-      password, // ⚠️ nel tuo modello è plain (TODO bcrypt in futuro)
-      name,
-      role: "participant",
+      email,
+      passwordHash: hash,
+      registeredRole: normalizeRole(role), // statistico
+      joinedEvents: [],
     });
-
-    const sessionRole = "participant";
-    const token = signToken(user, sessionRole);
-
-    return res.status(201).json({
-      token,
-      userId: String(user._id),
-      registeredRole: user.role,
-      sessionRole,
-      user: safeUser(user),
-    });
+    const token = signToken(user, "participant"); // default sessione
+    return res.status(201).json({ ok: true, token, user: safeUser(user) });
   } catch (err) {
-    return res.status(500).json({ error: "REGISTER_FAILED", message: err.message });
+    return res.status(500).json({ ok: false, error: "REGISTER_FAILED", message: err.message });
   }
 };
 
+// POST /api/users/login
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body || {};
-    // ruolo desiderato (opzionale) scelto in homepage e inviato dal FE
-    const desiredRole = (req.body && (req.body.desiredRole || req.body.sessionRole || req.body.role)) || null;
-
-    if (!email || !password) return res.status(400).json({ error: "EMAIL_PASSWORD_REQUIRED" });
-
-    const user = await User.findOne({ email: email.toLowerCase() });
-    if (!user) return res.status(401).json({ error: "INVALID_CREDENTIALS" });
-
-    // Nel tuo schema la password è plain; confronto diretto
-    if (String(user.password || "") !== String(password)) {
-      return res.status(401).json({ error: "INVALID_CREDENTIALS" });
+    if (!email || !password) {
+      return res.status(400).json({ ok: false, error: "BAD_REQUEST", message: "Email e password sono obbligatorie." });
     }
-
-    // sessionRole di default = registeredRole
-    let sessionRole = user.role || "participant";
-
-    // Se il FE ha espresso un desiredRole, lo rispettiamo se coerente
-    if (desiredRole === "organizer" && user.role === "organizer") {
-      sessionRole = "organizer";
-    } else if (desiredRole === "participant") {
-      sessionRole = "participant";
+    const user = await User.findOne({ email });
+    if (!user || !user.passwordHash) {
+      return res.status(401).json({ ok: false, error: "INVALID_CREDENTIALS", message: "Credenziali non valide." });
     }
-    // Altrimenti resta il default (registeredRole)
-
-    // opzionale: se usi currentRole legacy, lo allineo
-    if ("currentRole" in user) {
-      user.currentRole = sessionRole;
-      try { await user.save(); } catch {}
+    const ok = await bcrypt.compare(password, user.passwordHash);
+    if (!ok) {
+      return res.status(401).json({ ok: false, error: "INVALID_CREDENTIALS", message: "Credenziali non valide." });
     }
-
-    const token = signToken(user, sessionRole);
-
-    return res.json({
-      token,
-      userId: String(user._id),
-      registeredRole: user.role || "participant",
-      sessionRole,
-      user: safeUser(user),
-    });
+    // Al login non imponiamo un sessionRole: verrà impostato dopo via /session-role
+    const token = signToken(user, "participant");
+    return res.json({ ok: true, token, user: safeUser(user) });
   } catch (err) {
-    return res.status(500).json({ error: "LOGIN_FAILED", message: err.message });
+    return res.status(500).json({ ok: false, error: "LOGIN_FAILED", message: err.message });
   }
 };
 
+// GET /api/users/me (authRequired)
 exports.me = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id || req.user.uid || req.user._id);
-    if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
-    return res.json({
-      user: safeUser(user),
-      sessionRole: getSessionRoleFromReq(req),
-      registeredRole: user.role || "participant",
-    });
+    const uid = req.user?.sub || req.user?._id || req.user?.id;
+    if (!uid) return res.status(401).json({ ok: false, error: "UNAUTHORIZED", message: "Token non valido." });
+    const user = await User.findById(uid).lean();
+    if (!user) return res.status(404).json({ ok: false, error: "USER_NOT_FOUND" });
+
+    // joinedEvents può essere una lista di ObjectId. Manteniamo come array di stringhe per semplicità FE.
+    const joined = Array.isArray(user.joinedEvents) ? user.joinedEvents.map(String) : [];
+    return res.json({ ok: true, ...safeUser(user), joinedEvents: joined });
   } catch (err) {
-    return res.status(500).json({ error: "ME_FAILED", message: err.message });
+    return res.status(500).json({ ok: false, error: "ME_FAILED", message: err.message });
   }
 };
 
-// --------------------- Upgrade (registeredRole → organizer) ---------------------
-exports.upgrade = async (req, res) => {
-  try {
-    const uid = req.user.id || req.user.uid || req.user._id;
-    const user = await User.findById(uid);
-    if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
-
-    if (user.role !== "organizer") {
-      user.role = "organizer";
-      await user.save();
-    }
-
-    const sessionRole = "organizer";
-    const token = signToken(user, sessionRole);
-
-    return res.json({
-      token,
-      userId: String(user._id),
-      registeredRole: user.role,
-      sessionRole,
-      user: safeUser(user),
-    });
-  } catch (err) {
-    return res.status(500).json({ error: "UPGRADE_FAILED", message: err.message });
-  }
-};
-
-// --------------------- setSessionRole (toggle o esplicito) ---------------------
+// POST /api/users/session-role (authRequired)
+// Cambia SOLO il ruolo di sessione (nel JWT). Nessun vincolo sul registeredRole.
 exports.setSessionRole = async (req, res) => {
   try {
-    const uid = req.user.id || req.user.uid || req.user._id;
+    const uid = req.user?.sub || req.user?._id || req.user?.id;
+    if (!uid) return res.status(401).json({ ok: false, error: "UNAUTHORIZED", message: "Token non valido." });
+
+    const { role } = req.body || {};
+    const sessionRole = normalizeRole(role);
+
     const user = await User.findById(uid);
-    if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+    if (!user) return res.status(404).json({ ok: false, error: "USER_NOT_FOUND" });
 
-    const body = normalizeSessionRoleBody(req.body || {});
-    const current = getSessionRoleFromReq(req);
-    let next = body.sessionRole || (current === "organizer" ? "participant" : "organizer");
-
-    // vincolo: se non è organizer registrato, non può avere sessionRole=organizer
-    const registeredRole = user.role || "participant";
-    if (next === "organizer" && registeredRole !== "organizer") {
-      next = "participant";
-    }
-
-    if ("currentRole" in user) {
-      user.currentRole = next;
-      try { await user.save(); } catch {}
-    }
-
-    const token = signToken(user, next);
-    return res.json({
-      token,
-      userId: String(user._id),
-      registeredRole,
-      sessionRole: next,
-      user: safeUser(user),
-    });
+    const token = signToken(user, sessionRole);
+    return res.json({ ok: true, token, sessionRole, user: safeUser(user) });
   } catch (err) {
-    return res.status(500).json({ error: "SESSION_ROLE_FAILED", message: err.message });
+    return res.status(500).json({ ok: false, error: "SESSION_ROLE_FAILED", message: err.message });
   }
 };
 
-// --------------------- Partecipazione eventi (riusata da /api/events/:id/join|leave) ---------------------
+// POST /api/users/join/:eventId (authRequired)
 exports.join = async (req, res) => {
   try {
-    const eventId = req.params.id;
-    const uid = req.user.id || req.user.uid || req.user._id;
+    const uid = req.user?.sub || req.user?._id || req.user?.id;
+    if (!uid) return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
 
-    const ev = await Event.findById(eventId);
-    if (!ev) return res.status(404).json({ error: "EVENT_NOT_FOUND" });
+    const eventId = req.params.eventId || req.params.id;
+    if (!eventId) return res.status(400).json({ ok: false, error: "BAD_REQUEST", message: "eventId mancante" });
 
-    const list = Array.isArray(ev.participants) ? ev.participants.map(String) : [];
-    if (!list.includes(String(uid))) {
-      ev.participants = Array.isArray(ev.participants) ? ev.participants : [];
-      ev.participants.push(uid);
-      await ev.save();
-    }
+    const ev = await Event.findById(eventId).lean();
+    if (!ev) return res.status(404).json({ ok: false, error: "EVENT_NOT_FOUND" });
 
-    return res.json(ev);
+    const user = await User.findById(uid);
+    if (!user) return res.status(404).json({ ok: false, error: "USER_NOT_FOUND" });
+
+    if (!Array.isArray(user.joinedEvents)) user.joinedEvents = [];
+    const already = user.joinedEvents.map(String).includes(String(eventId));
+    if (!already) user.joinedEvents.push(eventId);
+    await user.save();
+
+    return res.json({ ok: true, joinedEvents: user.joinedEvents.map(String) });
   } catch (err) {
-    return res.status(500).json({ error: "JOIN_FAILED", message: err.message });
+    return res.status(500).json({ ok: false, error: "JOIN_FAILED", message: err.message });
   }
 };
 
+// POST /api/users/leave/:eventId (authRequired)
 exports.leave = async (req, res) => {
   try {
-    const eventId = req.params.id;
-    const uid = req.user.id || req.user.uid || req.user._id;
+    const uid = req.user?.sub || req.user?._id || req.user?.id;
+    if (!uid) return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
 
-    const ev = await Event.findById(eventId);
-    if (!ev) return res.status(404).json({ error: "EVENT_NOT_FOUND" });
+    const eventId = req.params.eventId || req.params.id;
+    if (!eventId) return res.status(400).json({ ok: false, error: "BAD_REQUEST", message: "eventId mancante" });
 
-    ev.participants = (ev.participants || []).filter(p => String(p) !== String(uid));
-    await ev.save();
+    const user = await User.findById(uid);
+    if (!user) return res.status(404).json({ ok: false, error: "USER_NOT_FOUND" });
 
-    return res.json(ev);
+    if (!Array.isArray(user.joinedEvents)) user.joinedEvents = [];
+    user.joinedEvents = user.joinedEvents.filter(eid => String(eid) !== String(eventId));
+    await user.save();
+
+    return res.json({ ok: true, joinedEvents: user.joinedEvents.map(String) });
   } catch (err) {
-    return res.status(500).json({ error: "LEAVE_FAILED", message: err.message });
+    return res.status(500).json({ ok: false, error: "LEAVE_FAILED", message: err.message });
   }
 };
+
+// (Opzionale) POST /api/users/upgrade — conserva una rotta di “upgrade” registrato, senza toccare sessionRole
+exports.upgrade = async (req, res) => {
+  try {
+    const uid = req.user?.sub || req.user?._id || req.user?.id;
+    if (!uid) return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
+
+    const { registeredRole } = req.body || {};
+    const newRole = normalizeRole(registeredRole);
+    const user = await User.findByIdAndUpdate(uid, { registeredRole: newRole }, { new: true });
+    if (!user) return res.status(404).json({ ok: false, error: "USER_NOT_FOUND" });
+    return res.json({ ok: true, user: safeUser(user) });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: "UPGRADE_FAILED", message: err.message });
+  }
+};
+
+
 
 
