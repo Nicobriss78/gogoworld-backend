@@ -1,48 +1,49 @@
-// routes/eventRoutes.js — mappatura eventi (Fase 1) — 2025-08-23
-// Monta gli endpoint eventi senza toccare la logica dei controller.
+// routes/eventRoutes.js — gestione eventi e alias join/leave lato evento
+//
+// Endpoints principali
+// - GET / (lista con filtri via query)
+// - GET /mine/list (protetto: eventi dell'organizzatore corrente)
+// - GET /:id (dettaglio)
+// - POST / (protetto: crea)
+// - PUT /:id (protetto: aggiorna — proprietario)
+// - DELETE /:id (protetto: elimina — proprietario)
+// - POST /:id/join (protetto: alias lato evento)
+// - POST /:id/leave (protetto: alias lato evento)
+//
+// Le funzioni richiamate sono in controllers/eventController.js
 
 const express = require("express");
 const router = express.Router();
+const { protect } = require("../middleware/auth");
 
-const ctrl = require("../controllers/eventController");
-const userCtrl = require("../controllers/userController");
-const { authRequired, roleRequired } = require("../middleware/auth");
+const {
+  listEvents,
+  getEventById,
+  createEvent,
+  updateEvent,
+  deleteEvent,
+  listMyEvents,
+  joinEvent, // alias lato evento
+  leaveEvent, // alias lato evento
+} = require("../controllers/eventController");
 
-// Utility di protezione: se il controller non espone il metodo richiesto -> 501
-function handlerOr501(controller, names) {
-  for (const n of names) {
-    if (n && typeof controller[n] === "function") return controller[n];
-  }
-  return (_req, res) => {
-    res.status(501).json({
-      ok: false,
-      error: "HANDLER_NOT_IMPLEMENTED",
-      message: `Nessuna delle funzioni [${names.join(", ")}] è presente nel controller richiesto.`,
-    });
-  };
-}
+// Lista (con filtri)
+router.get("/", listEvents);
 
-// Pubblici
-router.get("/", handlerOr501(ctrl, ["list"]));
-router.get("/:id", handlerOr501(ctrl, ["getById"]));
+// I miei eventi (organizzatore corrente)
+router.get("/mine/list", protect, listMyEvents);
 
-// Partecipazione eventi anche lato /events (standard unificato)
-// Manteniamo POST join e DELETE leave come REST canonico; aggiungiamo alias POST per leave per retro-compatibilità.
-router.post("/:id/join", authRequired, roleRequired("participant"), handlerOr501(userCtrl, ["join","joinEvent"]));
-router.delete("/:id/leave", authRequired, roleRequired("participant"), handlerOr501(userCtrl, ["leave","leaveEvent"]));
-router.post("/:id/leave", authRequired, roleRequired("participant"), handlerOr501(userCtrl, ["leave","leaveEvent"])); // alias
+// Dettaglio
+router.get("/:id", getEventById);
 
-// Protetti (organizer) — CRUD eventi "miei"
-router.get("/mine/list", authRequired, roleRequired("organizer"), handlerOr501(ctrl, ["listMine"]));
-router.post("/", authRequired, roleRequired("organizer"), handlerOr501(ctrl, ["create"]));
-router.put("/:id", authRequired, roleRequired("organizer"), handlerOr501(ctrl, ["update"]));
-router.delete("/:id", authRequired, roleRequired("organizer"), handlerOr501(ctrl, ["remove","delete","destroy"]));
+// CRUD (protette)
+router.post("/", protect, createEvent);
+router.put("/:id", protect, updateEvent);
+router.delete("/:id", protect, deleteEvent);
+
+// Alias join/leave (lato evento)
+router.post("/:id/join", protect, joinEvent);
+router.post("/:id/leave", protect, leaveEvent);
 
 module.exports = router;
-
-
-
-
-
-
 
