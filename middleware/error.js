@@ -1,16 +1,14 @@
-// middleware/error.js
-// Handler centralizzato degli errori applicativi
-
-function errorHandler(err, req, res, next) { // eslint-disable-line
-  const status = err.status || 500;
-  const payload = {
+// middleware/error.js — handler uniforme degli errori
+module.exports = function errorHandler(err, req, res, next) {
+  if (res.headersSent) return next(err);
+  const status = Number(err.status || err.statusCode || 500);
+  const body = {
     ok: false,
-    error: err.error || err.message || "INTERNAL_ERROR",
+    error: err.code || err.name || "ERROR",
+    message: err.message || "Unexpected error",
   };
-  if (process.env.NODE_ENV !== "production" && err.stack) {
-    payload.details = err.stack;
+  if (process.env.NODE_ENV !== "production") {
+    body.stack = err.stack;
   }
-  res.status(status).json(payload);
-}
-
-module.exports = { errorHandler };
+  res.status(status).json(body);
+};
