@@ -1,8 +1,7 @@
-// models/eventModel.js — evento
+// models/eventModel.js — evento (versione allineata con indici)
 //
-// Include campi principali (filtrabili) + campi avanzati.
-// Galleria immagini e coverImage (locandina) incluse.
-// participants = array di ObjectId di User.
+// Correzioni:
+// - indici su organizer e date per prestazioni di /mine/list e ordinamenti
 
 const mongoose = require("mongoose");
 
@@ -40,5 +39,9 @@ const eventSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Indici utili
+eventSchema.index({ organizer: 1 });
+eventSchema.index({ date: 1 });
 
 module.exports = mongoose.model("Event", eventSchema);
