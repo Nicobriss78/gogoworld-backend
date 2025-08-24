@@ -1,12 +1,4 @@
-// server.js — GoGo.World API (core pulito e coerente con Dinamiche 22-08-2025)
-//
-// - Connessione Mongo PRIMA del mount routes.
-// - CORS: ALLOWED_ORIGINS (CSV) e/o CORS_ORIGIN_FRONTEND.
-// - Health endpoints /healthz e /api/health.
-// - Routes principali: /api/users, /api/events.
-// - Error handling centralizzato.
-//
-// ENV: MONGODB_URI, JWT_SECRET, CORS_ORIGIN_FRONTEND, ALLOWED_ORIGINS, JSON_LIMIT (opzionale)
+// server.js — GoGo.World API (CORS hardening prod + ordine middleware)
 
 const express = require("express");
 const dotenv = require("dotenv");
@@ -19,7 +11,7 @@ let morgan = null;
 try { morgan = require("morgan"); } catch { /* opzionale */ }
 if (morgan) app.use(morgan("dev"));
 
-// DB
+// DB prima delle routes
 const connectDB = require("./db");
 connectDB().catch((err) => {
   console.error("❌ DB init failed:", err?.message || err);
@@ -43,19 +35,27 @@ const ORIGINS = parseOrigins();
 
 const corsOptions = {
   origin(origin, cb) {
-    if (!origin) return cb(null, true); // SSR/cURL
-    if (ORIGINS.length === 0) return cb(null, true); // permissivo in dev
+    // Richieste server-to-server (no Origin) sempre consentite
+    if (!origin) return cb(null, true);
+
+    // In produzione, se non configurato nessun origin, blocca esplicitamente
+    if (ORIGINS.length === 0 && process.env.NODE_ENV === "production") {
+      return cb(new Error("CORS_NOT_CONFIGURED"));
+    }
+
     const clean = origin.replace(/\/$/, "");
+    if (ORIGINS.length === 0) return cb(null, true); // dev permissivo
     if (ORIGINS.includes(origin) || ORIGINS.includes(clean)) return cb(null, true);
+
     return cb(new Error("CORS_NOT_ALLOWED"));
   },
   methods: ["GET","POST","PUT","DELETE","PATCH","OPTIONS"],
-  allowedHeaders: ["Content-Type","Authorization"],
+  allowedHeaders: ["Content-Type","Authorization","X-Requested-With"],
   maxAge: 86400,
 };
 app.use(cors(corsOptions));
 
-// Body parsers
+// Parser
 app.use(express.json({ limit: process.env.JSON_LIMIT || "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 
