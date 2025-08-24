@@ -1,60 +1,44 @@
-// models/eventModel.js — schema eventi
-const mongoose = require("mongoose");
-const { Schema } = mongoose;
+// models/eventModel.js — evento
+//
+// Include campi principali (filtrabili) + campi avanzati.
+// Galleria immagini e coverImage (locandina) incluse.
+// participants = array di ObjectId di User.
 
-const EventSchema = new Schema(
+const mongoose = require("mongoose");
+
+const eventSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true },
-    description: { type: String, default: "" },
+    description: { type: String, trim: true },
+    organizer: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
 
-    status: { type: String, enum: ["draft", "published", "cancelled"], default: "draft" },
-    visibility: { type: String, enum: ["public", "private", "unlisted"], default: "public" },
+    // Localizzazione
+    city: { type: String, trim: true },
+    region: { type: String, trim: true },
+    country: { type: String, trim: true },
 
-    type: { type: String, default: "" },
-    category: { type: String, default: "" },
-    subcategory: { type: String, default: "" },
-    tags: { type: [String], default: [] },
+    // Tipologie/filtri
+    category: { type: String, trim: true },
+    subcategory: { type: String, trim: true },
+    type: { type: String, trim: true }, // pubblico/privato/ibrido
+    visibility: { type: String, default: "public" }, // public/private
 
-    dateStart: { type: Date, default: null },
-    dateEnd: { type: Date, default: null },
-    timezone: { type: String, default: "Europe/Rome" },
+    // Date e orari
+    date: { type: Date, required: true },
+    endDate: { type: Date },
 
-    venueName: { type: String, default: "" },
-    address: { type: String, default: "" },
-    city: { type: String, default: "" },
-    province: { type: String, default: "" },
-    region: { type: String, default: "" },
-    country: { type: String, default: "" },
-
+    // Costi
     isFree: { type: Boolean, default: true },
-    priceMin: { type: Number, default: 0 },
-    priceMax: { type: Number, default: 0 },
-    currency: { type: String, default: "EUR" },
+    price: { type: Number, default: 0 },
 
-    capacity: { type: Number, default: undefined },
+    // Immagini
+    coverImage: { type: String, trim: true }, // locandina
+    images: [{ type: String, trim: true }], // galleria
 
-    // 🔹 NUOVO
-    coverImage: { type: String, default: "" },
-    images: { type: [String], default: [] },
-
-    externalUrl: { type: String, default: "" },
-    contactEmail: { type: String, default: "" },
-    contactPhone: { type: String, default: "" },
-
-    ownerId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    participants: { type: [Schema.Types.ObjectId], ref: "User", default: [] },
+    // Partecipanti
+    participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   },
   { timestamps: true }
 );
 
-// Indici utili
-EventSchema.index({ status: 1, visibility: 1 });
-EventSchema.index({ city: 1, region: 1, country: 1 });
-EventSchema.index({ category: 1, subcategory: 1, type: 1 });
-EventSchema.index({ dateStart: 1, dateEnd: 1 });
-
-module.exports = mongoose.model("Event", EventSchema);
-
-
-
-
+module.exports = mongoose.model("Event", eventSchema);
