@@ -1,282 +1,136 @@
-// controllers/userController.js — GoGo.World — 2025-08-24
-// Registrazione con 'name', login con migrazione legacy (password -> passwordHash),
-// session-role nel JWT, join/leave persistenti su joinedEvents.
+// controllers/userController.js — gestione utenti
+//
+// Funzioni:
+// - register
+// - login
+// - getMe
+// - setSessionRole (stateless)
+// - joinEvent, leaveEvent (alias lato utente)
+//
+// Dipendenze: models/userModel.js, models/eventModel.js, bcryptjs, jsonwebtoken
 
-const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 const User = require("../models/userModel");
 const Event = require("../models/eventModel");
 
-// --- Helpers
-
-function signToken(user, sessionRole) {
-  const payload = {
-    sub: String(user._id),
-    email: user.email,
-    sessionRole: sessionRole || "participant",
-  };
-  const opts = { expiresIn: process.env.JWT_EXPIRES_IN || "7d" };
-  return jwt.sign(payload, process.env.JWT_SECRET || "dev_secret", opts);
+// Helper: genera token
+function generateToken(id) {
+  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 }
 
-function safeUser(u) {
-  if (!u) return null;
-  return {
-    _id: u._id,
-    email: u.email,
-    name: u.name || "",
-    registeredRole: u.registeredRole || u.role || "participant",
-    joinedEvents: Array.isArray(u.joinedEvents)
-      ? u.joinedEvents.map(String)
-      : [],
-    createdAt: u.createdAt,
-    updatedAt: u.updatedAt,
-  };
-}
-
-function normalizeRole(val) {
-  const v = String(val || "").toLowerCase();
-  return v === "organizer" ? "organizer" : "participant";
-}
-
-// --- Controllers
-
-// POST /api/users/register
-exports.register = async (req, res) => {
+// @desc Registrazione
+// @route POST /api/users/register
+async function register(req, res) {
   try {
-    const {
-      name,
-      email,
-      password,
-      role, // statistico (registeredRole)
-    } = req.body || {};
-
-    if (!name || !email || !password) {
-      return res.status(400).json({
-        ok: false,
-        error: "BAD_REQUEST",
-        message: "Nome, email e password sono obbligatori.",
-      });
-    }
-
-    const exists = await User.findOne({ email: String(email).toLowerCase() });
-    if (exists) {
-      return res.status(409).json({
-        ok: false,
-        error: "EMAIL_EXISTS",
-        message: "Email già registrata.",
-      });
-    }
-
-    const hash = await bcrypt.hash(password, 10);
-
-    const user = await User.create({
-      name: String(name).trim(),
-      email: String(email).toLowerCase().trim(),
-      passwordHash: hash,
-      // per compat lasciamo 'password' vuota: lo standard è passwordHash
-      password: "",
-      registeredRole: normalizeRole(role),
-      role: normalizeRole(role), // legacy alias
-      joinedEvents: [],
-    });
-
-    const token = signToken(user, "participant"); // default sessione
-    return res.status(201).json({ ok: true, token, user: safeUser(user) });
-  } catch (err) {
-    return res
-      .status(500)
-      .json({ ok: false, error: "REGISTER_FAILED", message: err.message });
-  }
-};
-
-// POST /api/users/login
-exports.login = async (req, res) => {
-  try {
-    const { email, password } = req.body || {};
+    const { name, email, password, role } = req.body;
     if (!email || !password) {
-      return res
-        .status(400)
-        .json({ ok: false, error: "BAD_REQUEST", message: "Email e password sono obbligatorie." });
+      return res.status(400).json({ ok: false, error: "MISSING_FIELDS" });
     }
-
-    const user = await User.findOne({ email: String(email).toLowerCase() });
-    if (!user) {
-      return res
-        .status(401)
-        .json({ ok: false, error: "INVALID_CREDENTIALS", message: "Credenziali non valide." });
+    const exists = await User.findOne({ email });
+    if (exists) {
+      return res.status(400).json({ ok: false, error: "USER_EXISTS" });
     }
+    const hashed = await bcrypt.hash(password, 10);
+    const user = await User.create({
+      name: name || null,
+      email,
+      password: hashed,
+      role: role || "participant", // statistico
+    });
+    return res.status(201).json({
+      ok: true,
+      user: { id: user._id, email: user.email },
+      token: generateToken(user._id),
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: "REGISTER_FAILED", message: err.message });
+  }
+}
 
-    // 1) Se esiste passwordHash -> bcrypt.compare
-    if (user.passwordHash) {
-      const ok = await bcrypt.compare(password, user.passwordHash);
-      if (!ok) {
-        return res
-          .status(401)
-          .json({ ok: false, error: "INVALID_CREDENTIALS", message: "Credenziali non valide." });
-      }
-      const token = signToken(user, "participant");
-      return res.json({ ok: true, token, user: safeUser(user) });
+// @desc Login
+// @route POST /api/users/login
+async function login(req, res) {
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) return res.status(401).json({ ok: false, error: "INVALID_CREDENTIALS" });
+
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) return res.status(401).json({ ok: false, error: "INVALID_CREDENTIALS" });
+
+    res.json({
+      ok: true,
+      user: { id: user._id, email: user.email },
+      token: generateToken(user._id),
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: "LOGIN_FAILED", message: err.message });
+  }
+}
+
+// @desc Get utente corrente
+// @route GET /api/users/me
+async function getMe(req, res) {
+  try {
+    if (!req.user) return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
+    const user = await User.findById(req.user.id).select("-password");
+    res.json({ ok: true, user });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: "ME_FAILED", message: err.message });
+  }
+}
+
+// @desc Ruolo di sessione (eco al FE)
+// @route POST /api/users/session-role
+function setSessionRole(req, res) {
+  const { role } = req.body;
+  // Non viene persistito nel DB, solo rimandato al FE
+  res.json({ ok: true, role: role || null });
+}
+
+// @desc Join evento (alias lato utente)
+// @route POST /api/users/join/:eventId
+async function joinEvent(req, res) {
+  try {
+    const eventId = req.params.eventId;
+    const event = await Event.findById(eventId);
+    if (!event) return res.status(404).json({ ok: false, error: "EVENT_NOT_FOUND" });
+
+    if (!event.participants.includes(req.user.id)) {
+      event.participants.push(req.user.id);
+      await event.save();
     }
-
-    // 2) Migrazione legacy: se esiste 'password' (plain) e coincide, migra a passwordHash
-    if (user.password) {
-      const plainMatches = password === user.password;
-      if (!plainMatches) {
-        return res
-          .status(401)
-          .json({ ok: false, error: "INVALID_CREDENTIALS", message: "Credenziali non valide." });
-      }
-      // migrazione
-      user.passwordHash = await bcrypt.hash(password, 10);
-      user.password = "";
-      await user.save();
-
-      const token = signToken(user, "participant");
-      return res.json({ ok: true, token, user: safeUser(user) });
-    }
-
-    // 3) Nessun hash e nessuna password legacy → non possiamo validare
-    return res
-      .status(401)
-      .json({ ok: false, error: "INVALID_CREDENTIALS", message: "Credenziali non valide." });
+    res.json({ ok: true, joined: true, eventId });
   } catch (err) {
-    return res
-      .status(500)
-      .json({ ok: false, error: "LOGIN_FAILED", message: err.message });
+    res.status(500).json({ ok: false, error: "JOIN_FAILED", message: err.message });
   }
-};
+}
 
-// GET /api/users/me (authRequired)
-exports.me = async (req, res) => {
+// @desc Leave evento (alias lato utente)
+// @route POST /api/users/leave/:eventId
+async function leaveEvent(req, res) {
   try {
-    const uid = req.user?.sub || req.user?._id || req.user?.id;
-    if (!uid)
-      return res
-        .status(401)
-        .json({ ok: false, error: "UNAUTHORIZED", message: "Token non valido." });
+    const eventId = req.params.eventId;
+    const event = await Event.findById(eventId);
+    if (!event) return res.status(404).json({ ok: false, error: "EVENT_NOT_FOUND" });
 
-    const user = await User.findById(uid).lean();
-    if (!user) return res.status(404).json({ ok: false, error: "USER_NOT_FOUND" });
-
-    const joined = Array.isArray(user.joinedEvents)
-      ? user.joinedEvents.map(String)
-      : [];
-    return res.json({ ok: true, ...safeUser(user), joinedEvents: joined });
-  } catch (err) {
-    return res
-      .status(500)
-      .json({ ok: false, error: "ME_FAILED", message: err.message });
-  }
-};
-
-// POST /api/users/session-role (authRequired)
-exports.setSessionRole = async (req, res) => {
-  try {
-    const uid = req.user?.sub || req.user?._id || req.user?.id;
-    if (!uid)
-      return res
-        .status(401)
-        .json({ ok: false, error: "UNAUTHORIZED", message: "Token non valido." });
-
-    const { role } = req.body || {};
-    const sessionRole = normalizeRole(role);
-
-    const user = await User.findById(uid);
-    if (!user) return res.status(404).json({ ok: false, error: "USER_NOT_FOUND" });
-
-    const token = signToken(user, sessionRole);
-    return res.json({ ok: true, token, sessionRole, user: safeUser(user) });
-  } catch (err) {
-    return res
-      .status(500)
-      .json({ ok: false, error: "SESSION_ROLE_FAILED", message: err.message });
-  }
-};
-
-// POST /api/users/join/:eventId (authRequired)
-exports.join = async (req, res) => {
-  try {
-    const uid = req.user?.sub || req.user?._id || req.user?.id;
-    if (!uid) return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
-
-    const eventId = req.params.eventId || req.params.id;
-    if (!eventId)
-      return res
-        .status(400)
-        .json({ ok: false, error: "BAD_REQUEST", message: "eventId mancante" });
-
-    const ev = await Event.findById(eventId).lean();
-    if (!ev) return res.status(404).json({ ok: false, error: "EVENT_NOT_FOUND" });
-
-    const user = await User.findById(uid);
-    if (!user) return res.status(404).json({ ok: false, error: "USER_NOT_FOUND" });
-
-    if (!Array.isArray(user.joinedEvents)) user.joinedEvents = [];
-    const already = user.joinedEvents.map(String).includes(String(eventId));
-    if (!already) user.joinedEvents.push(eventId);
-    await user.save();
-
-    return res.json({ ok: true, joinedEvents: user.joinedEvents.map(String) });
-  } catch (err) {
-    return res
-      .status(500)
-      .json({ ok: false, error: "JOIN_FAILED", message: err.message });
-  }
-};
-
-// POST /api/users/leave/:eventId (authRequired)
-exports.leave = async (req, res) => {
-  try {
-    const uid = req.user?.sub || req.user?._id || req.user?.id;
-    if (!uid) return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
-
-    const eventId = req.params.eventId || req.params.id;
-    if (!eventId)
-      return res
-        .status(400)
-        .json({ ok: false, error: "BAD_REQUEST", message: "eventId mancante" });
-
-    const user = await User.findById(uid);
-    if (!user) return res.status(404).json({ ok: false, error: "USER_NOT_FOUND" });
-
-    if (!Array.isArray(user.joinedEvents)) user.joinedEvents = [];
-    user.joinedEvents = user.joinedEvents.filter((eid) => String(eid) !== String(eventId));
-    await user.save();
-
-    return res.json({ ok: true, joinedEvents: user.joinedEvents.map(String) });
-  } catch (err) {
-    return res
-      .status(500)
-      .json({ ok: false, error: "LEAVE_FAILED", message: err.message });
-  }
-};
-
-// (Opzionale) POST /api/users/upgrade — aggiorna ruolo registrato (statistico)
-exports.upgrade = async (req, res) => {
-  try {
-    const uid = req.user?.sub || req.user?._id || req.user?.id;
-    if (!uid) return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
-
-    const { registeredRole } = req.body || {};
-    const newRole = normalizeRole(registeredRole);
-
-    const user = await User.findByIdAndUpdate(
-      uid,
-      { registeredRole: newRole, role: newRole },
-      { new: true }
+    event.participants = event.participants.filter(
+      (pid) => String(pid) !== String(req.user.id)
     );
-    if (!user) return res.status(404).json({ ok: false, error: "USER_NOT_FOUND" });
+    await event.save();
 
-    return res.json({ ok: true, user: safeUser(user) });
+    res.json({ ok: true, joined: false, eventId });
   } catch (err) {
-    return res
-      .status(500)
-      .json({ ok: false, error: "UPGRADE_FAILED", message: err.message });
+    res.status(500).json({ ok: false, error: "LEAVE_FAILED", message: err.message });
   }
+}
+
+module.exports = {
+  register,
+  login,
+  getMe,
+  setSessionRole,
+  joinEvent,
+  leaveEvent,
 };
-
-
-
-
-
