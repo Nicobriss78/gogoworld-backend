@@ -1,13 +1,8 @@
-// controllers/userController.js — gestione utenti
+// controllers/userController.js — gestione utenti (versione allineata)
 //
-// Funzioni:
-// - register
-// - login
-// - getMe
-// - setSessionRole (stateless)
-// - joinEvent, leaveEvent (alias lato utente)
-//
-// Dipendenze: models/userModel.js, models/eventModel.js, bcryptjs, jsonwebtoken
+// Correzioni:
+// - joinEvent/leaveEvent: confronto id robusto per evitare duplicati
+// - resto invariato
 
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -85,7 +80,6 @@ async function getMe(req, res) {
 // @route POST /api/users/session-role
 function setSessionRole(req, res) {
   const { role } = req.body;
-  // Non viene persistito nel DB, solo rimandato al FE
   res.json({ ok: true, role: role || null });
 }
 
@@ -94,12 +88,14 @@ function setSessionRole(req, res) {
 async function joinEvent(req, res) {
   try {
     const eventId = req.params.eventId;
-    const event = await Event.findById(eventId);
-    if (!event) return res.status(404).json({ ok: false, error: "EVENT_NOT_FOUND" });
+    const ev = await Event.findById(eventId);
+    if (!ev) return res.status(404).json({ ok: false, error: "EVENT_NOT_FOUND" });
 
-    if (!event.participants.includes(req.user.id)) {
-      event.participants.push(req.user.id);
-      await event.save();
+    const myId = String(req.user.id);
+    const already = ev.participants.some((pid) => String(pid) === myId);
+    if (!already) {
+      ev.participants.push(req.user.id);
+      await ev.save();
     }
     res.json({ ok: true, joined: true, eventId });
   } catch (err) {
@@ -112,13 +108,12 @@ async function joinEvent(req, res) {
 async function leaveEvent(req, res) {
   try {
     const eventId = req.params.eventId;
-    const event = await Event.findById(eventId);
-    if (!event) return res.status(404).json({ ok: false, error: "EVENT_NOT_FOUND" });
+    const ev = await Event.findById(eventId);
+    if (!ev) return res.status(404).json({ ok: false, error: "EVENT_NOT_FOUND" });
 
-    event.participants = event.participants.filter(
-      (pid) => String(pid) !== String(req.user.id)
-    );
-    await event.save();
+    const myId = String(req.user.id);
+    ev.participants = ev.participants.filter((pid) => String(pid) !== myId);
+    await ev.save();
 
     res.json({ ok: true, joined: false, eventId });
   } catch (err) {
@@ -134,3 +129,4 @@ module.exports = {
   joinEvent,
   leaveEvent,
 };
+
