@@ -1,74 +1,163 @@
-// controllers/eventController.js — gestione eventi (completo)
-const eventsService = require("../services/eventsService");
+// controllers/eventController.js — gestione eventi
+//
+// Funzioni:
+// - listEvents (con filtri da query)
+// - getEventById
+// - createEvent
+// - updateEvent
+// - deleteEvent
+// - listMyEvents
+// - joinEvent, leaveEvent (alias lato evento)
+//
+// Dipendenze: models/eventModel.js
 
-// GET /api/events → lista con filtri da req.query
-async function list(req, res, next) {
+const Event = require("../models/eventModel");
+
+// @desc Lista eventi (con filtri)
+// @route GET /api/events
+async function listEvents(req, res) {
   try {
-    // ✅ INOLTRO TUTTI I FILTRI: non solo "status"
-    const events = await eventsService.list(req.query || {});
-    return res.json(events);
+    const query = {};
+    // Filtri principali
+    if (req.query.title) query.title = new RegExp(req.query.title, "i");
+    if (req.query.city) query.city = new RegExp(req.query.city, "i");
+    if (req.query.region) query.region = new RegExp(req.query.region, "i");
+    if (req.query.country) query.country = new RegExp(req.query.country, "i");
+    if (req.query.category) query.category = req.query.category;
+    if (req.query.subcategory) query.subcategory = req.query.subcategory;
+    if (req.query.visibility) query.visibility = req.query.visibility;
+    if (req.query.type) query.type = req.query.type;
+    if (req.query.isFree !== undefined) query.isFree = req.query.isFree === "true";
+
+    // Range date
+    if (req.query.dateStart || req.query.dateEnd) {
+      query.date = {};
+      if (req.query.dateStart) query.date.$gte = new Date(req.query.dateStart);
+      if (req.query.dateEnd) query.date.$lte = new Date(req.query.dateEnd);
+    }
+
+    const events = await Event.find(query).sort({ date: 1 });
+    res.json({ ok: true, events });
   } catch (err) {
-    return next(err);
+    res.status(500).json({ ok: false, error: "LIST_FAILED", message: err.message });
   }
 }
 
-// GET /api/events/mine/list (organizer)
-async function listMine(req, res, next) {
+// @desc Dettaglio evento
+// @route GET /api/events/:id
+async function getEventById(req, res) {
   try {
-    const events = await eventsService.listMine(req.user.id, req.query || {});
-    return res.json(events);
+    const ev = await Event.findById(req.params.id);
+    if (!ev) return res.status(404).json({ ok: false, error: "NOT_FOUND" });
+    res.json({ ok: true, event: ev });
   } catch (err) {
-    return next(err);
+    res.status(500).json({ ok: false, error: "DETAIL_FAILED", message: err.message });
   }
 }
 
-// GET /api/events/:id
-async function getById(req, res, next) {
+// @desc Crea evento
+// @route POST /api/events
+async function createEvent(req, res) {
   try {
-    const ev = await eventsService.getById(req.params.id);
-    if (!ev) return res.status(404).json({ error: "NOT_FOUND" });
-    return res.json(ev);
+    const data = req.body;
+    data.organizer = req.user.id;
+    const ev = await Event.create(data);
+    res.status(201).json({ ok: true, event: ev });
   } catch (err) {
-    return next(err);
+    res.status(500).json({ ok: false, error: "CREATE_FAILED", message: err.message });
   }
 }
 
-// POST /api/events
-async function create(req, res, next) {
+// @desc Aggiorna evento
+// @route PUT /api/events/:id
+async function updateEvent(req, res) {
   try {
-    const ev = await eventsService.create(req.user.id, req.body || {});
-    return res.status(201).json(ev);
+    const ev = await Event.findById(req.params.id);
+    if (!ev) return res.status(404).json({ ok: false, error: "NOT_FOUND" });
+
+    if (String(ev.organizer) !== String(req.user.id)) {
+      return res.status(403).json({ ok: false, error: "NOT_OWNER" });
+    }
+
+    Object.assign(ev, req.body);
+    await ev.save();
+    res.json({ ok: true, event: ev });
   } catch (err) {
-    return next(err);
+    res.status(500).json({ ok: false, error: "UPDATE_FAILED", message: err.message });
   }
 }
 
-// PUT /api/events/:id
-async function update(req, res, next) {
+// @desc Elimina evento
+// @route DELETE /api/events/:id
+async function deleteEvent(req, res) {
   try {
-    const ev = await eventsService.update(req.params.id, req.user.id, req.body || {});
-    return res.json(ev);
+    const ev = await Event.findById(req.params.id);
+    if (!ev) return res.status(404).json({ ok: false, error: "NOT_FOUND" });
+
+    if (String(ev.organizer) !== String(req.user.id)) {
+      return res.status(403).json({ ok: false, error: "NOT_OWNER" });
+    }
+
+    await ev.deleteOne();
+    res.json({ ok: true, deleted: true });
   } catch (err) {
-    return next(err);
+    res.status(500).json({ ok: false, error: "DELETE_FAILED", message: err.message });
   }
 }
 
-// DELETE /api/events/:id
-async function remove(req, res, next) {
+// @desc Lista miei eventi
+// @route GET /api/events/mine/list
+async function listMyEvents(req, res) {
   try {
-    const ev = await eventsService.remove(req.params.id, req.user.id);
-    return res.json({ ok: true, id: ev._id });
+    const events = await Event.find({ organizer: req.user.id }).sort({ date: 1 });
+    res.json({ ok: true, events });
   } catch (err) {
-    return next(err);
+    res.status(500).json({ ok: false, error: "MINE_FAILED", message: err.message });
   }
 }
 
-module.exports = { list, listMine, getById, create, update, remove };
+// @desc Join evento (alias lato evento)
+// @route POST /api/events/:id/join
+async function joinEvent(req, res) {
+  try {
+    const ev = await Event.findById(req.params.id);
+    if (!ev) return res.status(404).json({ ok: false, error: "NOT_FOUND" });
 
+    if (!ev.participants.includes(req.user.id)) {
+      ev.participants.push(req.user.id);
+      await ev.save();
+    }
+    res.json({ ok: true, joined: true, eventId: ev._id });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: "JOIN_FAILED", message: err.message });
+  }
+}
 
+// @desc Leave evento (alias lato evento)
+// @route POST /api/events/:id/leave
+async function leaveEvent(req, res) {
+  try {
+    const ev = await Event.findById(req.params.id);
+    if (!ev) return res.status(404).json({ ok: false, error: "NOT_FOUND" });
 
+    ev.participants = ev.participants.filter(
+      (pid) => String(pid) !== String(req.user.id)
+    );
+    await ev.save();
 
+    res.json({ ok: true, joined: false, eventId: ev._id });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: "LEAVE_FAILED", message: err.message });
+  }
+}
 
-
-
-
+module.exports = {
+  listEvents,
+  getEventById,
+  createEvent,
+  updateEvent,
+  deleteEvent,
+  listMyEvents,
+  joinEvent,
+  leaveEvent,
+};
