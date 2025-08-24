@@ -1,72 +1,41 @@
-// routes/userRoutes.js — mappatura utenti — 2025-08-23 (Fase 5)
-// Aggiunge remap per alias /users/join|leave/:eventId -> req.params.id
+// routes/userRoutes.js — gestione utente e alias join/leave lato utente
+//
+// Endpoints principali
+// - POST /register
+// - POST /login
+// - GET /me (protetto)
+// - POST /session-role (non protetto: ruolo solo di sessione lato FE)
+// - POST /join/:eventId (protetto)
+// - POST /leave/:eventId (protetto)
+//
+// Nota: join/leave sono alias "lato utente"; esistono anche alias lato evento in eventRoutes.
+// Le funzioni richiamate sono definite in controllers/userController.js
 
 const express = require("express");
 const router = express.Router();
+const { protect } = require("../middleware/auth");
 
-const ctrl = require("../controllers/userController");
-const { authRequired } = require("../middleware/auth");
+const {
+  register,
+  login,
+  getMe,
+  setSessionRole,
+  joinEvent, // alias lato utente
+  leaveEvent, // alias lato utente
+} = require("../controllers/userController");
 
-// Utility: prende il primo handler presente
-function handlerOr501(names) {
-  for (const n of names) {
-    if (n && typeof ctrl[n] === "function") return ctrl[n];
-  }
-  return (_req, res) => {
-    res.status(501).json({
-      ok: false,
-      error: "HANDLER_NOT_IMPLEMENTED",
-      message: `Nessuna delle funzioni [${names.join(", ")}] è presente in userController.`,
-    });
-  };
-}
+// Registrazione e login
+router.post("/register", register);
+router.post("/login", login);
 
-// Remap middleware per alias di compatibilità
-function remapEventParam(req, _res, next) {
-  if (!req.params) req.params = {};
-  if (req.params.eventId && !req.params.id) {
-    req.params.id = req.params.eventId;
-  }
-  next();
-}
+// Dati utente corrente
+router.get("/me", protect, getMe);
 
-// Pubblici
-router.post("/register", handlerOr501(["register", "signup"]));
-router.post("/login", handlerOr501(["login", "signin"]));
+// Ruolo di sessione (solo eco per coerenza con FE; nessuna persistenza DB)
+router.post("/session-role", setSessionRole);
 
-// Profilo utente corrente
-router.get("/me", authRequired, handlerOr501(["me", "getMe"]));
-
-// Aggiornamento ruolo di sessione (switch senza nuovo login)
-router.post(
-  "/session-role",
-  authRequired,
-  handlerOr501([
-    "setSessionRole",
-    "handleSessionRole",
-    "switchSessionRole",
-    "switchRole",
-    "changeSessionRole",
-  ])
-);
-
-// Partecipazione eventi (mapping standard lato /users)
-router.post("/join/:eventId", authRequired, remapEventParam, handlerOr501(["join", "joinEvent"]));
-router.post("/leave/:eventId", authRequired, remapEventParam, handlerOr501(["leave", "leaveEvent"]));
-
-// Alias legacy (se il FE usasse /users/:id/join|leave)
-router.post("/:id/join", authRequired, handlerOr501(["join", "joinEvent"]));
-router.post("/:id/leave", authRequired, handlerOr501(["leave", "leaveEvent"]));
-
-// (Opzionale) upgrade statistico del ruolo registrato
-router.post("/upgrade", authRequired, handlerOr501(["upgrade"]));
+// Alias join/leave (lato utente)
+router.post("/join/:eventId", protect, joinEvent);
+router.post("/leave/:eventId", protect, leaveEvent);
 
 module.exports = router;
-
-
-
-
-
-
-
-
