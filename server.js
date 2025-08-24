@@ -1,75 +1,70 @@
-// server.js — GoGo.World (Fase 5 – hardening health+CORS) — 2025-08-23
-// - Aggiunge alias GET /api/health (stessa risposta di /healthz) per compatibilità con check esterni.
-// - CORS: legge sia ALLOWED_ORIGINS (CSV) sia CORS_ORIGIN_FRONTEND (singola o CSV), normalizza la lista.
-// - Mantiene invariato il resto (mount routes, error handling, listen).
+// server.js — GoGo.World API (ricostruito, coerente con Dinamiche 22-08-2025)
+// - CORS basato su ALLOWED_ORIGINS e/o CORS_ORIGIN_FRONTEND
+// - Health endpoints (/healthz e /api/health)
+// - Mount routes utenti ed eventi
+// - Error handling centralizzato
 
 const express = require("express");
-const cors = require("cors");
 const dotenv = require("dotenv");
 dotenv.config();
 
 const app = express();
 
-// Log opzionale (non bloccante)
-let morgan = null;
-try { morgan = require("morgan"); } catch { /* opzionale */ }
-
 // DB
 const connectDB = require("./db");
-connectDB();
+connectDB().catch((err) => {
+  console.error("❌ DB init failed:", err?.message || err);
+  process.exit(1);
+});
 
-// Trust proxy (Render / reverse proxies)
+// Trust proxy (Render)
 app.set("trust proxy", 1);
 
 // ---- CORS ----
+const cors = require("cors");
 function parseOrigins() {
-  // Preferisci ALLOWED_ORIGINS; in mancanza usa CORS_ORIGIN_FRONTEND
-  const a = process.env.ALLOWED_ORIGINS;
-  const b = process.env.CORS_ORIGIN_FRONTEND;
-  const combined = [a, b].filter(Boolean).join(",");
-  if (!combined) return ["*"];
-  return combined
-    .split(",")
-    .map(s => (s || "").trim())
+  const list = []
+    .concat((process.env.ALLOWED_ORIGINS || "").split(","))
+    .concat((process.env.CORS_ORIGIN_FRONTEND || "").split(","))
+    .map((s) => String(s || "").trim())
     .filter(Boolean);
+  // de-dup
+  return Array.from(new Set(list));
 }
-
 const ORIGINS = parseOrigins();
-
-const corsOpts = {
-  origin: (origin, cb) => {
-    // Consenti:
-    // - richieste server-side (origin null)
-    // - wildcard "*"
-    // - origin presente in lista
-    if (!origin || ORIGINS.includes("*") || ORIGINS.includes(origin)) {
-      return cb(null, true);
-    }
+const corsOptions = {
+  origin: function (origin, cb) {
+    if (!origin) return cb(null, true); // SSR/curl
+    if (ORIGINS.length === 0) return cb(null, true); // default allow in dev
+    if (ORIGINS.includes(origin)) return cb(null, true);
+    // consenti anche origin con slash finale rimosso
+    const clean = origin.replace(/\/$/, "");
+    if (ORIGINS.includes(clean)) return cb(null, true);
     return cb(new Error("CORS_NOT_ALLOWED"));
   },
-  credentials: true,
   methods: ["GET","POST","PUT","DELETE","PATCH","OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: ["Content-Type","Authorization"],
+  maxAge: 86400,
 };
-app.use(cors(corsOpts));
+app.use(cors(corsOptions));
 
 // Body parsers
 app.use(express.json({ limit: process.env.JSON_LIMIT || "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// Logger
-if (morgan) app.use(morgan("dev"));
+// Logger opzionale
+try { app.use(require("morgan")("dev")); } catch { /* opzionale su Render */ }
 
 // ---- Routes ----
 const userRoutes = require("./routes/userRoutes");
 const eventRoutes = require("./routes/eventRoutes");
+
 app.use("/api/users", userRoutes);
 app.use("/api/events", eventRoutes);
 
 // Root & Health
 app.get("/", (_req, res) => res.json({ ok: true, name: "GoGo.World API", version: "v1" }));
 app.get("/healthz", (_req, res) => res.json({ ok: true }));
-// Alias per compatibilità con check esterni (Netlify/Render/monitor)
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
 // 404
@@ -77,54 +72,12 @@ app.use((req, res, _next) => {
   res.status(404).json({ ok: false, error: "NOT_FOUND", path: req.originalUrl });
 });
 
-// Error handler
-// eslint-disable-next-line no-unused-vars
-app.use((err, _req, res, _next) => {
-  const status = err.status || err.statusCode || 500;
-  const payload = {
-    ok: false,
-    error: err.code || err.name || "SERVER_ERROR",
-    message: err.message || "Unexpected error",
-  };
-  if (process.env.NODE_ENV !== "production" && err.stack) {
-    payload.stack = err.stack;
-  }
-  res.status(status).json(payload);
-});
+// Error handler centralizzato
+const errorHandler = require("./middleware/error");
+app.use(errorHandler);
 
+// Avvio (Render usa process.env.PORT)
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 GoGo.World API listening on port ${PORT}`);
+  console.log(`🚀 GoGo.World API in ascolto sulla porta ${PORT}`);
 });
-
-module.exports = app;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
