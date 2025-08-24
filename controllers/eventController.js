@@ -1,42 +1,39 @@
-// controllers/eventController.js — gestione eventi
+// controllers/eventController.js — gestione eventi (versione allineata)
 //
-// Funzioni:
-// - listEvents (con filtri da query)
-// - getEventById
-// - createEvent
-// - updateEvent
-// - deleteEvent
-// - listMyEvents
-// - joinEvent, leaveEvent (alias lato evento)
-//
-// Dipendenze: models/eventModel.js
+// Correzioni:
+// - listMyEvents: applica gli stessi filtri di listEvents in AND con organizer
+// - updateEvent: whitelist dei campi aggiornabili (niente organizer/participants/_id/...)
+// - join/leave: confronto id robusto per evitare duplicati
 
 const Event = require("../models/eventModel");
+
+// helper per costruire filtri comuni
+function buildFilters(q) {
+  const query = {};
+  if (q.title) query.title = new RegExp(q.title, "i");
+  if (q.city) query.city = new RegExp(q.city, "i");
+  if (q.region) query.region = new RegExp(q.region, "i");
+  if (q.country) query.country = new RegExp(q.country, "i");
+  if (q.category) query.category = q.category;
+  if (q.subcategory) query.subcategory = q.subcategory;
+  if (q.visibility) query.visibility = q.visibility;
+  if (q.type) query.type = q.type;
+  if (q.isFree !== undefined) query.isFree = q.isFree === "true";
+
+  if (q.dateStart || q.dateEnd) {
+    query.date = {};
+    if (q.dateStart) query.date.$gte = new Date(q.dateStart);
+    if (q.dateEnd) query.date.$lte = new Date(q.dateEnd);
+  }
+  return query;
+}
 
 // @desc Lista eventi (con filtri)
 // @route GET /api/events
 async function listEvents(req, res) {
   try {
-    const query = {};
-    // Filtri principali
-    if (req.query.title) query.title = new RegExp(req.query.title, "i");
-    if (req.query.city) query.city = new RegExp(req.query.city, "i");
-    if (req.query.region) query.region = new RegExp(req.query.region, "i");
-    if (req.query.country) query.country = new RegExp(req.query.country, "i");
-    if (req.query.category) query.category = req.query.category;
-    if (req.query.subcategory) query.subcategory = req.query.subcategory;
-    if (req.query.visibility) query.visibility = req.query.visibility;
-    if (req.query.type) query.type = req.query.type;
-    if (req.query.isFree !== undefined) query.isFree = req.query.isFree === "true";
-
-    // Range date
-    if (req.query.dateStart || req.query.dateEnd) {
-      query.date = {};
-      if (req.query.dateStart) query.date.$gte = new Date(req.query.dateStart);
-      if (req.query.dateEnd) query.date.$lte = new Date(req.query.dateEnd);
-    }
-
-    const events = await Event.find(query).sort({ date: 1 });
+    const filters = buildFilters(req.query);
+    const events = await Event.find(filters).sort({ date: 1 });
     res.json({ ok: true, events });
   } catch (err) {
     res.status(500).json({ ok: false, error: "LIST_FAILED", message: err.message });
@@ -68,7 +65,7 @@ async function createEvent(req, res) {
   }
 }
 
-// @desc Aggiorna evento
+// @desc Aggiorna evento (whitelist campi)
 // @route PUT /api/events/:id
 async function updateEvent(req, res) {
   try {
@@ -79,7 +76,22 @@ async function updateEvent(req, res) {
       return res.status(403).json({ ok: false, error: "NOT_OWNER" });
     }
 
-    Object.assign(ev, req.body);
+    const allowed = [
+      "title", "description",
+      "city", "region", "country",
+      "category", "subcategory",
+      "type", "visibility",
+      "date", "endDate",
+      "isFree", "price",
+      "coverImage", "images",
+    ];
+
+    for (const key of allowed) {
+      if (Object.prototype.hasOwnProperty.call(req.body, key)) {
+        ev[key] = req.body[key];
+      }
+    }
+
     await ev.save();
     res.json({ ok: true, event: ev });
   } catch (err) {
@@ -105,11 +117,13 @@ async function deleteEvent(req, res) {
   }
 }
 
-// @desc Lista miei eventi
+// @desc Lista miei eventi (con filtri)
 // @route GET /api/events/mine/list
 async function listMyEvents(req, res) {
   try {
-    const events = await Event.find({ organizer: req.user.id }).sort({ date: 1 });
+    const filters = buildFilters(req.query);
+    const query = { ...filters, organizer: req.user.id };
+    const events = await Event.find(query).sort({ date: 1 });
     res.json({ ok: true, events });
   } catch (err) {
     res.status(500).json({ ok: false, error: "MINE_FAILED", message: err.message });
@@ -123,7 +137,9 @@ async function joinEvent(req, res) {
     const ev = await Event.findById(req.params.id);
     if (!ev) return res.status(404).json({ ok: false, error: "NOT_FOUND" });
 
-    if (!ev.participants.includes(req.user.id)) {
+    const myId = String(req.user.id);
+    const already = ev.participants.some((pid) => String(pid) === myId);
+    if (!already) {
       ev.participants.push(req.user.id);
       await ev.save();
     }
@@ -140,9 +156,8 @@ async function leaveEvent(req, res) {
     const ev = await Event.findById(req.params.id);
     if (!ev) return res.status(404).json({ ok: false, error: "NOT_FOUND" });
 
-    ev.participants = ev.participants.filter(
-      (pid) => String(pid) !== String(req.user.id)
-    );
+    const myId = String(req.user.id);
+    ev.participants = ev.participants.filter((pid) => String(pid) !== myId);
     await ev.save();
 
     res.json({ ok: true, joined: false, eventId: ev._id });
@@ -161,3 +176,5 @@ module.exports = {
   joinEvent,
   leaveEvent,
 };
+
+
