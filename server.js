@@ -1,14 +1,12 @@
-// server.js — GoGo.World API (ricostruito e allineato a Dinamiche 22-08-2025)
+// server.js — GoGo.World API (core pulito e coerente con Dinamiche 22-08-2025)
 //
-// - CORS legge ALLOWED_ORIGINS (CSV) e/o CORS_ORIGIN_FRONTEND (singola o CSV).
-// - Health endpoints: /healthz e /api/health.
-// - Mount delle routes: /api/users, /api/events, /welcome (facoltativa).
-// - Error handling centralizzato (middleware/error.js).
-// - Connessione a Mongo avviata PRIMA del mount delle routes.
-// - Trust proxy abilitato (Render).
+// - Connessione Mongo PRIMA del mount routes.
+// - CORS: ALLOWED_ORIGINS (CSV) e/o CORS_ORIGIN_FRONTEND.
+// - Health endpoints /healthz e /api/health.
+// - Routes principali: /api/users, /api/events.
+// - Error handling centralizzato.
 //
-// ENV considerate: MONGODB_URI, JWT_SECRET, CORS_ORIGIN_FRONTEND, ALLOWED_ORIGINS,
-// AUDIT_FILE, INTERNAL_API_KEY, IDEMP_TTL_MS (queste ultime usate da moduli interni, non qui).
+// ENV: MONGODB_URI, JWT_SECRET, CORS_ORIGIN_FRONTEND, ALLOWED_ORIGINS, JSON_LIMIT (opzionale)
 
 const express = require("express");
 const dotenv = require("dotenv");
@@ -18,7 +16,7 @@ const app = express();
 
 // Log opzionale (non bloccante)
 let morgan = null;
-try { morgan = require("morgan"); } catch { /* opzionale su Render */ }
+try { morgan = require("morgan"); } catch { /* opzionale */ }
 if (morgan) app.use(morgan("dev"));
 
 // DB
@@ -33,7 +31,6 @@ app.set("trust proxy", 1);
 
 // ---- CORS ----
 const cors = require("cors");
-
 function parseOrigins() {
   const list = []
     .concat((process.env.ALLOWED_ORIGINS || "").split(","))
@@ -65,11 +62,9 @@ app.use(express.urlencoded({ extended: true }));
 // ---- Routes ----
 const userRoutes = require("./routes/userRoutes");
 const eventRoutes = require("./routes/eventRoutes");
-const welcomeRoutes = require("./routes/welcome"); // opzionale
 
 app.use("/api/users", userRoutes);
 app.use("/api/events", eventRoutes);
-app.use("/welcome", welcomeRoutes);
 
 // Root & Health
 app.get("/", (_req, res) => res.json({ ok: true, name: "GoGo.World API", version: "v1" }));
@@ -90,3 +85,4 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 GoGo.World API in ascolto sulla porta ${PORT}`);
 });
+
