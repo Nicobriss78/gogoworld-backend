@@ -1,14 +1,25 @@
-// server.js — GoGo.World API (ricostruito, coerente con Dinamiche 22-08-2025)
-// - CORS basato su ALLOWED_ORIGINS e/o CORS_ORIGIN_FRONTEND
-// - Health endpoints (/healthz e /api/health)
-// - Mount routes utenti ed eventi
-// - Error handling centralizzato
+// server.js — GoGo.World API (ricostruito e allineato a Dinamiche 22-08-2025)
+//
+// - CORS legge ALLOWED_ORIGINS (CSV) e/o CORS_ORIGIN_FRONTEND (singola o CSV).
+// - Health endpoints: /healthz e /api/health.
+// - Mount delle routes: /api/users, /api/events, /welcome (facoltativa).
+// - Error handling centralizzato (middleware/error.js).
+// - Connessione a Mongo avviata PRIMA del mount delle routes.
+// - Trust proxy abilitato (Render).
+//
+// ENV considerate: MONGODB_URI, JWT_SECRET, CORS_ORIGIN_FRONTEND, ALLOWED_ORIGINS,
+// AUDIT_FILE, INTERNAL_API_KEY, IDEMP_TTL_MS (queste ultime usate da moduli interni, non qui).
 
 const express = require("express");
 const dotenv = require("dotenv");
 dotenv.config();
 
 const app = express();
+
+// Log opzionale (non bloccante)
+let morgan = null;
+try { morgan = require("morgan"); } catch { /* opzionale su Render */ }
+if (morgan) app.use(morgan("dev"));
 
 // DB
 const connectDB = require("./db");
@@ -17,29 +28,28 @@ connectDB().catch((err) => {
   process.exit(1);
 });
 
-// Trust proxy (Render)
+// Proxy (Render / reverse proxies)
 app.set("trust proxy", 1);
 
 // ---- CORS ----
 const cors = require("cors");
+
 function parseOrigins() {
   const list = []
     .concat((process.env.ALLOWED_ORIGINS || "").split(","))
     .concat((process.env.CORS_ORIGIN_FRONTEND || "").split(","))
-    .map((s) => String(s || "").trim())
+    .map(s => String(s || "").trim())
     .filter(Boolean);
-  // de-dup
   return Array.from(new Set(list));
 }
 const ORIGINS = parseOrigins();
+
 const corsOptions = {
-  origin: function (origin, cb) {
-    if (!origin) return cb(null, true); // SSR/curl
-    if (ORIGINS.length === 0) return cb(null, true); // default allow in dev
-    if (ORIGINS.includes(origin)) return cb(null, true);
-    // consenti anche origin con slash finale rimosso
+  origin(origin, cb) {
+    if (!origin) return cb(null, true); // SSR/cURL
+    if (ORIGINS.length === 0) return cb(null, true); // permissivo in dev
     const clean = origin.replace(/\/$/, "");
-    if (ORIGINS.includes(clean)) return cb(null, true);
+    if (ORIGINS.includes(origin) || ORIGINS.includes(clean)) return cb(null, true);
     return cb(new Error("CORS_NOT_ALLOWED"));
   },
   methods: ["GET","POST","PUT","DELETE","PATCH","OPTIONS"],
@@ -52,15 +62,14 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: process.env.JSON_LIMIT || "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// Logger opzionale
-try { app.use(require("morgan")("dev")); } catch { /* opzionale su Render */ }
-
 // ---- Routes ----
 const userRoutes = require("./routes/userRoutes");
 const eventRoutes = require("./routes/eventRoutes");
+const welcomeRoutes = require("./routes/welcome"); // opzionale
 
 app.use("/api/users", userRoutes);
 app.use("/api/events", eventRoutes);
+app.use("/welcome", welcomeRoutes);
 
 // Root & Health
 app.get("/", (_req, res) => res.json({ ok: true, name: "GoGo.World API", version: "v1" }));
@@ -73,10 +82,10 @@ app.use((req, res, _next) => {
 });
 
 // Error handler centralizzato
-const errorHandler = require("./middleware/error");
+const { errorHandler } = require("./middleware/error");
 app.use(errorHandler);
 
-// Avvio (Render usa process.env.PORT)
+// Avvio
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 GoGo.World API in ascolto sulla porta ${PORT}`);
