@@ -1,9 +1,9 @@
-// controllers/eventController.js — gestione eventi (versione allineata)
+// controllers/eventController.js — gestione eventi (versione allineata e fixata)
 //
 // Correzioni:
 // - listMyEvents: applica gli stessi filtri di listEvents in AND con organizer
 // - updateEvent: whitelist dei campi aggiornabili (niente organizer/participants/_id/...)
-// - join/leave: confronto id robusto per evitare duplicati
+// - join/leave: confronto id robusto + inizializzazione participants
 
 const Event = require("../models/eventModel");
 
@@ -137,12 +137,18 @@ async function joinEvent(req, res) {
     const ev = await Event.findById(req.params.id);
     if (!ev) return res.status(404).json({ ok: false, error: "NOT_FOUND" });
 
+    if (!Array.isArray(ev.participants)) {
+      ev.participants = [];
+    }
+
     const myId = String(req.user.id);
     const already = ev.participants.some((pid) => String(pid) === myId);
+
     if (!already) {
       ev.participants.push(req.user.id);
       await ev.save();
     }
+
     res.json({ ok: true, joined: true, eventId: ev._id });
   } catch (err) {
     res.status(500).json({ ok: false, error: "JOIN_FAILED", message: err.message });
@@ -156,9 +162,17 @@ async function leaveEvent(req, res) {
     const ev = await Event.findById(req.params.id);
     if (!ev) return res.status(404).json({ ok: false, error: "NOT_FOUND" });
 
+    if (!Array.isArray(ev.participants)) {
+      ev.participants = [];
+    }
+
     const myId = String(req.user.id);
-    ev.participants = ev.participants.filter((pid) => String(pid) !== myId);
-    await ev.save();
+    const newList = ev.participants.filter((pid) => String(pid) !== myId);
+
+    if (newList.length !== ev.participants.length) {
+      ev.participants = newList;
+      await ev.save();
+    }
 
     res.json({ ok: true, joined: false, eventId: ev._id });
   } catch (err) {
@@ -176,5 +190,6 @@ module.exports = {
   joinEvent,
   leaveEvent,
 };
+
 
 
