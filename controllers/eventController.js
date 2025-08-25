@@ -3,7 +3,7 @@
 // Correzioni:
 // - listMyEvents: applica gli stessi filtri di listEvents in AND con organizer
 // - updateEvent: whitelist dei campi aggiornabili (niente organizer/participants/_id/...)
-// - join/leave: confronto id robusto + inizializzazione participants
+// - join/leave: update atomico con $addToSet / $pull (niente save del doc intero)
 
 const Event = require("../models/eventModel");
 
@@ -130,51 +130,36 @@ async function listMyEvents(req, res) {
   }
 }
 
-// @desc Join evento (alias lato evento)
+// @desc Join evento (update atomico)
 // @route POST /api/events/:id/join
 async function joinEvent(req, res) {
   try {
-    const ev = await Event.findById(req.params.id);
-    if (!ev) return res.status(404).json({ ok: false, error: "NOT_FOUND" });
-
-    if (!Array.isArray(ev.participants)) {
-      ev.participants = [];
+    const r = await Event.updateOne(
+      { _id: req.params.id },
+      { $addToSet: { participants: req.user.id } }
+    );
+    // In Mongoose 6/7: { acknowledged, matchedCount, modifiedCount }
+    if (!r.matchedCount) {
+      return res.status(404).json({ ok: false, error: "NOT_FOUND" });
     }
-
-    const myId = String(req.user.id);
-    const already = ev.participants.some((pid) => String(pid) === myId);
-
-    if (!already) {
-      ev.participants.push(req.user.id);
-      await ev.save();
-    }
-
-    res.json({ ok: true, joined: true, eventId: ev._id });
+    return res.json({ ok: true, joined: true, eventId: req.params.id });
   } catch (err) {
     res.status(500).json({ ok: false, error: "JOIN_FAILED", message: err.message });
   }
 }
 
-// @desc Leave evento (alias lato evento)
+// @desc Leave evento (update atomico)
 // @route POST /api/events/:id/leave
 async function leaveEvent(req, res) {
   try {
-    const ev = await Event.findById(req.params.id);
-    if (!ev) return res.status(404).json({ ok: false, error: "NOT_FOUND" });
-
-    if (!Array.isArray(ev.participants)) {
-      ev.participants = [];
+    const r = await Event.updateOne(
+      { _id: req.params.id },
+      { $pull: { participants: req.user.id } }
+    );
+    if (!r.matchedCount) {
+      return res.status(404).json({ ok: false, error: "NOT_FOUND" });
     }
-
-    const myId = String(req.user.id);
-    const newList = ev.participants.filter((pid) => String(pid) !== myId);
-
-    if (newList.length !== ev.participants.length) {
-      ev.participants = newList;
-      await ev.save();
-    }
-
-    res.json({ ok: true, joined: false, eventId: ev._id });
+    return res.json({ ok: true, joined: false, eventId: req.params.id });
   } catch (err) {
     res.status(500).json({ ok: false, error: "LEAVE_FAILED", message: err.message });
   }
