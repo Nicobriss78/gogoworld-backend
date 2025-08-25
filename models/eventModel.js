@@ -2,6 +2,7 @@
 //
 // Correzioni:
 // - indici su organizer e date per prestazioni di /mine/list e ordinamenti
+// - participants: default [] applicato all'array (best practice Mongoose)
 
 const mongoose = require("mongoose");
 
@@ -35,7 +36,10 @@ const eventSchema = new mongoose.Schema(
     images: [{ type: String, trim: true }], // galleria
 
     // Partecipanti
-    participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    participants: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+      default: [],
+    },
   },
   { timestamps: true }
 );
