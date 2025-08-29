@@ -2,7 +2,7 @@ services:
   - type: web
     name: gogoworld-api
     env: node
-    rootDir: gogoworld-backend
+    rootDir: backend
     buildCommand: "npm install"
     startCommand: "npm start"
     plan: free
@@ -12,3 +12,4 @@ services:
         value: production
       - key: CORS_ORIGIN_FRONTEND
         sync: false # set to your Netlify URL e.g. https://<your-site>.netlify.app
+
