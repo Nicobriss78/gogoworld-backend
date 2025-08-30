@@ -55,6 +55,9 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
+// 👉 Preflight CORS per tutte le rotte (AGGIUNTA CHIRURGICA)
+app.options("*", cors(corsOptions));
+
 // Parser
 app.use(express.json({ limit: process.env.JSON_LIMIT || "2mb" }));
 app.use(express.urlencoded({ extended: true }));
@@ -85,4 +88,5 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 GoGo.World API in ascolto sulla porta ${PORT}`);
 });
+
 
