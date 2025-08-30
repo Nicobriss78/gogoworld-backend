@@ -1,180 +1,179 @@
-// controllers/eventController.js — gestione eventi (versione allineata e fixata)
-//
-// Correzioni:
-// - listMyEvents: applica gli stessi filtri di listEvents in AND con organizer
-// - updateEvent: whitelist dei campi aggiornabili (niente organizer/participants/_id/...)
-// - join/leave: update atomico con $addToSet / $pull (niente save del doc intero)
-
 const Event = require("../models/eventModel");
+const asyncHandler = require("express-async-handler");
 
-// helper per costruire filtri comuni
+// Costruisce filtri dinamici dalle query string
 function buildFilters(q) {
   const query = {};
-  if (q.title) query.title = new RegExp(q.title, "i");
-  if (q.city) query.city = new RegExp(q.city, "i");
-  if (q.region) query.region = new RegExp(q.region, "i");
-  if (q.country) query.country = new RegExp(q.country, "i");
-  if (q.category) query.category = q.category;
-  if (q.subcategory) query.subcategory = q.subcategory;
-  if (q.visibility) query.visibility = q.visibility;
-  if (q.type) query.type = q.type;
-  if (q.isFree !== undefined) query.isFree = q.isFree === "true";
+
+  if (q.title) {
+    query.title = { $regex: q.title, $options: "i" };
+  }
+  if (q.city) {
+    query.city = { $regex: q.city, $options: "i" };
+  }
+  if (q.region) {
+    query.region = { $regex: q.region, $options: "i" };
+  }
+  if (q.country) {
+    query.country = { $regex: q.country, $options: "i" };
+  }
+  if (q.category) {
+    query.category = q.category;
+  }
+  if (q.subcategory) {
+    query.subcategory = q.subcategory;
+  }
+  if (q.visibility) {
+    query.visibility = q.visibility;
+  }
+  if (q.type) {
+    query.type = q.type;
+  }
+  if (q.isFree) {
+    query.isFree = q.isFree === "true";
+  }
 
   if (q.dateStart || q.dateEnd) {
     query.date = {};
-    if (q.dateStart) query.date.$gte = new Date(q.dateStart);
-    if (q.dateEnd) query.date.$lte = new Date(q.dateEnd);
+    if (q.dateStart) {
+      query.date.$gte = new Date(q.dateStart);
+    }
+    if (q.dateEnd) {
+      const end = new Date(q.dateEnd);
+      // FIX CHIRURGICO: se la query è in formato solo-data (YYYY-MM-DD),
+      // includiamo l’intera giornata con $lt di giorno successivo.
+      if (/^\d{4}-\d{2}-\d{2}$/.test(q.dateEnd)) {
+        const nextDay = new Date(end);
+        nextDay.setDate(end.getDate() + 1);
+        query.date.$lt = nextDay;
+      } else {
+        query.date.$lte = end;
+      }
+    }
   }
+
   return query;
 }
 
-// @desc Lista eventi (con filtri)
+// @desc Ottiene tutti gli eventi (pubblici) con filtri
 // @route GET /api/events
-async function listEvents(req, res) {
-  try {
-    const filters = buildFilters(req.query);
-    const events = await Event.find(filters).sort({ date: 1 });
-    res.json({ ok: true, events });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: "LIST_FAILED", message: err.message });
-  }
-}
+// @access Public
+const listEvents = asyncHandler(async (req, res) => {
+  const filters = buildFilters(req.query);
+  const events = await Event.find(filters).sort({ date: 1 });
+  res.json({ ok: true, events });
+});
 
-// @desc Dettaglio evento
-// @route GET /api/events/:id
-async function getEventById(req, res) {
-  try {
-    const ev = await Event.findById(req.params.id);
-    if (!ev) return res.status(404).json({ ok: false, error: "NOT_FOUND" });
-    res.json({ ok: true, event: ev });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: "DETAIL_FAILED", message: err.message });
-  }
-}
-
-// @desc Crea evento
-// @route POST /api/events
-async function createEvent(req, res) {
-  try {
-    const data = req.body;
-    data.organizer = req.user.id;
-    const ev = await Event.create(data);
-    res.status(201).json({ ok: true, event: ev });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: "CREATE_FAILED", message: err.message });
-  }
-}
-
-// @desc Aggiorna evento (whitelist campi)
-// @route PUT /api/events/:id
-async function updateEvent(req, res) {
-  try {
-    const ev = await Event.findById(req.params.id);
-    if (!ev) return res.status(404).json({ ok: false, error: "NOT_FOUND" });
-
-    if (String(ev.organizer) !== String(req.user.id)) {
-      return res.status(403).json({ ok: false, error: "NOT_OWNER" });
-    }
-
-    const allowed = [
-      "title", "description",
-      "city", "region", "country",
-      "category", "subcategory",
-      "type", "visibility",
-      "date", "endDate",
-      "isFree", "price",
-      "coverImage", "images",
-    ];
-
-    for (const key of allowed) {
-      if (Object.prototype.hasOwnProperty.call(req.body, key)) {
-        ev[key] = req.body[key];
-      }
-    }
-
-    await ev.save();
-    res.json({ ok: true, event: ev });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: "UPDATE_FAILED", message: err.message });
-  }
-}
-
-// @desc Elimina evento
-// @route DELETE /api/events/:id
-async function deleteEvent(req, res) {
-  try {
-    const ev = await Event.findById(req.params.id);
-    if (!ev) return res.status(404).json({ ok: false, error: "NOT_FOUND" });
-
-    if (String(ev.organizer) !== String(req.user.id)) {
-      return res.status(403).json({ ok: false, error: "NOT_OWNER" });
-    }
-
-    await ev.deleteOne();
-    res.json({ ok: true, deleted: true });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: "DELETE_FAILED", message: err.message });
-  }
-}
-
-// @desc Lista miei eventi (con filtri)
+// @desc Ottiene eventi creati dall’organizzatore corrente
 // @route GET /api/events/mine/list
-async function listMyEvents(req, res) {
-  try {
-    const filters = buildFilters(req.query);
-    const query = { ...filters, organizer: req.user.id };
-    const events = await Event.find(query).sort({ date: 1 });
-    res.json({ ok: true, events });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: "MINE_FAILED", message: err.message });
-  }
-}
+// @access Private (organizer)
+const listMyEvents = asyncHandler(async (req, res) => {
+  const filters = buildFilters(req.query);
+  filters.organizer = req.user._id;
+  const events = await Event.find(filters).sort({ date: 1 });
+  res.json({ ok: true, events });
+});
 
-// @desc Join evento (update atomico)
+// @desc Ottiene un evento singolo
+// @route GET /api/events/:id
+// @access Public
+const getEventById = asyncHandler(async (req, res) => {
+  const event = await Event.findById(req.params.id).populate("organizer", "name email");
+  if (!event) {
+    res.status(404);
+    throw new Error("Evento non trovato");
+  }
+  res.json({ ok: true, event });
+});
+
+// @desc Crea un nuovo evento
+// @route POST /api/events
+// @access Private (organizer)
+const createEvent = asyncHandler(async (req, res) => {
+  const event = new Event({
+    ...req.body,
+    organizer: req.user._id,
+  });
+  const created = await event.save();
+  res.status(201).json({ ok: true, event: created });
+});
+
+// @desc Aggiorna un evento
+// @route PUT /api/events/:id
+// @access Private (organizer)
+const updateEvent = asyncHandler(async (req, res) => {
+  const event = await Event.findById(req.params.id);
+  if (!event) {
+    res.status(404);
+    throw new Error("Evento non trovato");
+  }
+  if (event.organizer.toString() !== req.user._id.toString()) {
+    res.status(403);
+    throw new Error("Non autorizzato");
+  }
+  Object.assign(event, req.body);
+  const updated = await event.save();
+  res.json({ ok: true, event: updated });
+});
+
+// @desc Elimina un evento
+// @route DELETE /api/events/:id
+// @access Private (organizer)
+const deleteEvent = asyncHandler(async (req, res) => {
+  const event = await Event.findById(req.params.id);
+  if (!event) {
+    res.status(404);
+    throw new Error("Evento non trovato");
+  }
+  if (event.organizer.toString() !== req.user._id.toString()) {
+    res.status(403);
+    throw new Error("Non autorizzato");
+  }
+  await event.remove();
+  res.json({ ok: true, message: "Evento eliminato" });
+});
+
+// @desc Aggiunge partecipante a un evento
 // @route POST /api/events/:id/join
-async function joinEvent(req, res) {
-  try {
-    const r = await Event.updateOne(
-      { _id: req.params.id },
-      { $addToSet: { participants: req.user.id } }
-    );
-    // In Mongoose 6/7: { acknowledged, matchedCount, modifiedCount }
-    if (!r.matchedCount) {
-      return res.status(404).json({ ok: false, error: "NOT_FOUND" });
-    }
-    return res.json({ ok: true, joined: true, eventId: req.params.id });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: "JOIN_FAILED", message: err.message });
+// @access Private (participant)
+const joinEvent = asyncHandler(async (req, res) => {
+  const event = await Event.findById(req.params.id);
+  if (!event) {
+    res.status(404);
+    throw new Error("Evento non trovato");
   }
-}
+  if (!event.participants.includes(req.user._id)) {
+    event.participants.push(req.user._id);
+    await event.save();
+  }
+  res.json({ ok: true, event });
+});
 
-// @desc Leave evento (update atomico)
+// @desc Rimuove partecipante da un evento
 // @route POST /api/events/:id/leave
-async function leaveEvent(req, res) {
-  try {
-    const r = await Event.updateOne(
-      { _id: req.params.id },
-      { $pull: { participants: req.user.id } }
-    );
-    if (!r.matchedCount) {
-      return res.status(404).json({ ok: false, error: "NOT_FOUND" });
-    }
-    return res.json({ ok: true, joined: false, eventId: req.params.id });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: "LEAVE_FAILED", message: err.message });
+// @access Private (participant)
+const leaveEvent = asyncHandler(async (req, res) => {
+  const event = await Event.findById(req.params.id);
+  if (!event) {
+    res.status(404);
+    throw new Error("Evento non trovato");
   }
-}
+  event.participants = event.participants.filter(
+    (p) => p.toString() !== req.user._id.toString()
+  );
+  await event.save();
+  res.json({ ok: true, event });
+});
 
 module.exports = {
   listEvents,
+  listMyEvents,
   getEventById,
   createEvent,
   updateEvent,
   deleteEvent,
-  listMyEvents,
   joinEvent,
   leaveEvent,
 };
-
 
 
