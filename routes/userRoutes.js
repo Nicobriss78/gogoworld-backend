@@ -1,41 +1,28 @@
-// routes/userRoutes.js — gestione utente e alias join/leave lato utente
-//
-// Endpoints principali
-// - POST /register
-// - POST /login
-// - GET /me (protetto)
-// - POST /session-role (non protetto: ruolo solo di sessione lato FE)
-// - POST /join/:eventId (protetto)
-// - POST /leave/:eventId (protetto)
-//
-// Nota: join/leave sono alias "lato utente"; esistono anche alias lato evento in eventRoutes.
-// Le funzioni richiamate sono definite in controllers/userController.js
+// routes/userRoutes.js — GoGoWorld.life
+// NOTE: Modifica CHIRURGICA per Opzione B
+// - Protetto POST /session-role (require auth) e collegato al controller persistente
+// - Nessun’altra rotta alterata
 
 const express = require("express");
 const router = express.Router();
-const { protect } = require("../middleware/auth");
 
 const {
-  register,
-  login,
-  getMe,
+  registerUser,
+  authUser,
+  getUserProfile,
   setSessionRole,
-  joinEvent, // alias lato utente
-  leaveEvent, // alias lato utente
 } = require("../controllers/userController");
 
-// Registrazione e login
-router.post("/register", register);
-router.post("/login", login);
+const { protect } = require("../middleware/auth");
 
-// Dati utente corrente
-router.get("/me", protect, getMe);
+// Public
+router.post("/", registerUser);
+router.post("/login", authUser);
 
-// Ruolo di sessione (solo eco per coerenza con FE; nessuna persistenza DB)
-router.post("/session-role", setSessionRole);
+// Private
+router.get("/me", protect, getUserProfile);
 
-// Alias join/leave (lato utente)
-router.post("/join/:eventId", protect, joinEvent);
-router.post("/leave/:eventId", protect, leaveEvent);
+// Private: switch role (persistente)
+router.post("/session-role", protect, setSessionRole);
 
 module.exports = router;
