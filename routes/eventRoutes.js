@@ -1,49 +1,46 @@
-// routes/eventRoutes.js — gestione eventi e alias join/leave lato evento
-//
-// Endpoints principali
-// - GET / (lista con filtri via query)
-// - GET /mine/list (protetto: eventi dell'organizzatore corrente)
-// - GET /:id (dettaglio)
-// - POST / (protetto: crea)
-// - PUT /:id (protetto: aggiorna — proprietario)
-// - DELETE /:id (protetto: elimina — proprietario)
-// - POST /:id/join (protetto: alias lato evento)
-// - POST /:id/leave (protetto: alias lato evento)
-//
-// Le funzioni richiamate sono in controllers/eventController.js
+// routes/eventRoutes.js — GoGoWorld.life
+// NOTE: Modifica CHIRURGICA per Opzione B
+// - Aggiunto authorize("organizer") su POST/PUT/DELETE eventi
+// - Nessuna modifica ad altre rotte
 
 const express = require("express");
 const router = express.Router();
-const { protect } = require("../middleware/auth");
 
 const {
   listEvents,
+  listMyEvents,
   getEventById,
   createEvent,
   updateEvent,
   deleteEvent,
-  listMyEvents,
-  joinEvent, // alias lato evento
-  leaveEvent, // alias lato evento
+  joinEvent,
+  leaveEvent,
 } = require("../controllers/eventController");
 
-// Lista (con filtri)
+const { protect, authorize } = require("../middleware/auth");
+
+// Pubblico: lista eventi (con filtri)
 router.get("/", listEvents);
 
-// I miei eventi (organizzatore corrente)
+// Privato: eventi dell'organizzatore corrente
 router.get("/mine/list", protect, listMyEvents);
 
-// Dettaglio
+// Pubblico: dettaglio evento
 router.get("/:id", getEventById);
 
-// CRUD (protette)
-router.post("/", protect, createEvent);
-router.put("/:id", protect, updateEvent);
-router.delete("/:id", protect, deleteEvent);
+// Privato + Ruolo: crea evento (solo organizer)
+router.post("/", protect, authorize("organizer"), createEvent);
 
-// Alias join/leave (lato evento)
+// Privato + Ruolo + Ownership (verificata nel controller): aggiorna evento
+router.put("/:id", protect, authorize("organizer"), updateEvent);
+
+// Privato + Ruolo + Ownership (verificata nel controller): elimina evento
+router.delete("/:id", protect, authorize("organizer"), deleteEvent);
+
+// Privato: partecipa/annulla (aperto ai partecipanti)
 router.post("/:id/join", protect, joinEvent);
 router.post("/:id/leave", protect, leaveEvent);
 
 module.exports = router;
+
 
