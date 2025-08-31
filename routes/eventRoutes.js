@@ -1,37 +1,38 @@
 // routes/eventRoutes.js — GoGoWorld.life
-// NOTE: Opzione A — aggiunta rotta import CSV (visibile a tutti lato UI, autorizzata solo lato BE)
+// NOTE: Opzione A — rotta import CSV (visibile a tutti lato UI, autorizzata solo lato BE)
 
 const express = require("express");
 const router = express.Router();
 
 const {
-  getEvents,
+  // ⬇️ allineati ai nomi REALI presenti nel tuo eventController.js
+  listEvents,
   createEvent,
   getEventById,
   updateEvent,
   deleteEvent,
   joinEvent,
   leaveEvent,
-  getMyEventsList,
+  listMyEvents,
 } = require("../controllers/eventController");
 
 const { protect, authorize } = require("../middleware/auth");
 
-// === Nuovi import per import CSV (AGGIUNTA CHIRURGICA) ===
+// === Import per import CSV (già previsti) ===
 const { importCsv } = require("../controllers/importController");
 const { uploadCsv } = require("../middleware/upload");
 
 // --------------------------------------------------------
 // Eventi pubblici / query
 // --------------------------------------------------------
-router.get("/", getEvents);
+router.get("/", listEvents);
 
 // --------------------------------------------------------
 // Creazione / gestione eventi (organizer only)
 // --------------------------------------------------------
 router.post("/", protect, authorize("organizer"), createEvent);
 
-router.get("/mine/list", protect, authorize("organizer"), getMyEventsList);
+router.get("/mine/list", protect, authorize("organizer"), listMyEvents);
 
 router.get("/:id", getEventById);
 
@@ -47,7 +48,7 @@ router.post("/:id/leave", protect, leaveEvent);
 
 // --------------------------------------------------------
 // Import massivo da CSV (organizer + whitelist via ADMIN_EMAILS)
-// Opzione A: il bottone è visibile a tutti nel FE, ma la vera protezione è qui.
+// Opzione A: il bottone è visibile a tutti nel FE, ma la protezione è qui.
 // --------------------------------------------------------
 router.post(
   "/import-csv",
