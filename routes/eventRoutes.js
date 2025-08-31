@@ -1,46 +1,63 @@
 // routes/eventRoutes.js — GoGoWorld.life
-// NOTE: Modifica CHIRURGICA per Opzione B
-// - Aggiunto authorize("organizer") su POST/PUT/DELETE eventi
-// - Nessuna modifica ad altre rotte
+// NOTE: Opzione A — aggiunta rotta import CSV (visibile a tutti lato UI, autorizzata solo lato BE)
 
 const express = require("express");
 const router = express.Router();
 
 const {
-  listEvents,
-  listMyEvents,
-  getEventById,
+  getEvents,
   createEvent,
+  getEventById,
   updateEvent,
   deleteEvent,
   joinEvent,
   leaveEvent,
+  getMyEventsList,
 } = require("../controllers/eventController");
 
 const { protect, authorize } = require("../middleware/auth");
 
-// Pubblico: lista eventi (con filtri)
-router.get("/", listEvents);
+// === Nuovi import per import CSV (AGGIUNTA CHIRURGICA) ===
+const { importCsv } = require("../controllers/importController");
+const { uploadCsv } = require("../middleware/upload");
 
-// Privato: eventi dell'organizzatore corrente
-router.get("/mine/list", protect, listMyEvents);
+// --------------------------------------------------------
+// Eventi pubblici / query
+// --------------------------------------------------------
+router.get("/", getEvents);
 
-// Pubblico: dettaglio evento
-router.get("/:id", getEventById);
-
-// Privato + Ruolo: crea evento (solo organizer)
+// --------------------------------------------------------
+// Creazione / gestione eventi (organizer only)
+// --------------------------------------------------------
 router.post("/", protect, authorize("organizer"), createEvent);
 
-// Privato + Ruolo + Ownership (verificata nel controller): aggiorna evento
+router.get("/mine/list", protect, authorize("organizer"), getMyEventsList);
+
+router.get("/:id", getEventById);
+
 router.put("/:id", protect, authorize("organizer"), updateEvent);
 
-// Privato + Ruolo + Ownership (verificata nel controller): elimina evento
 router.delete("/:id", protect, authorize("organizer"), deleteEvent);
 
-// Privato: partecipa/annulla (aperto ai partecipanti)
+// --------------------------------------------------------
+// Partecipazione eventi
+// --------------------------------------------------------
 router.post("/:id/join", protect, joinEvent);
 router.post("/:id/leave", protect, leaveEvent);
 
+// --------------------------------------------------------
+// Import massivo da CSV (organizer + whitelist via ADMIN_EMAILS)
+// Opzione A: il bottone è visibile a tutti nel FE, ma la vera protezione è qui.
+// --------------------------------------------------------
+router.post(
+  "/import-csv",
+  protect,
+  authorize("organizer"),
+  uploadCsv.single("file"), // campo file nel form-data
+  importCsv
+);
+
 module.exports = router;
+
 
 
