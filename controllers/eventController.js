@@ -1,6 +1,55 @@
 const Event = require("../models/eventModel");
 const asyncHandler = require("express-async-handler");
 
+// ---- Stato evento derivato dal tempo corrente ----
+// Status possibili: "ongoing" (in corso), "imminent" (imminente), "future" (futuro), "concluded" (appena concluso), "past" (oltre finestra concluso)
+// Usa ENV con default sicuri; timezone rimane un fallback concettuale (date salvate in UTC)
+const IMMINENT_HOURS = Number(process.env.IMMINENT_HOURS || 72);
+const SHOW_CONCLUDED_HOURS = Number(process.env.SHOW_CONCLUDED_HOURS || 12);
+// const DEFAULT_TIMEZONE = process.env.DEFAULT_TIMEZONE || "Europe/Rome"; // placeholder per evoluzioni future
+
+function computeEventStatus(ev, now = new Date()) {
+  try {
+    const start = ev?.date || ev?.dateStart ? new Date(ev.date || ev.dateStart) : null;
+    // endDate opzionale: se manca, usa start (evento monogiorno)
+    const end = ev?.endDate || ev?.dateEnd ? new Date(ev.endDate || ev.dateEnd) : start;
+
+    if (!start) return "future"; // senza date, trattiamo come futuro per non bloccare
+
+    const t = now.getTime();
+    const ts = start.getTime();
+    const te = (end ? end.getTime() : ts);
+    const msImminent = IMMINENT_HOURS * 60 * 60 * 1000;
+    const msConcluded = SHOW_CONCLUDED_HOURS * 60 * 60 * 1000;
+
+    if (t < ts) {
+      // futuro / imminente
+      return (ts - t) <= msImminent ? "imminent" : "future";
+    }
+    if (t >= ts && t <= te) {
+      return "ongoing";
+    }
+    // passato
+    return (t - te) <= msConcluded ? "concluded" : "past";
+  } catch {
+    return "future";
+  }
+}
+
+function attachStatusToArray(docs, now = new Date()) {
+  if (!Array.isArray(docs)) return [];
+  return docs.map(d => {
+    const obj = typeof d.toObject === "function" ? d.toObject() : d;
+    return { ...obj, status: computeEventStatus(obj, now) };
+  });
+}
+
+function attachStatusToOne(doc, now = new Date()) {
+  if (!doc) return doc;
+  const obj = typeof doc.toObject === "function" ? doc.toObject() : doc;
+  return { ...obj, status: computeEventStatus(obj, now) };
+}
+
 // Costruisce filtri dinamici dalle query string
 function buildFilters(q) {
   const query = {};
@@ -61,7 +110,10 @@ function buildFilters(q) {
 const listEvents = asyncHandler(async (req, res) => {
   const filters = buildFilters(req.query);
   const events = await Event.find(filters).sort({ date: 1 });
-  res.json({ ok: true, events });
+  const now = new Date();
+  const payload = attachStatusToArray(events, now);
+  res.json({ ok: true, events: payload });
+
 });
 
 // @desc Ottiene eventi creati dall’organizzatore corrente
@@ -71,7 +123,9 @@ const listMyEvents = asyncHandler(async (req, res) => {
   const filters = buildFilters(req.query);
   filters.organizer = req.user._id;
   const events = await Event.find(filters).sort({ date: 1 });
-  res.json({ ok: true, events });
+ const now = new Date();
+  const payload = attachStatusToArray(events, now);
+  res.json({ ok: true, events: payload });
 });
 
 // @desc Ottiene un evento singolo
@@ -83,7 +137,9 @@ const getEventById = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("Evento non trovato");
   }
-  res.json({ ok: true, event });
+  const now = new Date();
+  const payload = attachStatusToOne(event, now);
+  res.json({ ok: true, event: payload });
 });
 
 // @desc Crea un nuovo evento
@@ -175,5 +231,6 @@ module.exports = {
   joinEvent,
   leaveEvent,
 };
+
 
 
