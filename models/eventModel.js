@@ -1,8 +1,4 @@
-// models/eventModel.js — evento (versione allineata con indici)
-//
-// Correzioni:
-// - indici su organizer e date per prestazioni di /mine/list e ordinamenti
-// - participants: default [] applicato all'array (best practice Mongoose)
+// backend/models/eventModel.js
 
 const mongoose = require("mongoose");
 
@@ -10,42 +6,65 @@ const eventSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true },
     description: { type: String, trim: true },
-    organizer: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
 
-    // Localizzazione
-    city: { type: String, trim: true },
-    region: { type: String, trim: true },
-    country: { type: String, trim: true },
-
-    // Tipologie/filtri
-    category: { type: String, trim: true },
+    // Tassonomia
+    category: { type: String, trim: true, required: true },
     subcategory: { type: String, trim: true },
-    type: { type: String, trim: true }, // pubblico/privato/ibrido
-    visibility: { type: String, default: "public" }, // public/private
+
+    // Localizzazione separata
+    venueName: { type: String, trim: true },
+    street: { type: String, trim: true },
+    streetNumber: { type: String, trim: true },
+    postalCode: { type: String, trim: true },
+    city: { type: String, trim: true },
+    province: { type: String, trim: true },
+    region: { type: String, trim: true, required: true },
+    country: { type: String, trim: true, required: true }, // ISO 3166-1 alpha-2
+    lat: { type: Number },
+    lon: { type: Number },
 
     // Date e orari
-    date: { type: Date, required: true },
-    endDate: { type: Date },
+    dateStart: { type: Date, required: true },
+    dateEnd: { type: Date },
 
-    // Costi
-    isFree: { type: Boolean, default: true },
-    price: { type: Number, default: 0 },
-
-    // Immagini
-    coverImage: { type: String, trim: true }, // locandina
-    images: [{ type: String, trim: true }], // galleria
-
-    // Partecipanti
-    participants: {
-      type: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-      default: [],
+    // Visibilità / lingua / target
+    visibility: {
+      type: String,
+      enum: ["public", "draft", "private"],
+      default: "public",
+      index: true,
     },
+    language: {
+      type: String, // ISO 639-1 (es. "it")
+      default: "it",
+      trim: true,
+    },
+    target: {
+      type: String, // "tutti" | "famiglie" | "18+" | "professionisti"
+      default: "tutti",
+      trim: true,
+    },
+
+    // Prezzo e valuta
+    isFree: { type: Boolean, default: false },
+    price: { type: Number, min: 0 },
+    currency: { type: String, trim: true, default: "EUR" }, // ISO 4217
+
+    // Media e tag
+    tags: { type: [String], default: [] },
+    images: { type: [String], default: [] },
+    coverImage: { type: String, trim: true },
+
+    // Relazioni
+    organizer: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   },
   { timestamps: true }
 );
 
 // Indici utili
-eventSchema.index({ organizer: 1 });
-eventSchema.index({ date: 1 });
+eventSchema.index({ dateStart: 1 });
+eventSchema.index({ organizer: 1, dateStart: -1 });
+eventSchema.index({ region: 1, category: 1 });
 
 module.exports = mongoose.model("Event", eventSchema);
