@@ -75,29 +75,36 @@ function buildFilters(q) {
   if (q.visibility) {
     query.visibility = q.visibility;
   }
- 
+  // --- PATCH: nuovi filtri ---
+  if (q.language) {
+    query.language = q.language;
+  }
+  if (q.target) {
+    query.target = q.target;
+  }
+  // --------------------------
+
   if (q.isFree) {
     query.isFree = q.isFree === "true";
   }
 
-if (q.dateStart || q.dateEnd) {
-  query.dateStart = {};
-  if (q.dateStart) {
-    query.dateStart.$gte = new Date(q.dateStart);
-  }
-  if (q.dateEnd) {
-    const end = new Date(q.dateEnd);
-    // Se formato solo-data (YYYY-MM-DD), includi tutta la giornata
-    if (/^\d{4}-\d{2}-\d{2}$/.test(q.dateEnd)) {
-      const nextDay = new Date(end);
-      nextDay.setDate(end.getDate() + 1);
-      query.dateStart.$lt = nextDay;
-    } else {
-      query.dateStart.$lte = end;
+  if (q.dateStart || q.dateEnd) {
+    query.dateStart = {};
+    if (q.dateStart) {
+      query.dateStart.$gte = new Date(q.dateStart);
+    }
+    if (q.dateEnd) {
+      const end = new Date(q.dateEnd);
+      // Se formato solo-data (YYYY-MM-DD), includi tutta la giornata
+      if (/^\d{4}-\d{2}-\d{2}$/.test(q.dateEnd)) {
+        const nextDay = new Date(end);
+        nextDay.setDate(end.getDate() + 1);
+        query.dateStart.$lt = nextDay;
+      } else {
+        query.dateStart.$lte = end;
+      }
     }
   }
-}
-
 
   return query;
 }
@@ -107,10 +114,10 @@ if (q.dateStart || q.dateEnd) {
 // @access Public
 const listEvents = asyncHandler(async (req, res) => {
   const filters = buildFilters(req.query);
-if (!req.query.visibility) {
-  filters.visibility = "public";
-}
-const events = await Event.find(filters).sort({ dateStart: 1 });
+  if (!req.query.visibility) {
+    filters.visibility = "public";
+  }
+  const events = await Event.find(filters).sort({ dateStart: 1 });
   const now = new Date();
   const payload = attachStatusToArray(events, now);
   res.json({ ok: true, events: payload });
@@ -123,8 +130,8 @@ const events = await Event.find(filters).sort({ dateStart: 1 });
 const listMyEvents = asyncHandler(async (req, res) => {
   const filters = buildFilters(req.query);
   filters.organizer = req.user._id;
-  const events = await Event.find(filters).sort({ date: 1 });
- const now = new Date();
+  const events = await Event.find(filters).sort({ dateStart: 1 }); // PATCH: ordinamento su dateStart
+  const now = new Date();
   const payload = attachStatusToArray(events, now);
   res.json({ ok: true, events: payload });
 });
@@ -147,8 +154,41 @@ const getEventById = asyncHandler(async (req, res) => {
 // @route POST /api/events
 // @access Private (organizer)
 const createEvent = asyncHandler(async (req, res) => {
+  // --- PATCH: validazioni minime + normalizzazioni prezzo/valuta ---
+  const payload = { ...req.body };
+
+  const required = ["title", "category", "visibility", "region", "country", "dateStart"];
+  const missing = required.filter(k => !payload[k] || String(payload[k]).trim() === "");
+  if (missing.length) {
+    res.status(400);
+    throw new Error(`Campi obbligatori mancanti: ${missing.join(", ")}`);
+  }
+
+  // Coerenza date
+  if (payload.dateEnd && new Date(payload.dateEnd) < new Date(payload.dateStart)) {
+    res.status(400);
+    throw new Error("dateEnd precedente a dateStart");
+  }
+
+  // Prezzo/valuta
+  const isFree = !!payload.isFree;
+  if (isFree) {
+    delete payload.price;
+    delete payload.currency;
+  } else if (payload.price !== undefined && payload.price !== null && String(payload.price) !== "") {
+    const num = Number(String(payload.price).replace(",", "."));
+    payload.price = Number.isFinite(num) && num >= 0 ? num : 0;
+    if (!payload.currency) payload.currency = "EUR";
+  } else {
+    // nessun price specificato ⇒ trattiamo come gratuito
+    payload.isFree = true;
+    delete payload.price;
+    delete payload.currency;
+  }
+  // ---------------------------------------------------------------
+
   const event = new Event({
-    ...req.body,
+    ...payload,
     organizer: req.user._id,
   });
   const created = await event.save();
@@ -232,7 +272,6 @@ module.exports = {
   joinEvent,
   leaveEvent,
 };
-
 
 
 
