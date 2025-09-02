@@ -75,31 +75,29 @@ function buildFilters(q) {
   if (q.visibility) {
     query.visibility = q.visibility;
   }
-  if (q.type) {
-    query.type = q.type;
-  }
+ 
   if (q.isFree) {
     query.isFree = q.isFree === "true";
   }
 
-  if (q.dateStart || q.dateEnd) {
-    query.date = {};
-    if (q.dateStart) {
-      query.date.$gte = new Date(q.dateStart);
-    }
-    if (q.dateEnd) {
-      const end = new Date(q.dateEnd);
-      // FIX CHIRURGICO: se la query è in formato solo-data (YYYY-MM-DD),
-      // includiamo l’intera giornata con $lt di giorno successivo.
-      if (/^\d{4}-\d{2}-\d{2}$/.test(q.dateEnd)) {
-        const nextDay = new Date(end);
-        nextDay.setDate(end.getDate() + 1);
-        query.date.$lt = nextDay;
-      } else {
-        query.date.$lte = end;
-      }
+if (q.dateStart || q.dateEnd) {
+  query.dateStart = {};
+  if (q.dateStart) {
+    query.dateStart.$gte = new Date(q.dateStart);
+  }
+  if (q.dateEnd) {
+    const end = new Date(q.dateEnd);
+    // Se formato solo-data (YYYY-MM-DD), includi tutta la giornata
+    if (/^\d{4}-\d{2}-\d{2}$/.test(q.dateEnd)) {
+      const nextDay = new Date(end);
+      nextDay.setDate(end.getDate() + 1);
+      query.dateStart.$lt = nextDay;
+    } else {
+      query.dateStart.$lte = end;
     }
   }
+}
+
 
   return query;
 }
@@ -109,7 +107,10 @@ function buildFilters(q) {
 // @access Public
 const listEvents = asyncHandler(async (req, res) => {
   const filters = buildFilters(req.query);
-  const events = await Event.find(filters).sort({ date: 1 });
+if (!req.query.visibility) {
+  filters.visibility = "public";
+}
+const events = await Event.find(filters).sort({ dateStart: 1 });
   const now = new Date();
   const payload = attachStatusToArray(events, now);
   res.json({ ok: true, events: payload });
@@ -231,6 +232,7 @@ module.exports = {
   joinEvent,
   leaveEvent,
 };
+
 
 
 
