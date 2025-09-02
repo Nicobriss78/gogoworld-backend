@@ -35,6 +35,13 @@ function parsePrice(str) {
   return isNaN(val) || val < 0 ? 0 : val;
 }
 
+// Helper: parse boolean-like values (1/0, true/false, yes/no)
+function parseBool(val) {
+  const s = String(val ?? "").trim().toLowerCase();
+  if (!s) return false;
+  return ["1", "true", "yes", "y", "si", "s"].includes(s);
+}
+
 // Controller principale
 const importCsv = async (req, res, next) => {
   try {
@@ -80,26 +87,52 @@ const importCsv = async (req, res, next) => {
       const line = records[i];
       const errors = [];
 
+      // === Estrazione campi dalla riga CSV (nuovo schema) ===
       const title = (line.title || "").trim();
-      if (!title) errors.push("Titolo mancante");
+      const description = (line.description || "").trim();
 
-      const date = parseDate(line.date);
-      if (!date) errors.push("Data non valida");
+      const category = (line.category || "").trim();
+      const subcategory = (line.subcategory || "").trim();
 
-      let endDate = null;
-      if (line.endDate) {
-        endDate = parseDate(line.endDate);
-        if (!endDate) errors.push("EndDate non valida");
-        else if (date && endDate < date) {
-          errors.push("EndDate precedente alla Date");
-        }
+      const visibility = (line.visibility || "public").trim().toLowerCase(); // public|draft|private
+      const language = (line.language || "it").trim().toLowerCase(); // ISO 639-1
+      const target = (line.target || "tutti").trim().toLowerCase(); // tutti|famiglie|18+|professionisti
+
+      // Localizzazione separata
+      const venueName = (line.venueName || "").trim();
+      const street = (line.street || "").trim();
+      const streetNumber= (line.streetNumber || "").trim();
+      const postalCode = (line.postalCode || "").trim();
+      const city = (line.city || "").trim();
+      const province = (line.province || "").trim();
+      const region = (line.region || "").trim();
+      const country = (line.country || "").trim(); // ISO 3166-1 alpha-2 preferita
+
+      const lat = line.lat !== undefined && line.lat !== null && String(line.lat).trim() !== ""
+        ? parseFloat(String(line.lat).replace(",", "."))
+        : undefined;
+      const lon = line.lon !== undefined && line.lon !== null && String(line.lon).trim() !== ""
+        ? parseFloat(String(line.lon).replace(",", "."))
+        : undefined;
+
+      // Date (nuovi nomi)
+      const dateStart = parseDate(line.dateStart);
+      let dateEnd = line.dateEnd ? parseDate(line.dateEnd) : null;
+
+      // Prezzo/valuta
+      const hasPriceField = line.price !== undefined && line.price !== null && String(line.price).trim() !== "";
+      const rawPrice = hasPriceField ? parsePrice(line.price) : 0;
+      let isFree = parseBool(line.isFree);
+      if (hasPriceField && rawPrice === 0) isFree = true;
+      if (!hasPriceField && !isFree) isFree = true; // se non c'è price e isFree non è true => trattalo come gratuito
+
+      let price = isFree ? 0 : rawPrice;
+      let currency = (line.currency || "").trim().toUpperCase();
+      if (!isFree && hasPriceField && !currency) {
+        currency = "EUR"; // default concordato
       }
 
-      const city = line.city ? String(line.city).trim() : "";
-      const region = line.region ? String(line.region).trim() : "";
-      const category = line.category ? String(line.category).trim() : "";
-      const description = line.description ? String(line.description).trim() : "";
-      const price = parsePrice(line.price);
+      // Media e tag (separatore pipe)
       const tags = line.tags
         ? String(line.tags)
             .split("|")
@@ -107,13 +140,38 @@ const importCsv = async (req, res, next) => {
             .filter(Boolean)
         : [];
 
-      const coverImage = line.coverImage ? String(line.coverImage).trim() : "";
       const images = line.images
         ? String(line.images)
             .split("|")
             .map((u) => u.trim())
             .filter(Boolean)
         : [];
+
+      const coverImage = (line.coverImage || "").trim();
+
+      // === Validazioni ===
+      if (!title) errors.push("Titolo mancante");
+      if (!category) errors.push("Categoria mancante");
+      if (!visibility) errors.push("Visibilità mancante");
+      if (!region) errors.push("Regione mancante");
+      if (!country) errors.push("Paese mancante (ISO 3166-1 alpha-2)");
+      if (!dateStart) errors.push("dateStart non valida");
+
+      if (dateEnd && dateStart && dateEnd < dateStart) {
+        errors.push("dateEnd precedente a dateStart");
+      }
+
+      // Valuta/prezzo
+      if (!isFree && hasPriceField && price < 0) {
+        errors.push("Prezzo non valido (negativo)");
+      }
+      if (!isFree && hasPriceField && !currency) {
+        errors.push("Currency mancante");
+      }
+
+      // Lat/Lon (se forniti)
+      if (lat !== undefined && Number.isNaN(lat)) errors.push("Lat non valida");
+      if (lon !== undefined && Number.isNaN(lon)) errors.push("Lon non valida");
 
       if (errors.length > 0) {
         results.push({ line: i + 2, status: "error", errors });
@@ -122,24 +180,55 @@ const importCsv = async (req, res, next) => {
       }
 
       if (dryRun) {
-        results.push({ line: i + 2, status: "ok", preview: { title, date } });
+        results.push({
+          line: i + 2,
+          status: "ok",
+          preview: { title, category, region, country, visibility, dateStart, dateEnd }
+        });
         continue;
       }
 
       try {
         const ev = new Event({
+          // Base
           title,
           description,
-          city,
-          region,
+
+          // Tassonomia
           category,
-          date,
-          endDate,
-          isFree: price === 0,
-          price,
+          subcategory,
+
+          // Visibilità / lingua / target
+          visibility,
+          language,
+          target,
+
+          // Localizzazione separata
+          venueName,
+          street,
+          streetNumber,
+          postalCode,
+          city,
+          province,
+          region,
+          country,
+          ...(lat !== undefined ? { lat } : {}),
+          ...(lon !== undefined ? { lon } : {}),
+
+          // Date
+          dateStart,
+          ...(dateEnd ? { dateEnd } : {}),
+
+          // Prezzo/valuta
+          isFree,
+          ...(isFree ? {} : { price, currency }),
+
+          // Media & tag
           tags,
-          coverImage,
           images,
+          coverImage,
+
+          // Relazioni
           organizer: req.user._id,
         });
         await ev.save();
