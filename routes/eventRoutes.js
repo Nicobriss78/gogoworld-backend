@@ -54,11 +54,12 @@ router.post(
   "/import-csv",
   protect,
   authorize("organizer"),
-  uploadCsvSfe,
+  uploadCsvSafe,
   importCsv
 );
 
 module.exports = router;
+
 
 
 
