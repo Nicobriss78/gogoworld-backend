@@ -226,10 +226,12 @@ const deleteEvent = asyncHandler(async (req, res) => {
     res.status(403);
     throw new Error("Non autorizzato");
   }
-  await event.remove();
+
+  // Mongoose v7: remove() non esiste più
+  await event.deleteOne();
+
   res.json({ ok: true, message: "Evento eliminato" });
 });
-
 // @desc Aggiunge partecipante a un evento
 // @route POST /api/events/:id/join
 // @access Private (participant)
@@ -272,6 +274,7 @@ module.exports = {
   joinEvent,
   leaveEvent,
 };
+
 
 
 
