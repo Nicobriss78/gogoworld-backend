@@ -42,6 +42,7 @@ function fileFilter(_req, file, cb) {
   return cb(err);
 }
 
+// Istanza multer (export invariato)
 const uploadCsv = multer({
   storage,
   fileFilter,
@@ -52,4 +53,42 @@ const uploadCsv = multer({
   },
 });
 
-module.exports = { uploadCsv };
+/**
+ * Wrapper sicuro che incapsula uploadCsv.single("file")
+ * e mappa le MulterError in risposte 4xx leggibili (niente 500).
+ *
+ * Uso alternativo in rotta:
+ * router.post("/import-csv", protect, authorize("organizer"), uploadCsvSafe, importCsv);
+ */
+function uploadCsvSafe(req, res, next) {
+  const single = uploadCsv.single("file");
+  single(req, res, (err) => {
+    if (!err) return next();
+
+    if (err instanceof multer.MulterError) {
+      // Mappa errori più comuni
+      let status = 400;
+      let msg = "Upload non valido";
+      switch (err.code) {
+        case "LIMIT_FILE_COUNT":
+          msg = "Too many files (atteso 1 file CSV)";
+          break;
+        case "LIMIT_UNEXPECTED_FILE":
+          msg = "Campo file non valido o tipo non consentito (solo .csv)";
+          break;
+        case "LIMIT_FILE_SIZE":
+          status = 413;
+          msg = "File troppo grande";
+          break;
+        default:
+          msg = err.message || "Errore upload";
+      }
+      return res.status(status).json({ ok: false, error: msg, code: err.code });
+    }
+
+    // Altri errori runtime
+    return res.status(400).json({ ok: false, error: err.message || "Errore upload" });
+  });
+}
+
+module.exports = { uploadCsv, uploadCsvSafe };
