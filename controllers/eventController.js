@@ -154,43 +154,36 @@ const getEventById = asyncHandler(async (req, res) => {
 // @route POST /api/events
 // @access Private (organizer)
 const createEvent = asyncHandler(async (req, res) => {
-  // --- PATCH: validazioni minime + normalizzazioni prezzo/valuta ---
-  const payload = { ...req.body };
+  const body = { ...req.body };
 
-  const required = ["title", "category", "visibility", "region", "country", "dateStart"];
-  const missing = required.filter(k => !payload[k] || String(payload[k]).trim() === "");
-  if (missing.length) {
-    res.status(400);
-    throw new Error(`Campi obbligatori mancanti: ${missing.join(", ")}`);
-  }
+  // boolean robusto
+  const isFree =
+    body.isFree === true ||
+    body.isFree === "true" ||
+    body.isFree === 1 ||
+    body.isFree === "1";
 
-  // Coerenza date
-  if (payload.dateEnd && new Date(payload.dateEnd) < new Date(payload.dateStart)) {
-    res.status(400);
-    throw new Error("dateEnd precedente a dateStart");
-  }
+  // prezzo/valuta normalizzati
+  let price = Number(body.price);
+  if (Number.isNaN(price) || price < 0) price = 0;
 
-  // Prezzo/valuta
-  const isFree = !!payload.isFree;
+  let currency = (body.currency || "").toString().trim().toUpperCase();
+
   if (isFree) {
-    delete payload.price;
-    delete payload.currency;
-  } else if (payload.price !== undefined && payload.price !== null && String(payload.price) !== "") {
-    const num = Number(String(payload.price).replace(",", "."));
-    payload.price = Number.isFinite(num) && num >= 0 ? num : 0;
-    if (!payload.currency) payload.currency = "EUR";
+    price = 0;
+    currency = undefined; // niente currency negli eventi gratuiti
   } else {
-    // nessun price specificato ⇒ trattiamo come gratuito
-    payload.isFree = true;
-    delete payload.price;
-    delete payload.currency;
+    if (!currency) currency = "EUR"; // default concordata
   }
-  // ---------------------------------------------------------------
 
   const event = new Event({
-    ...payload,
+    ...body,
+    isFree,
+    price,
+    ...(currency ? { currency } : {}),
     organizer: req.user._id,
   });
+
   const created = await event.save();
   res.status(201).json({ ok: true, event: created });
 });
@@ -208,7 +201,34 @@ const updateEvent = asyncHandler(async (req, res) => {
     res.status(403);
     throw new Error("Non autorizzato");
   }
-  Object.assign(event, req.body);
+
+  const body = { ...req.body };
+
+  const isFree =
+    body.isFree === true ||
+    body.isFree === "true" ||
+    body.isFree === 1 ||
+    body.isFree === "1";
+
+  let price = Number(body.price);
+  if (Number.isNaN(price) || price < 0) price = 0;
+
+  let currency = (body.currency || "").toString().trim().toUpperCase();
+
+  if (isFree) {
+    price = 0;
+    currency = undefined;
+  } else {
+    if (!currency) currency = "EUR";
+  }
+
+  Object.assign(event, {
+    ...body,
+    isFree,
+    price,
+    ...(currency ? { currency } : { currency: undefined }),
+  });
+
   const updated = await event.save();
   res.json({ ok: true, event: updated });
 });
@@ -274,6 +294,7 @@ module.exports = {
   joinEvent,
   leaveEvent,
 };
+
 
 
 
