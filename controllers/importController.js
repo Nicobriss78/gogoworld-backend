@@ -45,24 +45,41 @@ function parseBool(val) {
 // Controller principale
 const importCsv = async (req, res, next) => {
   try {
-    // Whitelist: ADMIN_EMAILS
-    const allowed = (process.env.ADMIN_EMAILS || "")
-      .split(",")
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean);
+// Whitelist: ADMIN_EMAILS (se vuota, consenti a tutti gli organizer autenticati)
+const allowed = (process.env.ADMIN_EMAILS || "")
+  .split(",")
+  .map((s) => s.trim().toLowerCase())
+  .filter(Boolean);
 
-    if (!allowed.includes(req.user.email.toLowerCase())) {
-      res.status(403);
-      throw new Error("Non sei autorizzato a importare eventi");
-    }
+const userEmail = req?.user?.email ? String(req.user.email).toLowerCase() : null;
 
-    if (!req.file) {
-      res.status(400);
-      throw new Error("Nessun file caricato");
-    }
+if (!userEmail || (allowed.length > 0 && !allowed.includes(userEmail))) {
+  res.status(403);
+  throw new Error("Non sei autorizzato a importare eventi");
+}
 
-    // Leggi contenuto CSV
-    const content = fs.readFileSync(req.file.path, "utf-8");
+
+if (!req.file) {
+  res.status(400);
+  throw new Error("Nessun file caricato");
+}
+
+// Leggi contenuto CSV (supporta memoryStorage e diskStorage)
+let content;
+try {
+  if (req.file.buffer) {
+    content = req.file.buffer.toString("utf-8");
+  } else if (req.file.path) {
+    content = fs.readFileSync(req.file.path, "utf-8");
+  } else {
+    res.status(400);
+    throw new Error("File non disponibile");
+  }
+} catch (e) {
+  res.status(400);
+  throw new Error("Impossibile leggere il file caricato");
+}
+
 
     // Parsa CSV
     let records;
@@ -72,10 +89,11 @@ const importCsv = async (req, res, next) => {
         skip_empty_lines: true,
         trim: true,
       });
-    } catch (err) {
-      res.status(400);
-      throw new Error("Formato CSV non valido");
-    }
+   } catch (err) {
+  res.status(400);
+  throw new Error(`Formato CSV non valido: ${err.message || "parse error"}`);
+}
+
 
     const dryRun = String(req.query.dryRun || "").toLowerCase() === "true";
 
