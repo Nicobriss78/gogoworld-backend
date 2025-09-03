@@ -20,7 +20,7 @@ const { protect, authorize } = require("../middleware/auth");
 
 // === Import per import CSV (già previsti) ===
 const { importCsv } = require("../controllers/importController");
-const { uploadCsv } = require("../middleware/upload");
+const { uploadCsvSafe } = require("../middleware/upload");
 
 // --------------------------------------------------------
 // Eventi pubblici / query
@@ -54,11 +54,12 @@ router.post(
   "/import-csv",
   protect,
   authorize("organizer"),
-  uploadCsv.single("file"), // campo file nel form-data
+  uploadCsvSfe,
   importCsv
 );
 
 module.exports = router;
+
 
 
 
