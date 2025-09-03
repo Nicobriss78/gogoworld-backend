@@ -42,28 +42,35 @@ function fileFilter(_req, file, cb) {
   return cb(err);
 }
 
-// Istanza multer (export invariato)
+// Istanza multer (NOTA: niente 'files:1' globale)
+// 'single' a volte conteggia in modo conservativo; useremo 'fields' con maxCount per forza 1
 const uploadCsv = multer({
   storage,
   fileFilter,
   limits: {
     fileSize: getMaxBytes(), // es. 2MB (configurabile via CSV_MAX_SIZE_MB)
-    files: 1,
+    // files: 1, // <- rimosso: evitiamo LIMIT_FILE_COUNT conservativo
     fields: 20, // tollerante
   },
 });
 
 /**
- * Wrapper sicuro che incapsula uploadCsv.single("file")
- * e mappa le MulterError in risposte 4xx leggibili (niente 500).
+ * Wrapper sicuro che incapsula parsing 'fields([{name:"file",maxCount:1}])',
+ * normalizza req.files -> req.file e mappa errori Multer in 4xx leggibili.
  *
- * Uso alternativo in rotta:
+ * Uso in rotta:
  * router.post("/import-csv", protect, authorize("organizer"), uploadCsvSafe, importCsv);
  */
 function uploadCsvSafe(req, res, next) {
-  const single = uploadCsv.single("file");
-  single(req, res, (err) => {
-    if (!err) return next();
+  const parse = uploadCsv.fields([{ name: "file", maxCount: 1 }]);
+  parse(req, res, (err) => {
+    if (!err) {
+      // normalizza: controller si aspetta req.file
+      if (!req.file && req.files && Array.isArray(req.files.file) && req.files.file[0]) {
+        req.file = req.files.file[0];
+      }
+      return next();
+    }
 
     if (err instanceof multer.MulterError) {
       // Mappa errori più comuni
