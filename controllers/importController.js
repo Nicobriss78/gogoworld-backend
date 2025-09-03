@@ -45,41 +45,35 @@ function parseBool(val) {
 // Controller principale
 const importCsv = async (req, res, next) => {
   try {
-// Whitelist: ADMIN_EMAILS (se vuota, consenti a tutti gli organizer autenticati)
-const allowed = (process.env.ADMIN_EMAILS || "")
-  .split(",")
-  .map((s) => s.trim().toLowerCase())
-  .filter(Boolean);
+    // Whitelist: ADMIN_EMAILS (se vuota, consenti a tutti gli organizer autenticati)
+    const allowed = (process.env.ADMIN_EMAILS || "")
+      .split(",")
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean);
 
-const userEmail = req?.user?.email ? String(req.user.email).toLowerCase() : null;
+    const userEmail = req?.user?.email ? String(req.user.email).toLowerCase() : null;
 
-if (!userEmail || (allowed.length > 0 && !allowed.includes(userEmail))) {
-  res.status(403);
-  throw new Error("Non sei autorizzato a importare eventi");
-}
+    if (!userEmail || (allowed.length > 0 && !allowed.includes(userEmail))) {
+      return res.status(403).json({ ok: false, error: "Non sei autorizzato a importare eventi" });
+    }
 
+    if (!req.file) {
+      return res.status(400).json({ ok: false, error: "Nessun file caricato" });
+    }
 
-if (!req.file) {
-  res.status(400);
-  throw new Error("Nessun file caricato");
-}
-
-// Leggi contenuto CSV (supporta memoryStorage e diskStorage)
-let content;
-try {
-  if (req.file.buffer) {
-    content = req.file.buffer.toString("utf-8");
-  } else if (req.file.path) {
-    content = fs.readFileSync(req.file.path, "utf-8");
-  } else {
-    res.status(400);
-    throw new Error("File non disponibile");
-  }
-} catch (e) {
-  res.status(400);
-  throw new Error("Impossibile leggere il file caricato");
-}
-
+    // Leggi contenuto CSV (supporta memoryStorage e diskStorage)
+    let content;
+    try {
+      if (req.file.buffer) {
+        content = req.file.buffer.toString("utf-8");
+      } else if (req.file.path) {
+        content = fs.readFileSync(req.file.path, "utf-8");
+      } else {
+        return res.status(400).json({ ok: false, error: "File non disponibile" });
+      }
+    } catch (e) {
+      return res.status(400).json({ ok: false, error: "Impossibile leggere il file caricato" });
+    }
 
     // Parsa CSV
     let records;
@@ -89,11 +83,11 @@ try {
         skip_empty_lines: true,
         trim: true,
       });
-   } catch (err) {
-  res.status(400);
-  throw new Error(`Formato CSV non valido: ${err.message || "parse error"}`);
-}
-
+    } catch (err) {
+      return res
+        .status(400)
+        .json({ ok: false, error: `Formato CSV non valido: ${err.message || "parse error"}` });
+    }
 
     const dryRun = String(req.query.dryRun || "").toLowerCase() === "true";
 
@@ -119,26 +113,29 @@ try {
       // Localizzazione separata
       const venueName = (line.venueName || "").trim();
       const street = (line.street || "").trim();
-      const streetNumber= (line.streetNumber || "").trim();
+      const streetNumber = (line.streetNumber || "").trim();
       const postalCode = (line.postalCode || "").trim();
       const city = (line.city || "").trim();
       const province = (line.province || "").trim();
       const region = (line.region || "").trim();
       const country = (line.country || "").trim(); // ISO 3166-1 alpha-2 preferita
 
-      const lat = line.lat !== undefined && line.lat !== null && String(line.lat).trim() !== ""
-        ? parseFloat(String(line.lat).replace(",", "."))
-        : undefined;
-      const lon = line.lon !== undefined && line.lon !== null && String(line.lon).trim() !== ""
-        ? parseFloat(String(line.lon).replace(",", "."))
-        : undefined;
+      const lat =
+        line.lat !== undefined && line.lat !== null && String(line.lat).trim() !== ""
+          ? parseFloat(String(line.lat).replace(",", "."))
+          : undefined;
+      const lon =
+        line.lon !== undefined && line.lon !== null && String(line.lon).trim() !== ""
+          ? parseFloat(String(line.lon).replace(",", "."))
+          : undefined;
 
       // Date (nuovi nomi)
       const dateStart = parseDate(line.dateStart);
       let dateEnd = line.dateEnd ? parseDate(line.dateEnd) : null;
 
       // Prezzo/valuta
-      const hasPriceField = line.price !== undefined && line.price !== null && String(line.price).trim() !== "";
+      const hasPriceField =
+        line.price !== undefined && line.price !== null && String(line.price).trim() !== "";
       const rawPrice = hasPriceField ? parsePrice(line.price) : 0;
       let isFree = parseBool(line.isFree);
       if (hasPriceField && rawPrice === 0) isFree = true;
@@ -201,7 +198,7 @@ try {
         results.push({
           line: i + 2,
           status: "ok",
-          preview: { title, category, region, country, visibility, dateStart, dateEnd }
+          preview: { title, category, region, country, visibility, dateStart, dateEnd },
         });
         continue;
       }
@@ -259,14 +256,14 @@ try {
     }
 
     if (dryRun) {
-      res.json({
+      return res.json({
         ok: true,
         dryRun: true,
         stats: { total: records.length, valid: records.length - skipped, invalid: skipped },
         rows: results,
       });
     } else {
-      res.json({
+      return res.json({
         ok: true,
         dryRun: false,
         created,
@@ -275,7 +272,11 @@ try {
       });
     }
   } catch (err) {
-    next(err);
+    // fallback: se arriva qui, segnala 500 evitando HTML default
+    return res.status(res.statusCode && res.statusCode !== 200 ? res.statusCode : 500).json({
+      ok: false,
+      error: err.message || "Errore interno",
+    });
   } finally {
     // cleanup file temporaneo
     if (req.file && req.file.path) {
