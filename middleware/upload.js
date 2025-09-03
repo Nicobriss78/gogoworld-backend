@@ -23,49 +23,58 @@ const storage = multer.diskStorage({
   },
 });
 
-// Accetta solo CSV (mimetype + fallback estensione .csv)
+// MIME comunemente usati per CSV (alcuni ambienti usano valori “generici”)
 const CSV_MIMES = new Set([
   "text/csv",
   "application/csv",
-  "application/vnd.ms-excel", // alcuni browser usano questo per CSV
+  "application/vnd.ms-excel", // spesso per CSV
+  "text/plain", // CSV visti come plain text
+  "application/octet-stream", // CSV con mime generico
 ]);
 
 function fileFilter(_req, file, cb) {
-  const mimetypeOk = CSV_MIMES.has(file.mimetype);
-  const extOk = path.extname(file.originalname || "").toLowerCase() === ".csv";
+  const name = String(file.originalname || "");
+  const ext = path.extname(name).toLowerCase();
+  const type = String(file.mimetype || "").toLowerCase();
 
-  if (mimetypeOk || extOk) {
+  // accetta se:
+  // - estensione .csv
+  // - OPPURE il mimetype contiene 'csv'/'excel' o è uno dei MIME permessi
+  const extOk = ext === ".csv";
+  const mimeOk =
+    CSV_MIMES.has(type) ||
+    type.includes("csv") ||
+    type.includes("excel");
+
+  if (extOk || mimeOk) {
     return cb(null, true);
   }
+
   const err = new multer.MulterError("LIMIT_UNEXPECTED_FILE", file.fieldname);
-  err.message = "Tipo file non supportato: carica un file .csv";
+  err.message = "Campo file non valido o tipo non consentito (solo .csv)";
   return cb(err);
 }
 
-// Istanza multer (NOTA: niente 'files:1' globale)
-// 'single' a volte conteggia in modo conservativo; useremo 'fields' con maxCount per forza 1
+// Istanza multer (niente 'files:1' globale; lo vincoliamo per campo nel wrapper)
 const uploadCsv = multer({
   storage,
   fileFilter,
   limits: {
     fileSize: getMaxBytes(), // es. 2MB (configurabile via CSV_MAX_SIZE_MB)
-    // files: 1, // <- rimosso: evitiamo LIMIT_FILE_COUNT conservativo
-    fields: 20, // tollerante
+    // files: 1,
+    fields: 20,
   },
 });
 
 /**
- * Wrapper sicuro che incapsula parsing 'fields([{name:"file",maxCount:1}])',
+ * Wrapper sicuro: obbliga il campo 'file' a maxCount=1,
  * normalizza req.files -> req.file e mappa errori Multer in 4xx leggibili.
- *
- * Uso in rotta:
- * router.post("/import-csv", protect, authorize("organizer"), uploadCsvSafe, importCsv);
  */
 function uploadCsvSafe(req, res, next) {
   const parse = uploadCsv.fields([{ name: "file", maxCount: 1 }]);
   parse(req, res, (err) => {
     if (!err) {
-      // normalizza: controller si aspetta req.file
+      // normalizza: il controller usa req.file
       if (!req.file && req.files && Array.isArray(req.files.file) && req.files.file[0]) {
         req.file = req.files.file[0];
       }
@@ -73,7 +82,6 @@ function uploadCsvSafe(req, res, next) {
     }
 
     if (err instanceof multer.MulterError) {
-      // Mappa errori più comuni
       let status = 400;
       let msg = "Upload non valido";
       switch (err.code) {
@@ -93,7 +101,6 @@ function uploadCsvSafe(req, res, next) {
       return res.status(status).json({ ok: false, error: msg, code: err.code });
     }
 
-    // Altri errori runtime
     return res.status(400).json({ ok: false, error: err.message || "Errore upload" });
   });
 }
