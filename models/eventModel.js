@@ -66,5 +66,9 @@ const eventSchema = new mongoose.Schema(
 eventSchema.index({ dateStart: 1 });
 eventSchema.index({ organizer: 1, dateStart: -1 });
 eventSchema.index({ region: 1, category: 1 });
+// 🔧 PATCH: indici per filtri aggiuntivi
+eventSchema.index({ language: 1 });
+eventSchema.index({ target: 1 });
 
 module.exports = mongoose.model("Event", eventSchema);
+
