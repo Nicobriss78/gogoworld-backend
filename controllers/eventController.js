@@ -222,12 +222,62 @@ const updateEvent = asyncHandler(async (req, res) => {
     if (!currency) currency = "EUR";
   }
 
-  Object.assign(event, {
-    ...body,
-    isFree,
-    price,
-    ...(currency ? { currency } : { currency: undefined }),
-  });
+ // Applichiamo SOLO i campi ammessi (anti mass-assignment)
+const allowed = {
+  // base
+  title: body.title,
+  description: body.description,
+  status: body.status,
+  visibility: body.visibility,
+
+  // tassonomia
+  type: body.type,
+  category: body.category,
+  subcategory: body.subcategory,
+  tags: Array.isArray(body.tags) ? body.tags : undefined,
+
+  // localizzazione (coerente con eventModel)
+  venueName: body.venueName,
+  address: body.address,
+  street: body.street,
+  streetNumber: body.streetNumber,
+  postalCode: body.postalCode,
+  city: body.city,
+  province: body.province,
+  region: body.region,
+  country: body.country,
+  lat: typeof body.lat === "number" ? body.lat : undefined,
+  lon: typeof body.lon === "number" ? body.lon : undefined,
+
+  // date
+  dateStart: body.dateStart ? new Date(body.dateStart) : undefined,
+  dateEnd: body.dateEnd ? new Date(body.dateEnd) : undefined,
+  timezone: body.timezone,
+
+  // prezzo
+  isFree,
+  price,
+  ...(currency ? { currency } : { currency: undefined }),
+
+  // media / extra
+  coverImage: typeof body.coverImage === "string" ? body.coverImage : undefined,
+  images: Array.isArray(body.images) ? body.images : undefined,
+
+  // link & contatti (se presenti nello schema)
+  ticketUrl: body.ticketUrl,
+  externalUrl: body.externalUrl,
+  contactEmail: body.contactEmail,
+  contactPhone: body.contactPhone,
+
+  // capienza
+  capacity: typeof body.capacity === "number" ? body.capacity : undefined,
+};
+
+// Rimuovi chiavi undefined per non sovrascrivere valori esistenti
+Object.keys(allowed).forEach((k) => allowed[k] === undefined && delete allowed[k]);
+
+Object.assign(event, allowed);
+
 
   const updated = await event.save();
   res.json({ ok: true, event: updated });
@@ -261,8 +311,7 @@ const joinEvent = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("Evento non trovato");
   }
-  if (!event.participants.includes(req.user._id)) {
-    event.participants.push(req.user._id);
+if (!event.participants.some((p) => p.toString() === req.user._id.toString())) {    event.participants.push(req.user._id);
     await event.save();
   }
   res.json({ ok: true, event });
@@ -294,6 +343,7 @@ module.exports = {
   joinEvent,
   leaveEvent,
 };
+
 
 
 
