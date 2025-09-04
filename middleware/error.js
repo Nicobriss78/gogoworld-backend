@@ -4,7 +4,8 @@
 // Costruisce status + payload coerenti per il FE
 function buildErrorPayload(err, req, res) {
   // Se il controller ha già impostato uno status, rispettalo; altrimenti 500
-  const status = err.status || res.statusCode && res.statusCode !== 200 ? res.statusCode : 500;
+  // 🔧 PATCH: corregge precedenza operatori per usare correttamente res.statusCode se diverso da 200
+  const status = err.status || (res.statusCode && res.statusCode !== 200 ? res.statusCode : 500);
 
   let message = "Errore interno inatteso";
   let code = "SERVER_ERROR";
