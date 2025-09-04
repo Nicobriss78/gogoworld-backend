@@ -1,7 +1,7 @@
 // middleware/auth.js — Auth & Role Guards (GoGoWorld.life)
 // NOTE: Modifica CHIRURGICA per Opzione B
-// - Esteso `protect` per includere anche `role` e l’alias `_id` (oltre a id/email/name).
-// - Aggiunto `authorize(...roles)` per vincolare le rotte di scrittura eventi agli "organizer".
+// - Esteso `protect` per includere anche `role` e `canOrganize` (oltre a id/email/name).
+// - Esteso `authorize(...roles)` per consentire gli endpoint "organizer" anche a `canOrganize === true`.
 // - Nessuna altra logica alterata.
 
 const jwt = require("jsonwebtoken");
@@ -12,7 +12,7 @@ const User = require("../models/userModel");
 // protect: richiede autenticazione Bearer JWT
 // - Decodifica il token
 // - Carica l'utente dal DB
-// - Idraata req.user con: _id, id (alias), email, name, role
+// - Idrata req.user con: _id, id (alias), email, name, role, canOrganize
 // -----------------------------------------------------------------------------
 const protect = asyncHandler(async (req, res, next) => {
   let token;
@@ -27,7 +27,7 @@ const protect = asyncHandler(async (req, res, next) => {
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       // decoded.id atteso nel payload
-      const user = await User.findById(decoded.id).select("_id name email role");
+      const user = await User.findById(decoded.id).select("_id name email role canOrganize");
 
       if (!user) {
         res.status(401);
@@ -37,13 +37,14 @@ const protect = asyncHandler(async (req, res, next) => {
       // Idratazione coerente con i controller esistenti:
       // - molti punti leggono req.user._id
       // - altri leggono req.user.id
-      // - aggiungiamo anche role per i guard di autorizzazione
+      // - aggiungiamo anche role e canOrganize per i guard di autorizzazione
       req.user = {
         _id: user._id,
         id: user._id, // alias compatibilità
         email: user.email,
         name: user.name,
         role: user.role || "participant",
+        canOrganize: user.canOrganize === true,
       };
 
       return next();
@@ -71,6 +72,17 @@ const authorize = (...roles) => {
         res.status(403);
         throw new Error("Forbidden");
       }
+
+      // Estensione Opzione B: se serve "organizer", accetta anche canOrganize === true
+      if (allowed.has("organizer")) {
+        if (req.user.role === "organizer" || req.user.canOrganize === true) {
+          return next();
+        }
+        res.status(403);
+        throw new Error("Forbidden");
+      }
+
+      // Per altri ruoli, mantieni la logica attuale
       if (!allowed.has(String(req.user.role))) {
         res.status(403);
         throw new Error("Forbidden");
@@ -86,4 +98,3 @@ module.exports = {
   protect,
   authorize,
 };
-
