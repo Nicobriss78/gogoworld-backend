@@ -50,8 +50,9 @@ const corsOptions = {
     return cb(new Error("CORS_NOT_ALLOWED"));
   },
   methods: ["GET","POST","PUT","DELETE","PATCH","OPTIONS"],
-  allowedHeaders: ["Content-Type","Authorization","X-Requested-With"],
+  allowedHeaders: ["Content-Type","Authorization","X-Requested-With","Accept"], // PATCH: aggiunto Accept
   maxAge: 86400,
+  optionsSuccessStatus: 204, // PATCH: risposta uniforme ai preflight
 };
 app.use(cors(corsOptions));
 
@@ -88,5 +89,4 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 GoGo.World API in ascolto sulla porta ${PORT}`);
 });
-
 
