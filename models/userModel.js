@@ -13,6 +13,9 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true, trim: true, lowercase: true },
     password: { type: String, required: true },
     role: { type: String, enum: ["participant", "organizer", "admin"], default: "participant" },
+
+    // PATCH: libertà iniziale per tutti di organizzare eventi
+    canOrganize: { type: Boolean, default: true },
   },
   { timestamps: true }
 );
