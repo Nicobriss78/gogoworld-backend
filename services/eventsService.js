@@ -43,6 +43,10 @@ function buildListWhere(q = {}) {
   if (q.subcategory) where.subcategory = rxEqI(q.subcategory);
   if (q.type) where.type = rxEqI(q.type);
 
+  // 🔧 PATCH: allineo filtri aggiuntivi già presenti lato piattaforma
+  if (q.language) where.language = rxEqI(q.language);
+  if (q.target) where.target = rxEqI(q.target);
+
   if (typeof q.isFree !== "undefined" && q.isFree !== "") {
     where.isFree = (q.isFree === true || q.isFree === "true");
   }
@@ -73,8 +77,9 @@ async function list(query = {}) {
   return Event.find(where).sort({ dateStart: 1, createdAt: -1 }).lean();
 }
 
-async function listMine(ownerId, query = {}) {
-  const where = Object.assign({ ownerId }, buildListWhere(query));
+// 🔧 PATCH: ownerId → organizer (coerenza con modello/Controller)
+async function listMine(organizerId, query = {}) {
+  const where = Object.assign({ organizer: organizerId }, buildListWhere(query));
   return Event.find(where).sort({ dateStart: 1, createdAt: -1 }).lean();
 }
 
@@ -82,15 +87,34 @@ async function getById(id) {
   return Event.findById(id).lean();
 }
 
-async function create(ownerId, body) {
+// 🔧 PATCH: allineo create ad organizer + price singolo + isFree/currency come nel controller
+async function create(organizerId, body) {
   // validazione date
   assertValidDateRange(body.dateStart, body.dateEnd);
 
   const imagesFromText = parseImages(body.imagesText || body.images);
   const singleImageFallback = body.imageUrl ? [String(body.imageUrl).trim()] : [];
 
+  // normalizzazione prezzo/valuta
+  const isFree =
+    body.isFree === true ||
+    body.isFree === "true" ||
+    body.isFree === 1 ||
+    body.isFree === "1";
+
+  let price = Number(body.price);
+  if (Number.isNaN(price) || price < 0) price = 0;
+
+  let currency = (body.currency || "").toString().trim().toUpperCase();
+  if (isFree) {
+    price = 0;
+    currency = undefined;
+  } else {
+    if (!currency) currency = "EUR";
+  }
+
   const ev = await Event.create({
-    ownerId,
+    organizer: organizerId,
     title: body.title,
     description: body.description || "",
     status: body.status || "draft",
@@ -111,10 +135,9 @@ async function create(ownerId, body) {
     region: body.region || "",
     country: body.country || "",
 
-    isFree: !!body.isFree,
-    priceMin: typeof body.priceMin === "number" ? body.priceMin : 0,
-    priceMax: typeof body.priceMax === "number" ? body.priceMax : 0,
-    currency: body.currency || "EUR",
+    isFree,
+    price,
+    ...(currency ? { currency } : {}),
     capacity: typeof body.capacity === "number" ? body.capacity : undefined,
 
     coverImage: (body.coverImage || body.imageUrl || "").trim(),
@@ -127,25 +150,42 @@ async function create(ownerId, body) {
   return ev.toObject();
 }
 
+// 🔧 PATCH: controllo proprietà su organizer + normalizzazione isFree/price/currency
 async function update(id, userId, body) {
   // validazione date
   assertValidDateRange(body.dateStart, body.dateEnd);
 
   const ev = await Event.findById(id);
   if (!ev) { const e = new Error("EVENT_NOT_FOUND"); e.status = 404; throw e; }
-  if (String(ev.ownerId) !== String(userId)) { const e = new Error("NOT_OWNER"); e.status = 403; throw e; }
+  if (String(ev.organizer) !== String(userId)) { const e = new Error("NOT_OWNER"); e.status = 403; throw e; }
 
   const imagesFromText = parseImages(body.imagesText || body.images);
+
+  const isFree =
+    body.isFree === true ||
+    body.isFree === "true" ||
+    body.isFree === 1 ||
+    body.isFree === "1";
+
+  let price = Number(body.price);
+  if (Number.isNaN(price) || price < 0) price = 0;
+
+  let currency = (body.currency || "").toString().trim().toUpperCase();
+  if (isFree) {
+    price = 0;
+    currency = undefined;
+  } else {
+    if (!currency) currency = "EUR";
+  }
 
   Object.assign(ev, {
     title: body.title ?? ev.title,
     description: body.description ?? ev.description,
     status: body.status ?? ev.status,
     visibility: body.visibility ?? ev.visibility,
-    isFree: (typeof body.isFree === "boolean") ? body.isFree : ev.isFree,
-    priceMin: (typeof body.priceMin === "number" ? body.priceMin : ev.priceMin),
-    priceMax: (typeof body.priceMax === "number" ? body.priceMax : ev.priceMax),
-    currency: body.currency ?? ev.currency,
+    isFree: typeof body.isFree === "boolean" ? body.isFree : ev.isFree,
+    price,
+    ...(currency ? { currency } : { currency: undefined }),
     type: body.type ?? ev.type,
     category: body.category ?? ev.category,
     subcategory: body.subcategory ?? ev.subcategory,
@@ -158,7 +198,7 @@ async function update(id, userId, body) {
     province: body.province ?? ev.province,
     region: body.region ?? ev.region,
     country: body.country ?? ev.country,
-    capacity: (typeof body.capacity === "number" ? body.capacity : ev.capacity),
+    capacity: typeof body.capacity === "number" ? body.capacity : ev.capacity,
 
     coverImage: (typeof body.coverImage === "string") ? body.coverImage.trim() : ev.coverImage,
     images: imagesFromText.length ? imagesFromText : (Array.isArray(body.images) ? body.images : ev.images),
@@ -172,10 +212,11 @@ async function update(id, userId, body) {
   return ev.toObject();
 }
 
+// 🔧 PATCH: controllo proprietà su organizer
 async function remove(id, userId) {
   const ev = await Event.findById(id);
   if (!ev) { const e = new Error("EVENT_NOT_FOUND"); e.status = 404; throw e; }
-  if (String(ev.ownerId) !== String(userId)) { const e = new Error("NOT_OWNER"); e.status = 403; throw e; }
+  if (String(ev.organizer) !== String(userId)) { const e = new Error("NOT_OWNER"); e.status = 403; throw e; }
   await ev.deleteOne();
   return ev;
 }
