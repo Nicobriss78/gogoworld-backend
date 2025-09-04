@@ -1,7 +1,8 @@
 // middleware/auth.js — Auth & Role Guards (GoGoWorld.life)
-// NOTE: Modifica CHIRURGICA per Opzione B
+// NOTE: Modifica CHIRURGICA per Opzione B (+ estensione admin)
 // - Esteso `protect` per includere anche `role` e `canOrganize` (oltre a id/email/name).
-// - Esteso `authorize(...roles)` per consentire gli endpoint "organizer" anche a `canOrganize === true`.
+// - Esteso `authorize(...roles)` per consentire gli endpoint "organizer"
+// anche a `canOrganize === true` e a `role === "admin"`.
 // - Nessuna altra logica alterata.
 
 const jwt = require("jsonwebtoken");
@@ -74,8 +75,9 @@ const authorize = (...roles) => {
       }
 
       // Estensione Opzione B: se serve "organizer", accetta anche canOrganize === true
+      // 🔧 PATCH: consenti anche agli admin
       if (allowed.has("organizer")) {
-        if (req.user.role === "organizer" || req.user.canOrganize === true) {
+        if (req.user.role === "organizer" || req.user.canOrganize === true || req.user.role === "admin") {
           return next();
         }
         res.status(403);
