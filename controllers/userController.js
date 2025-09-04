@@ -86,6 +86,8 @@ const getUserProfile = asyncHandler(async (req, res) => {
       name: user.name,
       email: user.email,
       role: user.role,
+      // PATCH: includi canOrganize per la logica FE (Opzione B)
+      canOrganize: !!user.canOrganize,
     });
   } else {
     res.status(404);
@@ -124,10 +126,35 @@ const setSessionRole = asyncHandler(async (req, res) => {
   });
 });
 
+// -----------------------------------------------------------------------------
+// @desc Abilita modalità organizzatore per l'utente loggato
+// @route POST /api/users/me/enable-organizer
+// @access Private
+// -----------------------------------------------------------------------------
+const enableOrganizer = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id);
+  if (!user) {
+    res.status(404);
+    throw new Error("User not found");
+  }
+
+  if (user.canOrganize === true) {
+    return res.json({ ok: true, canOrganize: true, message: "Già abilitato" });
+  }
+
+  user.canOrganize = true;
+  await user.save();
+
+  res.json({ ok: true, canOrganize: true });
+});
+
 module.exports = {
   registerUser,
   authUser,
   getUserProfile,
   setSessionRole,
+  // PATCH: export nuovo handler
+  enableOrganizer,
 };
+
 
