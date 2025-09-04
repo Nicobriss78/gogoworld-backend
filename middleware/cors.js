@@ -18,9 +18,10 @@ const corsOptions = {
     return callback(new Error('Not allowed by CORS'));
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'], // ← patch
   credentials: false,
-  maxAge: 86400
+  maxAge: 86400,
+  optionsSuccessStatus: 204, // ← patch
 };
 
 module.exports = cors(corsOptions);
