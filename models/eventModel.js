@@ -10,9 +10,11 @@ const eventSchema = new mongoose.Schema(
     // Tassonomia
     category: { type: String, trim: true, required: true },
     subcategory: { type: String, trim: true },
+    type: { type: String, trim: true },
 
     // Localizzazione separata
     venueName: { type: String, trim: true },
+    address: { type: String, trim: true },
     street: { type: String, trim: true },
     streetNumber: { type: String, trim: true },
     postalCode: { type: String, trim: true },
@@ -54,7 +56,7 @@ const eventSchema = new mongoose.Schema(
     tags: { type: [String], default: [] },
     images: { type: [String], default: [] },
     coverImage: { type: String, trim: true },
-
+    timezone: { type: String, trim: true, default: "Europe/Rome" },
     // Relazioni
     organizer: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
@@ -66,9 +68,12 @@ const eventSchema = new mongoose.Schema(
 eventSchema.index({ dateStart: 1 });
 eventSchema.index({ organizer: 1, dateStart: -1 });
 eventSchema.index({ region: 1, category: 1 });
+eventSchema.index({ language: 1 });
+eventSchema.index({ target: 1 });
 // 🔧 PATCH: indici per filtri aggiuntivi
 eventSchema.index({ language: 1 });
 eventSchema.index({ target: 1 });
 
 module.exports = mongoose.model("Event", eventSchema);
+
 
