@@ -29,7 +29,7 @@ const protect = asyncHandler(async (req, res, next) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       // decoded.id atteso nel payload
       const user = await User.findById(decoded.id).select(
-        "_id name email role canOrganize"
+        "_id name email role canOrganize isBanned"
       );
 
       if (!user) {
@@ -46,7 +46,7 @@ const protect = asyncHandler(async (req, res, next) => {
         id: user._id, // alias compatibilità
         email: user.email,
         name: user.name,
-        role: (user.role || "participant").toString().toLowerCase(),
+        role: (user.role || "participant").toString().toLowerCase(), // PATCH: normalize
         canOrganize: user.canOrganize === true,
         isBanned: user.isBanned === true,
       };
@@ -68,7 +68,7 @@ const protect = asyncHandler(async (req, res, next) => {
 // Uso: router.post("/", protect, authorize("organizer"), createEvent)
 // -----------------------------------------------------------------------------
 const authorize = (...roles) => {
-  // normalizza i ruoli richiesti in lowercase
+  // PATCH: normalizza i ruoli richiesti in lowercase
   const allowed = new Set((roles || []).map((r) => String(r).toLowerCase()));
   return (req, res, next) => {
     try {
