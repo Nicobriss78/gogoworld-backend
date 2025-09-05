@@ -85,7 +85,7 @@ function buildErrorPayload(err, req, res) {
     };
   }
 
-  // ---- 401/404 impostati a monte ma senza messaggio significativo ----
+  // ---- 401/403/404 impostati a monte ----
   if ((err?.status || status) === 401) {
     return {
       status: 401,
@@ -93,6 +93,17 @@ function buildErrorPayload(err, req, res) {
         ok: false,
         error: err?.error || err?.message || "Non autorizzato",
         code: "UNAUTHORIZED",
+        ...(process.env.NODE_ENV !== "production" && err.stack ? { stack: err.stack } : {}),
+      },
+    };
+  }
+  if ((err?.status || status) === 403) {
+    return {
+      status: 403,
+      payload: {
+        ok: false,
+        error: err?.error || err?.message || "Accesso vietato",
+        code: "FORBIDDEN", // 🔧 PATCH
         ...(process.env.NODE_ENV !== "production" && err.stack ? { stack: err.stack } : {}),
       },
     };
