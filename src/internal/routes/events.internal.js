@@ -117,6 +117,29 @@ router.post('/:id/publish', async (req, res) => {
     return res.status(500).json({ ok: false, error: err.message });
   }
 });
+/**
+ * POST /internal/import/events
+ * - simulate:true -> non scrive su DB
+ * - simulate:false -> usa importController.importCsv (wrappato)
+ */
+router.post('/import/events', async (req, res) => {
+  const { simulate = true } = req.body || {};
+
+  if (simulate) {
+    return res.status(200).json({ ok: true, simulate: true, action: 'import-events' });
+  }
+
+  try {
+    // Lazy import del controller (evita require circolari)
+    const { importCsv } = require('../../../controllers/importController');
+    if (typeof importCsv !== "function") {
+      throw new Error("importCsv non disponibile");
+    }
+    return importCsv(req, res);
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
 
 module.exports = router;
 
