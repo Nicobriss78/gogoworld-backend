@@ -114,7 +114,22 @@ const forceDeleteEvent = asyncHandler(async (req, res) => {
   await ev.deleteOne();
   res.json({ ok: true, message: "Evento eliminato definitivamente" });
 });
-
+// POST /api/admin/import/events
+// Esegue l'import massivo come admin, riutilizzando importController.importCsv
+const adminImportEvents = asyncHandler(async (req, res) => {
+  try {
+    // Import "lazy" per evitare require circolari
+    const { importCsv } = require("./importController");
+    if (typeof importCsv !== "function") {
+      res.status(500);
+      throw new Error("importCsv non disponibile");
+    }
+    return importCsv(req, res);
+  } catch (err) {
+    res.status(500);
+    throw new Error(err?.message || "Errore import");
+  }
+});
 // -----------------------------
 // Utenti — Gestione
 // -----------------------------
@@ -203,6 +218,7 @@ module.exports = {
   blockEvent,
   unblockEvent,
   forceDeleteEvent,
+  adminImportEvents,
   // Users
   listUsers,
   banUser,
