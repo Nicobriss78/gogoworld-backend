@@ -28,7 +28,9 @@ const protect = asyncHandler(async (req, res, next) => {
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       // decoded.id atteso nel payload
-      const user = await User.findById(decoded.id).select("_id name email role canOrganize");
+      const user = await User.findById(decoded.id).select(
+        "_id name email role canOrganize"
+      );
 
       if (!user) {
         res.status(401);
@@ -44,8 +46,9 @@ const protect = asyncHandler(async (req, res, next) => {
         id: user._id, // alias compatibilità
         email: user.email,
         name: user.name,
-        role: (user.role || "participant"),toString().toLowerCase(),
+        role: (user.role || "participant").toString().toLowerCase(),
         canOrganize: user.canOrganize === true,
+        isBanned: user.isBanned === true,
       };
 
       return next();
@@ -66,31 +69,34 @@ const protect = asyncHandler(async (req, res, next) => {
 // -----------------------------------------------------------------------------
 const authorize = (...roles) => {
   // normalizza i ruoli richiesti in lowercase
-  const allowed = new Set((roles || []).map(r => String(r).toLowerCase()));
+  const allowed = new Set((roles || []).map((r) => String(r).toLowerCase()));
   return (req, res, next) => {
-
     try {
       if (!req.user || !req.user.role) {
         res.status(403);
         throw new Error("Forbidden");
       }
 
-      // Estensione Opzione B: se serve "organizer", accetta anche canOrganize === true
-      // 🔧 PATCH: consenti anche agli admin
-    if (allowed.has("organizer")) {
-  const role = String(req.user.role || "").toLowerCase();
-  if (role === "organizer" || role === "admin" || req.user.canOrganize === true) {
-    return next();
-  }
-  res.status(403);
-  throw new Error("Forbidden");
-}
+      // Estensione: se serve "organizer", accetta anche canOrganize === true e gli admin
+      if (allowed.has("organizer")) {
+        const role = String(req.user.role || "").toLowerCase();
+        if (
+          role === "organizer" ||
+          role === "admin" ||
+          req.user.canOrganize === true
+        ) {
+          return next();
+        }
+        res.status(403);
+        throw new Error("Forbidden");
+      }
 
-    const role = String(req.user.role || "").toLowerCase();
-if (!allowed.has(role)) {
-  res.status(403);
-  throw new Error("Forbidden");
-}
+      // Per "admin" (o altri ruoli), match diretto in lowercase
+      const role = String(req.user.role || "").toLowerCase();
+      if (!allowed.has(role)) {
+        res.status(403);
+        throw new Error("Forbidden");
+      }
       return next();
     } catch (err) {
       return next(err);
