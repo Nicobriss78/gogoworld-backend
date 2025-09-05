@@ -18,10 +18,6 @@ const {
 
 const { protect, authorize } = require("../middleware/auth");
 
-// === Import per import CSV (già previsti) ===
-const { importCsv } = require("../controllers/importController");
-const { uploadCsvSafe } = require("../middleware/upload");
-
 // --------------------------------------------------------
 // Eventi pubblici / query
 // --------------------------------------------------------
@@ -46,19 +42,8 @@ router.delete("/:id", protect, authorize("organizer"), deleteEvent);
 router.post("/:id/join", protect, joinEvent);
 router.post("/:id/leave", protect, leaveEvent);
 
-// --------------------------------------------------------
-// Import massivo da CSV (organizer + whitelist via ADMIN_EMAILS)
-// Opzione A: il bottone è visibile a tutti nel FE, ma la protezione è qui.
-// --------------------------------------------------------
-router.post(
-  "/import-csv",
-  protect,
-  authorize("organizer"),
-  uploadCsvSafe,
-  importCsv
-);
-
 module.exports = router;
+
 
 
 
