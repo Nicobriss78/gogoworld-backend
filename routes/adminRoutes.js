@@ -12,6 +12,7 @@ const {
   blockEvent,
   unblockEvent,
   forceDeleteEvent,
+  adminImportEvents,
   // Utenti
   listUsers,
   banUser,
@@ -31,6 +32,8 @@ router.post("/events/:id/reject", protect, authorize("admin"), rejectEvent);
 router.post("/events/:id/block", protect, authorize("admin"), blockEvent);
 router.post("/events/:id/unblock", protect, authorize("admin"), unblockEvent);
 router.delete("/events/:id/force", protect, authorize("admin"), forceDeleteEvent);
+// Import massivo (CSV) — solo admin
+router.post("/import/events", protect, authorize("admin"), adminImportEvents);
 
 // -----------------------------
 // Utenti
