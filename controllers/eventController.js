@@ -75,6 +75,11 @@ function buildFilters(q) {
   if (q.visibility) {
     query.visibility = q.visibility;
   }
+  // --- Admin: filtro stato approvazione (opzionale da query) ---
+  if (q.approvalStatus) {
+    query.approvalStatus = q.approvalStatus;
+
+  }
   // --- PATCH: nuovi filtri ---
   if (q.language) {
     query.language = q.language;
@@ -117,6 +122,17 @@ const listEvents = asyncHandler(async (req, res) => {
   if (!req.query.visibility) {
     filters.visibility = "public";
   }
+  const listEvents = asyncHandler(async (req, res) => {
+const filters = buildFilters(req.query);
+if (!req.query.visibility) {
+filters.visibility = "public";
+}
+if (!req.query.approvalStatus) { filters.approvalStatus = "approved"; }
+const events = await Event.find(filters).sort({ dateStart: 1 });
+const now = new Date();
+const payload = attachStatusToArray(events, now);
+res.json({ ok: true, events: payload });
+
   const events = await Event.find(filters).sort({ dateStart: 1 });
   const now = new Date();
   const payload = attachStatusToArray(events, now);
@@ -343,6 +359,7 @@ module.exports = {
   joinEvent,
   leaveEvent,
 };
+
 
 
 
