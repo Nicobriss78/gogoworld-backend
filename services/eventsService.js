@@ -34,7 +34,8 @@ function buildListWhere(q = {}) {
   const where = {};
   if (q.status) where.status = q.status;
   if (q.visibility) where.visibility = q.visibility;
-
+// Admin: stato approvazione (se fornito)
+  if (q.approvalStatus) where.approvalStatus = rxEqI(q.approvalStatus);
   if (q.city) where.city = rxEqI(q.city);
   if (q.province) where.province = rxEqI(q.province);
   if (q.region) where.region = rxEqI(q.region);
