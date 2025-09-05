@@ -133,11 +133,6 @@ const now = new Date();
 const payload = attachStatusToArray(events, now);
 res.json({ ok: true, events: payload });
 
-  const events = await Event.find(filters).sort({ dateStart: 1 });
-  const now = new Date();
-  const payload = attachStatusToArray(events, now);
-  res.json({ ok: true, events: payload });
-
 });
 
 // @desc Ottiene eventi creati dall’organizzatore corrente
@@ -359,6 +354,7 @@ module.exports = {
   joinEvent,
   leaveEvent,
 };
+
 
 
 
