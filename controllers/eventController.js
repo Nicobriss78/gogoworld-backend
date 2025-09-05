@@ -78,7 +78,6 @@ function buildFilters(q) {
   // --- Admin: filtro stato approvazione (opzionale da query) ---
   if (q.approvalStatus) {
     query.approvalStatus = q.approvalStatus;
-
   }
   // --- PATCH: nuovi filtri ---
   if (q.language) {
@@ -122,17 +121,15 @@ const listEvents = asyncHandler(async (req, res) => {
   if (!req.query.visibility) {
     filters.visibility = "public";
   }
-  const listEvents = asyncHandler(async (req, res) => {
-const filters = buildFilters(req.query);
-if (!req.query.visibility) {
-filters.visibility = "public";
-}
-if (!req.query.approvalStatus) { filters.approvalStatus = "approved"; }
-const events = await Event.find(filters).sort({ dateStart: 1 });
-const now = new Date();
-const payload = attachStatusToArray(events, now);
-res.json({ ok: true, events: payload });
+  // default pubblico: solo approvati, salvo override esplicito
+  if (!req.query.approvalStatus) {
+    filters.approvalStatus = "approved";
+  }
 
+  const events = await Event.find(filters).sort({ dateStart: 1 });
+  const now = new Date();
+  const payload = attachStatusToArray(events, now);
+  res.json({ ok: true, events: payload });
 });
 
 // @desc Ottiene eventi creati dall’organizzatore corrente
@@ -233,62 +230,61 @@ const updateEvent = asyncHandler(async (req, res) => {
     if (!currency) currency = "EUR";
   }
 
- // Applichiamo SOLO i campi ammessi (anti mass-assignment)
-const allowed = {
-  // base
-  title: body.title,
-  description: body.description,
-  status: body.status,
-  visibility: body.visibility,
+  // Applichiamo SOLO i campi ammessi (anti mass-assignment)
+  const allowed = {
+    // base
+    title: body.title,
+    description: body.description,
+    status: body.status,
+    visibility: body.visibility,
 
-  // tassonomia
-  type: body.type,
-  category: body.category,
-  subcategory: body.subcategory,
-  tags: Array.isArray(body.tags) ? body.tags : undefined,
+    // tassonomia
+    type: body.type,
+    category: body.category,
+    subcategory: body.subcategory,
+    tags: Array.isArray(body.tags) ? body.tags : undefined,
 
-  // localizzazione (coerente con eventModel)
-  venueName: body.venueName,
-  address: body.address,
-  street: body.street,
-  streetNumber: body.streetNumber,
-  postalCode: body.postalCode,
-  city: body.city,
-  province: body.province,
-  region: body.region,
-  country: body.country,
-  lat: typeof body.lat === "number" ? body.lat : undefined,
-  lon: typeof body.lon === "number" ? body.lon : undefined,
+    // localizzazione (coerente con eventModel)
+    venueName: body.venueName,
+    address: body.address,
+    street: body.street,
+    streetNumber: body.streetNumber,
+    postalCode: body.postalCode,
+    city: body.city,
+    province: body.province,
+    region: body.region,
+    country: body.country,
+    lat: typeof body.lat === "number" ? body.lat : undefined,
+    lon: typeof body.lon === "number" ? body.lon : undefined,
 
-  // date
-  dateStart: body.dateStart ? new Date(body.dateStart) : undefined,
-  dateEnd: body.dateEnd ? new Date(body.dateEnd) : undefined,
-  timezone: body.timezone,
+    // date
+    dateStart: body.dateStart ? new Date(body.dateStart) : undefined,
+    dateEnd: body.dateEnd ? new Date(body.dateEnd) : undefined,
+    timezone: body.timezone,
 
-  // prezzo
-  isFree,
-  price,
-  ...(currency ? { currency } : { currency: undefined }),
+    // prezzo
+    isFree,
+    price,
+    ...(currency ? { currency } : { currency: undefined }),
 
-  // media / extra
-  coverImage: typeof body.coverImage === "string" ? body.coverImage : undefined,
-  images: Array.isArray(body.images) ? body.images : undefined,
+    // media / extra
+    coverImage: typeof body.coverImage === "string" ? body.coverImage : undefined,
+    images: Array.isArray(body.images) ? body.images : undefined,
 
-  // link & contatti (se presenti nello schema)
-  ticketUrl: body.ticketUrl,
-  externalUrl: body.externalUrl,
-  contactEmail: body.contactEmail,
-  contactPhone: body.contactPhone,
+    // link & contatti (se presenti nello schema)
+    ticketUrl: body.ticketUrl,
+    externalUrl: body.externalUrl,
+    contactEmail: body.contactEmail,
+    contactPhone: body.contactPhone,
 
-  // capienza
-  capacity: typeof body.capacity === "number" ? body.capacity : undefined,
-};
+    // capienza
+    capacity: typeof body.capacity === "number" ? body.capacity : undefined,
+  };
 
-// Rimuovi chiavi undefined per non sovrascrivere valori esistenti
-Object.keys(allowed).forEach((k) => allowed[k] === undefined && delete allowed[k]);
+  // Rimuovi chiavi undefined per non sovrascrivere valori esistenti
+  Object.keys(allowed).forEach((k) => allowed[k] === undefined && delete allowed[k]);
 
-Object.assign(event, allowed);
-
+  Object.assign(event, allowed);
 
   const updated = await event.save();
   res.json({ ok: true, event: updated });
@@ -313,6 +309,7 @@ const deleteEvent = asyncHandler(async (req, res) => {
 
   res.json({ ok: true, message: "Evento eliminato" });
 });
+
 // @desc Aggiunge partecipante a un evento
 // @route POST /api/events/:id/join
 // @access Private (participant)
@@ -322,7 +319,8 @@ const joinEvent = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("Evento non trovato");
   }
-if (!event.participants.some((p) => p.toString() === req.user._id.toString())) {    event.participants.push(req.user._id);
+  if (!event.participants.some((p) => p.toString() === req.user._id.toString())) {
+    event.participants.push(req.user._id);
     await event.save();
   }
   res.json({ ok: true, event });
@@ -354,7 +352,6 @@ module.exports = {
   joinEvent,
   leaveEvent,
 };
-
 
 
 
