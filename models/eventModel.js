@@ -46,7 +46,22 @@ const eventSchema = new mongoose.Schema(
       default: "tutti",
       trim: true,
     },
-
+// Moderazione / stato approvazione
+    approvalStatus: {
+      type: String,
+      enum: ["pending", "approved", "rejected", "blocked"],
+      default: "approved",
+      index: true,
+    },
+    moderation: {
+      reason: { type: String, trim: true },
+      notes: { type: String, trim: true },
+      updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      updatedAt: { type: Date },
+    },
+    flagsCount: { type: Number, default: 0, min: 0 },
+    flaggedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    
     // Prezzo e valuta
     isFree: { type: Boolean, default: false },
     price: { type: Number, min: 0 },
@@ -75,5 +90,6 @@ eventSchema.index({ language: 1 });
 eventSchema.index({ target: 1 });
 
 module.exports = mongoose.model("Event", eventSchema);
+
 
 
