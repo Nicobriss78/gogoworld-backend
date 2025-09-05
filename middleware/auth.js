@@ -44,7 +44,7 @@ const protect = asyncHandler(async (req, res, next) => {
         id: user._id, // alias compatibilità
         email: user.email,
         name: user.name,
-        role: user.role || "participant",
+        role: (user.role || "participant"),toString().toLowerCase(),
         canOrganize: user.canOrganize === true,
       };
 
@@ -65,9 +65,10 @@ const protect = asyncHandler(async (req, res, next) => {
 // Uso: router.post("/", protect, authorize("organizer"), createEvent)
 // -----------------------------------------------------------------------------
 const authorize = (...roles) => {
-  // normalizziamo i ruoli attesi in un set
-  const allowed = new Set((roles || []).map(String));
+  // normalizza i ruoli richiesti in lowercase
+  const allowed = new Set((roles || []).map(r => String(r).toLowerCase()));
   return (req, res, next) => {
+
     try {
       if (!req.user || !req.user.role) {
         res.status(403);
@@ -76,19 +77,20 @@ const authorize = (...roles) => {
 
       // Estensione Opzione B: se serve "organizer", accetta anche canOrganize === true
       // 🔧 PATCH: consenti anche agli admin
-      if (allowed.has("organizer")) {
-        if (req.user.role === "organizer" || req.user.canOrganize === true || req.user.role === "admin") {
-          return next();
-        }
-        res.status(403);
-        throw new Error("Forbidden");
-      }
+    if (allowed.has("organizer")) {
+  const role = String(req.user.role || "").toLowerCase();
+  if (role === "organizer" || role === "admin" || req.user.canOrganize === true) {
+    return next();
+  }
+  res.status(403);
+  throw new Error("Forbidden");
+}
 
-      // Per altri ruoli, mantieni la logica attuale
-      if (!allowed.has(String(req.user.role))) {
-        res.status(403);
-        throw new Error("Forbidden");
-      }
+    const role = String(req.user.role || "").toLowerCase();
+if (!allowed.has(role)) {
+  res.status(403);
+  throw new Error("Forbidden");
+}
       return next();
     } catch (err) {
       return next(err);
