@@ -114,6 +114,7 @@ const forceDeleteEvent = asyncHandler(async (req, res) => {
   await ev.deleteOne();
   res.json({ ok: true, message: "Evento eliminato definitivamente" });
 });
+
 // POST /api/admin/import/events
 // Esegue l'import massivo come admin, riutilizzando importController.importCsv
 const adminImportEvents = asyncHandler(async (req, res) => {
@@ -130,6 +131,7 @@ const adminImportEvents = asyncHandler(async (req, res) => {
     throw new Error(err?.message || "Errore import");
   }
 });
+
 // -----------------------------
 // Utenti — Gestione
 // -----------------------------
@@ -210,6 +212,9 @@ const toggleCanOrganize = asyncHandler(async (req, res) => {
   res.json({ ok: true, user: u });
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// EXPORT — identico, con soli alias per allineare i nomi attesi dalle routes
+// ─────────────────────────────────────────────────────────────────────────────
 module.exports = {
   // Events
   listModerationEvents,
@@ -218,11 +223,14 @@ module.exports = {
   blockEvent,
   unblockEvent,
   forceDeleteEvent,
-  adminImportEvents,
+  adminImportEvents, // nome interno
+  importEventsCsv: adminImportEvents, // ← alias per le routes
+
   // Users
   listUsers,
   banUser,
   unbanUser,
   setUserRole,
-  toggleCanOrganize,
+  toggleCanOrganize, // nome interno
+  setUserCanOrganize: toggleCanOrganize, // ← alias per le routes
 };
