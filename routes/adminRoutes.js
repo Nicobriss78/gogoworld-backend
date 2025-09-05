@@ -3,6 +3,12 @@
 
 const express = require("express");
 const router = express.Router();
+// DEBUG TEMP: chi sono io lato BE?
+// (rimuovere a test finiti)
+router.get("/whoami", protect, (req, res) => {
+  return res.json({ ok: true, user: req.user });
+});
+
 
 const {
   // Eventi
