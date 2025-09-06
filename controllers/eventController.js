@@ -2,7 +2,7 @@ const Event = require("../models/eventModel");
 const asyncHandler = require("express-async-handler");
 
 // ---- Stato evento derivato dal tempo corrente ----
-// Status possibili: "ongoing" (in corso), "imminent" (imminente), "future" (futuro), "concluded" (appena concluso), "past" (oltre finestra concluso)
+// Status possibili: "ongoing" (in corso), "imminent" (imminente... "concluded" (appena concluso), "past" (oltre finestra concluso)
 // Usa ENV con default sicuri; timezone rimane un fallback concettuale (date salvate in UTC)
 const IMMINENT_HOURS = Number(process.env.IMMINENT_HOURS || 72);
 const SHOW_CONCLUDED_HOURS = Number(process.env.SHOW_CONCLUDED_HOURS || 12);
@@ -18,18 +18,13 @@ function computeEventStatus(ev, now = new Date()) {
 
     const t = now.getTime();
     const ts = start.getTime();
-    const te = (end ? end.getTime() : ts);
+    const te = end ? end.getTime() : ts;
+
     const msImminent = IMMINENT_HOURS * 60 * 60 * 1000;
     const msConcluded = SHOW_CONCLUDED_HOURS * 60 * 60 * 1000;
 
-    if (t < ts) {
-      // futuro / imminente
-      return (ts - t) <= msImminent ? "imminent" : "future";
-    }
-    if (t >= ts && t <= te) {
-      return "ongoing";
-    }
-    // passato
+    if (t < ts) return (ts - t) <= msImminent ? "imminent" : "future";
+    if (t >= ts && t <= te) return "ongoing";
     return (t - te) <= msConcluded ? "concluded" : "past";
   } catch {
     return "future";
@@ -79,19 +74,17 @@ function buildFilters(q) {
   if (q.approvalStatus) {
     query.approvalStatus = q.approvalStatus;
   }
-  // --- PATCH: nuovi filtri ---
   if (q.language) {
     query.language = q.language;
   }
   if (q.target) {
     query.target = q.target;
   }
-  // --------------------------
-
   if (q.isFree) {
     query.isFree = q.isFree === "true";
   }
 
+  // Filtro dateStart con range
   if (q.dateStart || q.dateEnd) {
     query.dateStart = {};
     if (q.dateStart) {
@@ -99,7 +92,7 @@ function buildFilters(q) {
     }
     if (q.dateEnd) {
       const end = new Date(q.dateEnd);
-      // Se formato solo-data (YYYY-MM-DD), includi tutta la giornata
+      // se la data è solo YYYY-MM-DD, includi tutta la giornata
       if (/^\d{4}-\d{2}-\d{2}$/.test(q.dateEnd)) {
         const nextDay = new Date(end);
         nextDay.setDate(end.getDate() + 1);
@@ -111,6 +104,30 @@ function buildFilters(q) {
   }
 
   return query;
+}
+
+// PATCH V1: validazione minima input evento
+function validateEventInput(body) {
+  const errors = [];
+  const reqStr = (v) => typeof v === "string" && v.trim().length > 0;
+
+  if (!reqStr(body.title)) errors.push("title obbligatorio");
+  if (!reqStr(body.city)) errors.push("city obbligatoria");
+  if (!reqStr(body.region)) errors.push("region obbligatoria");
+  if (!reqStr(body.country)) errors.push("country obbligatorio");
+
+  if (body.dateStart && isNaN(new Date(body.dateStart).getTime())) errors.push("dateStart non valida");
+  if (body.dateEnd && isNaN(new Date(body.dateEnd).getTime())) errors.push("dateEnd non valida");
+
+  if (body.price != null && Number(body.price) < 0) errors.push("price non può essere negativo");
+
+  const vis = ["public", "private"];
+  if (body.visibility && !vis.includes(String(body.visibility))) errors.push("visibility non valida");
+
+  const appr = ["pending", "approved", "rejected", "blocked"];
+  if (body.approvalStatus && !appr.includes(String(body.approvalStatus))) errors.push("approvalStatus non valido");
+
+  return errors;
 }
 
 // @desc Ottiene tutti gli eventi (pubblici) con filtri
@@ -144,7 +161,7 @@ const listMyEvents = asyncHandler(async (req, res) => {
   res.json({ ok: true, events: payload });
 });
 
-// @desc Ottiene un evento singolo
+// @desc Evento singolo
 // @route GET /api/events/:id
 // @access Public
 const getEventById = asyncHandler(async (req, res) => {
@@ -162,6 +179,12 @@ const getEventById = asyncHandler(async (req, res) => {
 // @route POST /api/events
 // @access Private (organizer)
 const createEvent = asyncHandler(async (req, res) => {
+  // PATCH V2: validazione input
+  const vErr = validateEventInput(req.body || {});
+  if (vErr.length) {
+    return res.status(400).json({ ok: false, code: "VALIDATION_ERROR", errors: vErr });
+  }
+
   const body = { ...req.body };
 
   // boolean robusto
@@ -210,6 +233,12 @@ const updateEvent = asyncHandler(async (req, res) => {
     throw new Error("Non autorizzato");
   }
 
+  // PATCH V3: validazione input (parziale)
+  const vErr = validateEventInput(req.body || {});
+  if (vErr.length) {
+    return res.status(400).json({ ok: false, code: "VALIDATION_ERROR", errors: vErr });
+  }
+
   const body = { ...req.body };
 
   const isFree =
@@ -230,21 +259,18 @@ const updateEvent = asyncHandler(async (req, res) => {
     if (!currency) currency = "EUR";
   }
 
-  // Applichiamo SOLO i campi ammessi (anti mass-assignment)
   const allowed = {
-    // base
+    // meta
     title: body.title,
     description: body.description,
     status: body.status,
     visibility: body.visibility,
-
-    // tassonomia
     type: body.type,
     category: body.category,
     subcategory: body.subcategory,
     tags: Array.isArray(body.tags) ? body.tags : undefined,
 
-    // localizzazione (coerente con eventModel)
+    // location
     venueName: body.venueName,
     address: body.address,
     street: body.street,
@@ -303,16 +329,13 @@ const deleteEvent = asyncHandler(async (req, res) => {
     res.status(403);
     throw new Error("Non autorizzato");
   }
-
-  // Mongoose v7: remove() non esiste più
   await event.deleteOne();
-
   res.json({ ok: true, message: "Evento eliminato" });
 });
 
-// @desc Aggiunge partecipante a un evento
+// @desc Aggiunge partecipante
 // @route POST /api/events/:id/join
-// @access Private (participant)
+// @access Private
 const joinEvent = asyncHandler(async (req, res) => {
   const event = await Event.findById(req.params.id);
   if (!event) {
@@ -326,9 +349,9 @@ const joinEvent = asyncHandler(async (req, res) => {
   res.json({ ok: true, event });
 });
 
-// @desc Rimuove partecipante da un evento
+// @desc Rimuove partecipante
 // @route POST /api/events/:id/leave
-// @access Private (participant)
+// @access Private
 const leaveEvent = asyncHandler(async (req, res) => {
   const event = await Event.findById(req.params.id);
   if (!event) {
@@ -352,7 +375,6 @@ module.exports = {
   joinEvent,
   leaveEvent,
 };
-
 
 
 
