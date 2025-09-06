@@ -71,6 +71,7 @@ const adminRoutes = require("./routes/adminRoutes");
 app.use("/api/users", userRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/admin", adminRoutes);
+
 // Root & Health
 app.get("/", (_req, res) => res.json({ ok: true, name: "GoGo.World API", version: "v1" }));
 app.get("/healthz", (_req, res) => res.json({ ok: true }));
@@ -90,7 +91,6 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 GoGo.World API in ascolto sulla porta ${PORT}`);
 });
-
 
 
 
