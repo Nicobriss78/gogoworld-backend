@@ -107,21 +107,22 @@ const enableOrganizer = asyncHandler(async (req, res) => {
     throw new Error("User not found");
   }
 
+  // Se un admin ha esplicitamente disabilitato l'organizzazione, non riabilitare
+  if (user.canOrganize === false) {
+    return res.status(403).json({
+      ok: false,
+      error: "Organizzazione disabilitata da un amministratore",
+    });
+  }
+
+  // Se è già abilitato, conferma
   if (user.canOrganize === true) {
     return res.json({ ok: true, canOrganize: true, message: "Già abilitato" });
   }
 
+  // Caso legacy: campo assente/undefined -> abilita una tantum
   user.canOrganize = true;
   await user.save();
 
   res.json({ ok: true, canOrganize: true });
 });
-
-module.exports = {
-  registerUser,
-  authUser,
-  getUserProfile,
-  // PATCH: export nuovo handler
-  enableOrganizer,
-};
-
