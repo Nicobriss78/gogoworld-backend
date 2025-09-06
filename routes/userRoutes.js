@@ -25,6 +25,11 @@ router.post("/login", authUser);
 // Private
 router.get("/me", protect, getUserProfile);
 
+// Private: diagnostica ruoli/token (ritorna solo req.user)
+router.get("/whoami", protect, (req, res) => {
+  res.json({ ok: true, user: req.user });
+});
+
 // Private: switch role (persistente)
 router.post("/session-role", protect, setSessionRole);
 
@@ -32,3 +37,4 @@ router.post("/session-role", protect, setSessionRole);
 router.post("/me/enable-organizer", protect, enableOrganizer);
 
 module.exports = router;
+
