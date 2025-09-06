@@ -1,6 +1,6 @@
 // routes/userRoutes.js — GoGoWorld.life
 // NOTE: Modifica CHIRURGICA per Opzione B
-// - Protetto POST /session-role (require auth) e collegato al controller persistente
+// - Protetto POST /session-role (require auth) ma reso NO-OP (non modifica più il DB)
 // - Aggiunto POST /me/enable-organizer per abilitare canOrganize
 // - Nessun’altra rotta alterata
 
@@ -11,7 +11,7 @@ const {
   registerUser,
   authUser,
   getUserProfile,
-  setSessionRole,
+  // setSessionRole, // (RIMOSSO: non più usato)
   // PATCH: aggiunto
   enableOrganizer,
 } = require("../controllers/userController");
@@ -30,8 +30,11 @@ router.get("/whoami", protect, (req, res) => {
   res.json({ ok: true, user: req.user });
 });
 
-// Private: switch role (persistente)
-router.post("/session-role", protect, setSessionRole);
+// Private: switch role (ora NO-OP, non modifica più user.role nel DB)
+router.post("/session-role", protect, (req, res) => {
+  const desired = String(req.body.role || "");
+  res.json({ ok: true, preferred: desired });
+});
 
 // Private: abilita modalità organizzatore (Opzione B)
 router.post("/me/enable-organizer", protect, enableOrganizer);
