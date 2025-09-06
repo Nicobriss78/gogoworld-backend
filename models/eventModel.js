@@ -50,7 +50,7 @@ const eventSchema = new mongoose.Schema(
     approvalStatus: {
       type: String,
       enum: ["pending", "approved", "rejected", "blocked"],
-      default: "approved",
+      default: "pending",
       index: true,
     },
     moderation: {
@@ -88,6 +88,7 @@ eventSchema.index({ target: 1 });
 eventSchema.index({ approvalStatus: 1 });
 
 module.exports = mongoose.model("Event", eventSchema);
+
 
 
 
