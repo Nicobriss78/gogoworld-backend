@@ -18,9 +18,12 @@ const {
 
 const { protect } = require("../middleware/auth");
 
+// PATCH: rate limiting (login)
+const { loginLimiter } = require("../middleware/rateLimit");
+
 // Public
 router.post("/", registerUser);
-router.post("/login", authUser);
+router.post("/login", loginLimiter, authUser); // ⬅️ PATCH: applica limiter al login
 
 // Private
 router.get("/me", protect, getUserProfile);
@@ -40,4 +43,5 @@ router.post("/session-role", protect, (req, res) => {
 router.post("/me/enable-organizer", protect, enableOrganizer);
 
 module.exports = router;
+
 
