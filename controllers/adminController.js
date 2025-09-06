@@ -116,20 +116,116 @@ const forceDeleteEvent = asyncHandler(async (req, res) => {
 });
 
 // POST /api/admin/import/events
-// Esegue l'import massivo come admin, riutilizzando importController.importCsv
+// Import CSV con deduplica (no doppioni) e supporto "simulate" (validazione).
 const adminImportEvents = asyncHandler(async (req, res) => {
-  try {
-    // Import "lazy" per evitare require circolari
-    const { importCsv } = require("./importController");
-    if (typeof importCsv !== "function") {
-      res.status(500);
-      throw new Error("importCsv non disponibile");
-    }
-    return importCsv(req, res);
-  } catch (err) {
-    res.status(500);
-    throw new Error(err?.message || "Errore import");
+  // Necessita di multer a monte: upload.single('csv')
+  if (!req.file || !req.file.buffer) {
+    res.status(400);
+    throw new Error("CSV mancante (campo: csv)");
   }
+
+  // parse CSV
+  const { parse } = require("csv-parse/sync");
+  let rows;
+  try {
+    rows = parse(req.file.buffer, {
+      columns: true,
+      bom: true,
+      skip_empty_lines: true,
+      trim: true,
+    });
+  } catch (e) {
+    res.status(400);
+    throw new Error("CSV non valido");
+  }
+
+  const simulate =
+    req.body.simulate === true ||
+    req.body.simulate === "true" ||
+    req.body.simulate === "1";
+
+  const results = [];
+  let created = 0;
+  let skipped = 0;
+
+  // helper
+  const toDate = (v) => {
+    if (!v) return null;
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? null : d;
+  };
+  const norm = (s) => String(s || "").trim();
+  const lc = (s) => norm(s).toLowerCase();
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const lineNo = i + 2; // 1 = header
+
+    try {
+      const title = norm(r.title || r.titolo);
+      const dateStart = toDate(r.dateStart || r.start || r.dataInizio);
+      const dateEnd = toDate(r.dateEnd || r.end || r.dataFine);
+      const city = norm(r.city || r.citta);
+      const region = norm(r.region || r.regione);
+      const country = norm(r.country || r.paese || "IT");
+
+      if (!title) throw new Error("title mancante");
+      if (!dateStart) throw new Error("dateStart non valida");
+      if (!city) throw new Error("city mancante");
+
+      // chiave deduplica: title + dateStart + city
+      const dup = await Event.findOne({
+        title,
+        city,
+        dateStart,
+      }).lean();
+
+      if (dup) {
+        skipped++;
+        results.push({ line: lineNo, status: "skipped", reason: "duplicato" });
+        continue;
+      }
+
+      const payload = {
+        title,
+        description: norm(r.description || r.descrizione),
+        organizerName: norm(r.organizerName || r.organizzatore || ""),
+        organizer: req.user?._id || null,
+        visibility: r.visibility ? lc(r.visibility) : "public",
+        language: r.language ? lc(r.language) : "it",
+        target: r.target ? lc(r.target) : "tutti",
+        category: norm(r.category || ""),
+        subcategory: norm(r.subcategory || ""),
+        type: norm(r.type || ""),
+        city,
+        region,
+        country,
+        dateStart,
+        dateEnd: dateEnd || dateStart,
+        price: norm(r.price || r.prezzo || "Gratuito"),
+        approvalStatus: r.approvalStatus ? lc(r.approvalStatus) : "pending",
+        createdBy: req.user?._id || null,
+      };
+
+      if (!simulate) {
+        const doc = await Event.create(payload);
+        created++;
+        results.push({ line: lineNo, status: "ok", id: String(doc._id) });
+      } else {
+        results.push({ line: lineNo, status: "ok", simulate: true });
+      }
+    } catch (err) {
+      results.push({ line: lineNo, status: "error", errors: [String(err.message || err)] });
+    }
+  }
+
+  res.json({
+    ok: true,
+    dryRun: !!simulate,
+    created,
+    skipped,
+    rows: results,
+  });
 });
 
 // -----------------------------
