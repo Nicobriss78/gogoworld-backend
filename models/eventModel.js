@@ -46,7 +46,7 @@ const eventSchema = new mongoose.Schema(
       default: "tutti",
       trim: true,
     },
-// Moderazione / stato approvazione
+    // Moderazione / stato approvazione
     approvalStatus: {
       type: String,
       enum: ["pending", "approved", "rejected", "blocked"],
@@ -86,6 +86,12 @@ eventSchema.index({ region: 1, category: 1 });
 eventSchema.index({ language: 1 });
 eventSchema.index({ target: 1 });
 eventSchema.index({ approvalStatus: 1 });
+
+// PATCH IDX: indici aggiuntivi per query più frequenti
+eventSchema.index({ approvalStatus: 1, visibility: 1, dateStart: 1 });
+eventSchema.index({ "participants._id": 1 });
+// (facoltativo, se usi ricerche testuali su titolo/città/categoria)
+// eventSchema.index({ title: "text", city: "text", category: "text" });
 
 module.exports = mongoose.model("Event", eventSchema);
 
