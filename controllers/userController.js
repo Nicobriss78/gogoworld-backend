@@ -96,37 +96,6 @@ const getUserProfile = asyncHandler(async (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
-// @desc Switch session role (participant <-> organizer)
-// @route POST /api/users/session-role
-// @access Private
-// -----------------------------------------------------------------------------
-const setSessionRole = asyncHandler(async (req, res) => {
-  const { role } = req.body;
-
-  if (!["participant", "organizer"].includes(role)) {
-    res.status(400);
-    throw new Error("Invalid role");
-  }
-
-  const user = await User.findById(req.user._id);
-  if (!user) {
-    res.status(404);
-    throw new Error("User not found");
-  }
-
-  user.role = role;
-  await user.save();
-
-  res.json({
-    ok: true,
-    _id: user._id,
-    name: user.name,
-    email: user.email,
-    role: user.role,
-  });
-});
-
-// -----------------------------------------------------------------------------
 // @desc Abilita modalità organizzatore per l'utente loggato
 // @route POST /api/users/me/enable-organizer
 // @access Private
@@ -152,9 +121,7 @@ module.exports = {
   registerUser,
   authUser,
   getUserProfile,
-  setSessionRole,
   // PATCH: export nuovo handler
   enableOrganizer,
 };
-
 
