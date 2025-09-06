@@ -126,3 +126,10 @@ const enableOrganizer = asyncHandler(async (req, res) => {
 
   res.json({ ok: true, canOrganize: true });
 });
+
+module.exports = {
+  registerUser,
+  authUser,
+  getUserProfile,
+  enableOrganizer,
+};
