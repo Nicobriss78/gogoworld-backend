@@ -14,6 +14,7 @@ const {
   joinEvent,
   leaveEvent,
   listMyEvents,
+  getParticipation, // PATCH S6: aggiunto export
 } = require("../controllers/eventController");
 
 const { protect, authorize } = require("../middleware/auth");
@@ -42,7 +43,11 @@ router.delete("/:id", protect, authorize("organizer"), deleteEvent);
 router.post("/:id/join", protect, joinEvent);
 router.post("/:id/leave", protect, leaveEvent);
 
+// 🔎 PATCH S6: nuova rotta diagnostica partecipazione
+router.get("/:id/participation", protect, getParticipation);
+
 module.exports = router;
+
 
 
 
