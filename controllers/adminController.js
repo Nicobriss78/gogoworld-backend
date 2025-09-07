@@ -74,7 +74,15 @@ async function setModeration(ev, status, { reason, notes }, adminUserId) {
 const approveEvent = asyncHandler(async (req, res) => {
   const ev = await Event.findById(req.params.id);
   if (!ev) { res.status(404); throw new Error("Evento non trovato"); }
-  await setModeration(ev, "approved", pick(req.body, ["reason","notes"]), req.user._id);
+  // PATCH BE: quando approvo, azzero eventuale motivo/nota precedente
+  ev.approvalStatus = "approved";
+  ev.moderation = {
+    reason: undefined,
+    notes: undefined,
+    updatedBy: req.user._id,
+    updatedAt: now(),
+  };
+  await ev.save();
   res.json({ ok: true, event: ev });
 });
 
@@ -95,7 +103,20 @@ const rejectEvent = asyncHandler(async (req, res) => {
 const blockEvent = asyncHandler(async (req, res) => {
   const ev = await Event.findById(req.params.id);
   if (!ev) { res.status(404); throw new Error("Evento non trovato"); }
-  await setModeration(ev, "blocked", pick(req.body, ["reason","notes"]), req.user._id);
+  // PATCH BE: motivo blocco obbligatorio
+  const reason = (req.body && typeof req.body.reason === "string") ? req.body.reason.trim() : "";
+  if (!reason) {
+    return res.status(400).json({ ok: false, error: "Motivo blocco obbligatorio" });
+  }
+  // Registra moderazione con motivo
+  ev.approvalStatus = "blocked";
+  ev.moderation = {
+    reason,
+    notes: req.body && typeof req.body.notes === "string" ? req.body.notes.trim() : undefined,
+    updatedBy: req.user._id,
+    updatedAt: now(),
+  };
+  await ev.save();
   res.json({ ok: true, event: ev });
 });
 
@@ -104,7 +125,15 @@ const unblockEvent = asyncHandler(async (req, res) => {
   const ev = await Event.findById(req.params.id);
   if (!ev) { res.status(404); throw new Error("Evento non trovato"); }
   // PATCH (Workflow): sblocco → torna in revisione (pending), non approved diretto
-  await setModeration(ev, "pending", pick(req.body, ["reason","notes"]), req.user._id);
+  ev.approvalStatus = "pending";
+  // PATCH BE: quando sblocco, riparto pulito (pending senza motivi residui)
+  ev.moderation = {
+    reason: undefined,
+    notes: undefined,
+    updatedBy: req.user._id,
+    updatedAt: now(),
+  };
+  await ev.save();
   res.json({ ok: true, event: ev });
 });
 
@@ -331,3 +360,4 @@ module.exports = {
   toggleCanOrganize, // nome interno
   setUserCanOrganize: toggleCanOrganize, // ← alias per le routes
 };
+
