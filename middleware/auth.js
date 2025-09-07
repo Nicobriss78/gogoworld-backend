@@ -3,6 +3,7 @@
 // - Esteso `protect` per includere anche `role` e `canOrganize` (oltre a id/email/name).
 // - Esteso `authorize(...roles)` per consentire gli endpoint "organizer"
 // anche a `canOrganize === true` e a `role === "admin"`.
+// - PATCH Step B: blocco immediato degli utenti bannati (isBanned).
 // - Nessuna altra logica alterata.
 
 const jwt = require("jsonwebtoken");
@@ -13,7 +14,7 @@ const User = require("../models/userModel");
 // protect: richiede autenticazione Bearer JWT
 // - Decodifica il token
 // - Carica l'utente dal DB
-// - Idrata req.user con: _id, id (alias), email, name, role, canOrganize
+// - Idrata req.user con: _id, id (alias), email, name, role, canOrganize, isBanned
 // -----------------------------------------------------------------------------
 const protect = asyncHandler(async (req, res, next) => {
   let token;
@@ -46,10 +47,16 @@ const protect = asyncHandler(async (req, res, next) => {
         id: user._id, // alias compatibilità
         email: user.email,
         name: user.name,
-        role: (user.role || "participant").toString().toLowerCase(), // PATCH: normalize
+        role: (user.role || "participant").toString().toLowerCase(), // normalize
         canOrganize: user.canOrganize === true,
         isBanned: user.isBanned === true,
       };
+
+      // 🔒 PATCH Step B: blocca subito gli account bannati
+      if (req.user.isBanned) {
+        res.status(403);
+        throw new Error("Account banned");
+      }
 
       return next();
     } catch (err) {
@@ -68,7 +75,7 @@ const protect = asyncHandler(async (req, res, next) => {
 // Uso: router.post("/", protect, authorize("organizer"), createEvent)
 // -----------------------------------------------------------------------------
 const authorize = (...roles) => {
-  // PATCH: normalizza i ruoli richiesti in lowercase
+  // normalizza i ruoli richiesti in lowercase
   const allowed = new Set((roles || []).map((r) => String(r).toLowerCase()));
   return (req, res, next) => {
     try {
@@ -77,7 +84,7 @@ const authorize = (...roles) => {
         throw new Error("Forbidden");
       }
 
-      // Estensione: se serve "organizer", accetta anche canOrganize === true e gli admin
+      // Estensione Opzione B: se serve "organizer", accetta anche canOrganize === true e gli admin
       if (allowed.has("organizer")) {
         const role = String(req.user.role || "").toLowerCase();
         if (
