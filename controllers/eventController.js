@@ -207,11 +207,19 @@ const createEvent = asyncHandler(async (req, res) => {
     if (!currency) currency = "EUR"; // default concordata
   }
 
+  // 🔒 PATCH S6: solo un admin può impostare uno stato diverso; organizer forza sempre "pending"
+  const role = String(req.user?.role || "").toLowerCase();
+  const allowedStatuses = new Set(["pending", "approved", "rejected", "blocked"]);
+  const requestedStatus = String(body.approvalStatus || "").toLowerCase();
+  const approvalStatus =
+    role === "admin" && allowedStatuses.has(requestedStatus) ? requestedStatus : "pending";
+
   const event = new Event({
     ...body,
     isFree,
     price,
     ...(currency ? { currency } : {}),
+    approvalStatus, // ← PATCH S6
     organizer: req.user._id,
   });
 
@@ -365,6 +373,21 @@ const leaveEvent = asyncHandler(async (req, res) => {
   res.json({ ok: true, event });
 });
 
+// 🔎 PATCH S6: stato partecipazione (diagnostica per FE)
+// @desc Ritorna se l'utente corrente partecipa all'evento
+// @route GET /api/events/:id/participation
+// @access Private
+const getParticipation = asyncHandler(async (req, res) => {
+  const event = await Event.findById(req.params.id).select("_id participants");
+  if (!event) {
+    res.status(404);
+    throw new Error("Evento non trovato");
+  }
+  const inList = Array.isArray(event.participants)
+    && event.participants.some((p) => p.toString() === req.user._id.toString());
+  res.json({ ok: true, in: inList });
+});
+
 module.exports = {
   listEvents,
   listMyEvents,
@@ -374,6 +397,7 @@ module.exports = {
   deleteEvent,
   joinEvent,
   leaveEvent,
+  getParticipation, // ← PATCH S6 export
 };
 
 
