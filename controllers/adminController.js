@@ -103,7 +103,8 @@ const blockEvent = asyncHandler(async (req, res) => {
 const unblockEvent = asyncHandler(async (req, res) => {
   const ev = await Event.findById(req.params.id);
   if (!ev) { res.status(404); throw new Error("Evento non trovato"); }
-  await setModeration(ev, "approved", pick(req.body, ["reason","notes"]), req.user._id);
+  // PATCH (Workflow): sblocco → torna in revisione (pending), non approved diretto
+  await setModeration(ev, "pending", pick(req.body, ["reason","notes"]), req.user._id);
   res.json({ ok: true, event: ev });
 });
 
@@ -330,4 +331,3 @@ module.exports = {
   toggleCanOrganize, // nome interno
   setUserCanOrganize: toggleCanOrganize, // ← alias per le routes
 };
-
