@@ -245,7 +245,11 @@ const updateEvent = asyncHandler(async (req, res) => {
     res.status(403);
     throw new Error("Non sei autorizzato a modificare eventi");
   }
-
+  // Policy Moderazione: evento bloccato → non modificabile dall'organizer
+  if (String(event.approvalStatus || "").toLowerCase() === "blocked") {
+    res.status(403);
+    throw new Error("Evento bloccato dall’amministratore");
+  }
   // PATCH V3: validazione input (parziale)
   const vErr = validateEventInput(req.body || {});
   if (vErr.length) {
@@ -324,7 +328,19 @@ const updateEvent = asyncHandler(async (req, res) => {
   Object.keys(allowed).forEach((k) => allowed[k] === undefined && delete allowed[k]);
 
   Object.assign(event, allowed);
-
+  // Policy Moderazione: se l'evento era approved o rejected, un edit lo riporta in revisione
+  {
+    const prev = String(event.approvalStatus || "").toLowerCase();
+    if (prev === "approved" || prev === "rejected") {
+      event.approvalStatus = "pending";
+      event.moderation = {
+        reason: undefined,
+        notes: undefined,
+        updatedBy: req.user._id,
+        updatedAt: new Date(),
+      };
+    }
+  }
   const updated = await event.save();
   res.json({ ok: true, event: updated });
 });
@@ -410,6 +426,7 @@ module.exports = {
   leaveEvent,
   getParticipation, // ← PATCH S6 export
 };
+
 
 
 
