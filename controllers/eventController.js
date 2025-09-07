@@ -14,17 +14,25 @@ function computeEventStatus(ev, now = new Date()) {
     // endDate opzionale: se manca, usa start (evento monogiorno)
     const end = ev?.endDate || ev?.dateEnd ? new Date(ev.endDate || ev.dateEnd) : start;
 
-    if (!start) return "future"; // senza date, trattiamo come futuro per non bloccare
+    if (!start) {
+      // senza date, trattiamo come futuro per non bloccare
+      return "future";
+    }
 
     const t = now.getTime();
     const ts = start.getTime();
-    const te = end ? end.getTime() : ts;
-
+    const te = (end ? end.getTime() : ts);
     const msImminent = IMMINENT_HOURS * 60 * 60 * 1000;
     const msConcluded = SHOW_CONCLUDED_HOURS * 60 * 60 * 1000;
 
-    if (t < ts) return (ts - t) <= msImminent ? "imminent" : "future";
-    if (t >= ts && t <= te) return "ongoing";
+    if (t < ts) {
+      // futuro / imminente
+      return (ts - t) <= msImminent ? "imminent" : "future";
+    }
+    if (t >= ts && t <= te) {
+      return "ongoing";
+    }
+    // passato
     return (t - te) <= msConcluded ? "concluded" : "past";
   } catch {
     return "future";
@@ -34,7 +42,7 @@ function computeEventStatus(ev, now = new Date()) {
 function attachStatusToArray(docs, now = new Date()) {
   if (!Array.isArray(docs)) return [];
   return docs.map(d => {
-    const obj = typeof d.toObject === "function" ? d.toObject() : d;
+    const obj = (typeof d.toObject === "function") ? d.toObject() : d;
     return { ...obj, status: computeEventStatus(obj, now) };
   });
 }
@@ -92,7 +100,7 @@ function buildFilters(q) {
     }
     if (q.dateEnd) {
       const end = new Date(q.dateEnd);
-      // se la data è solo YYYY-MM-DD, includi tutta la giornata
+      // Se formato solo-data (YYYY-MM-DD), includi tutta la giornata
       if (/^\d{4}-\d{2}-\d{2}$/.test(q.dateEnd)) {
         const nextDay = new Date(end);
         nextDay.setDate(end.getDate() + 1);
@@ -109,7 +117,7 @@ function buildFilters(q) {
 // PATCH V1: validazione minima input evento
 function validateEventInput(body) {
   const errors = [];
-  const reqStr = (v) => typeof v === "string" && v.trim().length > 0;
+  const reqStr = (v) => (typeof v === "string" && v.trim().length > 0);
 
   if (!reqStr(body.title)) errors.push("title obbligatorio");
   if (!reqStr(body.city)) errors.push("city obbligatoria");
@@ -179,10 +187,10 @@ const getEventById = asyncHandler(async (req, res) => {
 // @route POST /api/events
 // @access Private (organizer)
 const createEvent = asyncHandler(async (req, res) => {
-  // PATCH V2: validazione input
-  const vErr = validateEventInput(req.body || {});
-  if (vErr.length) {
-    return res.status(400).json({ ok: false, code: "VALIDATION_ERROR", errors: vErr });
+  // 🔒 PATCH Step B: enforcement canOrganize
+  if (req.user.role !== "admin" && req.user.canOrganize !== true) {
+    res.status(403);
+    throw new Error("Non sei autorizzato a creare eventi");
   }
 
   const body = { ...req.body };
@@ -207,19 +215,11 @@ const createEvent = asyncHandler(async (req, res) => {
     if (!currency) currency = "EUR"; // default concordata
   }
 
-  // 🔒 PATCH S6: solo un admin può impostare uno stato diverso; organizer forza sempre "pending"
-  const role = String(req.user?.role || "").toLowerCase();
-  const allowedStatuses = new Set(["pending", "approved", "rejected", "blocked"]);
-  const requestedStatus = String(body.approvalStatus || "").toLowerCase();
-  const approvalStatus =
-    role === "admin" && allowedStatuses.has(requestedStatus) ? requestedStatus : "pending";
-
   const event = new Event({
     ...body,
     isFree,
     price,
     ...(currency ? { currency } : {}),
-    approvalStatus, // ← PATCH S6
     organizer: req.user._id,
   });
 
@@ -239,6 +239,11 @@ const updateEvent = asyncHandler(async (req, res) => {
   if (event.organizer.toString() !== req.user._id.toString()) {
     res.status(403);
     throw new Error("Non autorizzato");
+  }
+  // 🔒 PATCH Step B: enforcement canOrganize
+  if (req.user.role !== "admin" && req.user.canOrganize !== true) {
+    res.status(403);
+    throw new Error("Non sei autorizzato a modificare eventi");
   }
 
   // PATCH V3: validazione input (parziale)
@@ -337,6 +342,12 @@ const deleteEvent = asyncHandler(async (req, res) => {
     res.status(403);
     throw new Error("Non autorizzato");
   }
+  // 🔒 PATCH Step B: enforcement canOrganize
+  if (req.user.role !== "admin" && req.user.canOrganize !== true) {
+    res.status(403);
+    throw new Error("Non sei autorizzato a eliminare eventi");
+  }
+
   await event.deleteOne();
   res.json({ ok: true, message: "Evento eliminato" });
 });
@@ -399,6 +410,7 @@ module.exports = {
   leaveEvent,
   getParticipation, // ← PATCH S6 export
 };
+
 
 
 
