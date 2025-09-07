@@ -94,8 +94,6 @@ eventSchema.index({ "participants._id": 1 });
 // eventSchema.index({ title: "text", city: "text", category: "text" });
 
 module.exports = mongoose.model("Event", eventSchema);
-
-
-
+```0
 
 
