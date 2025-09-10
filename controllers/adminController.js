@@ -54,9 +54,17 @@ const listModerationEvents = asyncHandler(async (req, res) => {
     ];
   }
 
-  const events = await Event.find(where).sort({ approvalStatus: 1, dateStart: 1, createdAt: -1 }).lean();
-  res.json({ ok: true, events });
+// Dedup alla fonte: in casi particolari la query testuale può “toccare” più campi,
+// ma non vogliamo rischi di doppioni; usiamo una aggregazione con $group su _id.
+const eventsAgg = await Event.aggregate([
+{ $match: where },
+{ $sort: { approvalStatus: 1, dateStart: 1, createdAt: -1 } },
+{ $group: { _id: "$_id", doc: { $first: "$$ROOT" } } },
+{ $replaceRoot: { newRoot: "$doc" } },
+]);
+res.json({ ok: true, events: eventsAgg });
 });
+
 
 async function setModeration(ev, status, { reason, notes }, adminUserId) {
   ev.approvalStatus = status;
