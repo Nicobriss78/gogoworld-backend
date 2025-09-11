@@ -287,8 +287,14 @@ const listUsers = asyncHandler(async (req, res) => {
     ];
   }
 
-  const users = await User.find(where).sort({ role: 1, canOrganize: -1, createdAt: -1 }).lean();
-  res.json({ ok: true, users });
+// Dedup alla fonte: raggruppa per _id per evitare qualsiasi duplicato
+const usersAgg = await User.aggregate([
+{ $match: where },
+{ $sort: { role: 1, canOrganize: -1, createdAt: -1 } },
+{ $group: { _id: "$_id", doc: { $first: "$$ROOT" } } },
+{ $replaceRoot: { newRoot: "$doc" } },
+]);
+res.json({ ok: true, users: usersAgg });
 });
 
 // POST /api/admin/users/:id/ban
