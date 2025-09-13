@@ -214,7 +214,13 @@ const createEvent = asyncHandler(async (req, res) => {
   } else {
     if (!currency) currency = "EUR"; // default concordata
   }
-
+// Normalizza coordinate se arrivate come stringhe ("41,902" o "41.902")
+  if (body.lat != null && !isNaN(Number(String(body.lat).replace(",", ".")))) {
+    body.lat = Number(String(body.lat).replace(",", "."));
+  }
+  if (body.lon != null && !isNaN(Number(String(body.lon).replace(",", ".")))) {
+    body.lon = Number(String(body.lon).replace(",", "."));
+  }
   const event = new Event({
     ...body,
     isFree,
@@ -297,8 +303,13 @@ const updateEvent = asyncHandler(async (req, res) => {
     province: body.province,
     region: body.region,
     country: body.country,
-    lat: typeof body.lat === "number" ? body.lat : undefined,
-    lon: typeof body.lon === "number" ? body.lon : undefined,
+ lat: (body.lat != null && !isNaN(Number(String(body.lat).replace(",", "."))))
+ ? Number(String(body.lat).replace(",", "."))
+ : undefined,
+ lon: (body.lon != null && !isNaN(Number(String(body.lon).replace(",", "."))))
+ ? Number(String(body.lon).replace(",", "."))
+ : undefined,
+
 
     // date
     dateStart: body.dateStart ? new Date(body.dateStart) : undefined,
@@ -426,6 +437,7 @@ module.exports = {
   leaveEvent,
   getParticipation, // ← PATCH S6 export
 };
+
 
 
 
