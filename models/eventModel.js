@@ -24,6 +24,10 @@ const eventSchema = new mongoose.Schema(
     country: { type: String, trim: true, required: true }, // ISO 3166-1 alpha-2
     lat: { type: Number },
     lon: { type: Number },
+location: {
+type: { type: String, enum: ['Point'], default: 'Point' },
+coordinates: { type: [Number] } // [lon, lat]
+},
 
     // Date e orari
     dateStart: { type: Date, required: true },
@@ -86,6 +90,7 @@ eventSchema.index({ region: 1, category: 1 });
 eventSchema.index({ language: 1 });
 eventSchema.index({ target: 1 });
 eventSchema.index({ approvalStatus: 1 });
+eventSchema.index({ location: '2dsphere' });
 
 // PATCH IDX: indici aggiuntivi per query più frequenti
 eventSchema.index({ approvalStatus: 1, visibility: 1, dateStart: 1 });
@@ -94,6 +99,7 @@ eventSchema.index({ "participants._id": 1 });
 // eventSchema.index({ title: "text", city: "text", category: "text" });
 
 module.exports = mongoose.model("Event", eventSchema);
+
 
 
 
