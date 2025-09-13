@@ -25,7 +25,7 @@ const eventSchema = new mongoose.Schema(
     lat: { type: Number },
     lon: { type: Number },
 location: {
-type: { type: String, enum: ['Point'], default: 'Point' },
+type: { type: String, enum: ['Point'] },
 coordinates: { type: [Number] } // [lon, lat]
 },
 
@@ -99,6 +99,7 @@ eventSchema.index({ "participants._id": 1 });
 // eventSchema.index({ title: "text", city: "text", category: "text" });
 
 module.exports = mongoose.model("Event", eventSchema);
+
 
 
 
