@@ -229,6 +229,10 @@ const importCsv = async (req, res, next) => {
           country,
           ...(lat !== undefined ? { lat } : {}),
           ...(lon !== undefined ? { lon } : {}),
+          // GeoJSON: aggiungi 'location' solo se entrambe le coord sono presenti
+          ...(Number.isFinite(lat) && Number.isFinite(lon)
+          ? { location: { type: "Point", coordinates: [lon, lat] } }
+          : {}),
 
           // Date
           dateStart,
