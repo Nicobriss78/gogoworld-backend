@@ -235,3 +235,30 @@ exports.adminReject = async (req, res) => {
     return res.status(500).json({ ok: false, error: "Server error" });
   }
 };
+/**
+ * GET /api/reviews/pending
+ * Solo admin: lista tutte le recensioni pending (paginata)
+ * Query opzionali: page, limit
+ */
+exports.adminListPending = async (req, res) => {
+  try {
+    const isAdmin = req.user && req.user.role === "admin";
+    if (!isAdmin) return res.status(403).json({ ok: false, error: "Forbidden" });
+
+    const { page = 1, limit = 20 } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const query = { status: "pending" };
+    const items = await Review.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit))
+      .lean();
+
+    const total = await Review.countDocuments(query);
+    return res.json({ ok: true, total, page: Number(page), limit: Number(limit), reviews: items });
+  } catch (err) {
+    console.error("[reviews:adminListPending] error", err);
+    return res.status(500).json({ ok: false, error: "Server error" });
+  }
+};
