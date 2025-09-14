@@ -223,27 +223,39 @@ const adminImportEvents = asyncHandler(async (req, res) => {
         results.push({ line: lineNo, status: "skipped", reason: "duplicato" });
         continue;
       }
-
-      const payload = {
-        title,
-        description: norm(r.description || r.descrizione),
-        organizerName: norm(r.organizerName || r.organizzatore || ""),
-        organizer: req.user?._id || null,
-        visibility: r.visibility ? lc(r.visibility) : "public",
-        language: r.language ? lc(r.language) : "it",
-        target: r.target ? lc(r.target) : "tutti",
-        category: norm(r.category || ""),
-        subcategory: norm(r.subcategory || ""),
-        type: norm(r.type || ""),
-        city,
-        region,
-        country,
-        dateStart,
-        dateEnd: dateEnd || dateStart,
-        price: norm(r.price || r.prezzo || "Gratuito"),
-        approvalStatus: r.approvalStatus ? lc(r.approvalStatus) : "pending",
-        createdBy: req.user?._id || null,
-      };
+// --- PATCH GEO: normalizza lat/lon da CSV (accetta virgole e alias) ---
+        const latRaw = r.lat ?? r.latitude ?? r.latitudine ?? "";
+        const lonRaw = r.lon ?? r.lng ?? r.long ?? r.longitude ?? r.longitudine ?? "";
+        const latNum = String(latRaw).replace(",", ".").trim();
+        const lonNum = String(lonRaw).replace(",", ".").trim();
+        const lat = latNum !== "" && !isNaN(parseFloat(latNum)) ? parseFloat(latNum) : undefined;
+        const lon = lonNum !== "" && !isNaN(parseFloat(lonNum)) ? parseFloat(lonNum) : undefined;
+        // --- END PATCH GEO ---
+const payload = {
+          title,
+          description: norm(r.description || r.descrizione),
+          organizerName: norm(r.organizerName || r.organizzatore || ""),
+          organizer: req.user?._id || null,
+          visibility: r.visibility ? lc(r.visibility) : "public",
+          language: r.language ? lc(r.language) : "it",
+          target: r.target ? lc(r.target) : "tutti",
+          category: norm(r.category || ""),
+          subcategory: norm(r.subcategory || ""),
+          type: norm(r.type || ""),
+          city,
+          region,
+          country,
+          dateStart,
+          dateEnd: dateEnd || dateStart,
+          price: norm(r.price || r.prezzo || "Gratuito"),
+          approvalStatus: r.approvalStatus ? lc(r.approvalStatus) : "pending",
+          createdBy: req.user?._id || null,
+          ...(lat !== undefined ? { lat } : {}),
+          ...(lon !== undefined ? { lon } : {}),
+          ...(lat !== undefined && lon !== undefined
+              ? { location: { type: "Point", coordinates: [lon, lat] } }
+              : {}),
+        };
 
       if (!simulate) {
         const doc = await Event.create(payload);
