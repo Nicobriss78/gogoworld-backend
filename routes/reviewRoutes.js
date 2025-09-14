@@ -3,11 +3,13 @@
 const express = require("express");
 const router = express.Router();
 const {
+const {
   listReviews,
   createReview,
   updateMyReview,
   adminApprove,
   adminReject,
+  adminListPending, // <-- aggiunto
 } = require("../controllers/reviewController");
 
 const { protect, authorize } = require("../middleware/auth");
@@ -20,6 +22,7 @@ const { protect, authorize } = require("../middleware/auth");
 // - Pubblico: solo approved
 // - Admin: può chiedere qualsiasi status
 router.get("/", listReviews);
+router.get("/pending", protect, authorize("admin"), adminListPending);
 
 // Crea nuova recensione (solo utente autenticato)
 router.post("/", protect, createReview);
