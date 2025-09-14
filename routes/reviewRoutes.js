@@ -10,7 +10,7 @@ const {
   adminReject,
 } = require("../controllers/reviewController");
 
-const { protect, authorize } = require("../middlewares/auth");
+const { protect, authorize } = require("../middleware/auth");
 
 // -----------------------------------------------------------
 // Public / protected endpoints
