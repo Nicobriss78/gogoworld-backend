@@ -3,7 +3,12 @@
 const mongoose = require("mongoose");
 const Review = require("../models/reviewModel");
 const Event = require("../models/eventModel");
-
+// PATCH awards: assegna punti al partecipante della recensione approvata
+try {
+  await awardForApprovedReview(doc.participant);
+} catch (e) {
+  console.error("[awards] adminApprove failed award:", e?.message || e);
+}
 /**
  * Helpers
  */
@@ -207,9 +212,15 @@ exports.adminApprove = async (req, res) => {
       id,
       { $set: { status: "approved" } },
       { new: true }
-    ).lean();
+    );
 
     if (!doc) return res.status(404).json({ ok: false, error: "Review not found" });
+    // PATCH awards: assegna punti al partecipante della recensione approvata
+try {
+  await awardForApprovedReview(doc.participant);
+} catch (e) {
+  console.error("[awards] adminApprove failed award:", e?.message || e);
+}
     return res.json({ ok: true, review: { _id: doc._id, status: doc.status } });
   } catch (err) {
     console.error("[reviews:approve] error", err);
