@@ -1,8 +1,7 @@
 // models/userModel.js — GoGoWorld.life
-// NOTE: Modifica CHIRURGICA
-// - Aggiunti: bcrypt, hook pre('save') per hash password (solo se modificata),
-// e metodo d’istanza matchPassword(entered) per il confronto in login.
-// - Nessun altro comportamento alterato.
+// NOTE: Modifica CHIRURGICA + estensione status/score/stats
+// - Conservati: hash password, matchPassword, campi esistenti.
+// - Aggiunti: score, status, stats{attended,reviewsApproved,lastScoreUpdateAt}.
 
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
@@ -13,10 +12,24 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true, trim: true, lowercase: true },
     password: { type: String, required: true },
     role: { type: String, enum: ["participant", "organizer", "admin"], default: "participant" },
-// Admin moderation flags
+    // Admin moderation flags
     isBanned: { type: Boolean, default: false },
     // PATCH: libertà iniziale per tutti di organizzare eventi
     canOrganize: { type: Boolean, default: true },
+
+    // ★ NEW: Gamification / Reputation
+    score: { type: Number, default: 0 },
+    status: {
+      type: String,
+      enum: ["novizio", "esploratore", "veterano", "ambassador"],
+      default: "novizio",
+      index: true
+    },
+    stats: {
+      attended: { type: Number, default: 0 },
+      reviewsApproved: { type: Number, default: 0 },
+      lastScoreUpdateAt: { type: Date }
+    }
   },
   { timestamps: true }
 );
