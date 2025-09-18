@@ -81,14 +81,22 @@ const authUser = asyncHandler(async (req, res) => {
 const getUserProfile = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id);
   if (user) {
-    res.json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      // PATCH: includi canOrganize per la logica FE (Opzione B)
-      canOrganize: !!user.canOrganize,
-    });
+ res.json({
+    _id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    // Nuovi campi per gamification / reputation
+    score: user.score || 0,
+    status: user.status || "novizio",
+    stats: {
+      attended: (user.stats && user.stats.attended) || 0,
+      reviewsApproved: (user.stats && user.stats.reviewsApproved) || 0,
+      lastScoreUpdateAt: (user.stats && user.stats.lastScoreUpdateAt) || null,
+    },
+    // Opzione B (già presente)
+    canOrganize: !!user.canOrganize,
+  });
   } else {
     res.status(404);
     throw new Error("User not found");
@@ -133,3 +141,4 @@ module.exports = {
   getUserProfile,
   enableOrganizer,
 };
+
