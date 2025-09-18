@@ -3,12 +3,7 @@
 const mongoose = require("mongoose");
 const Review = require("../models/reviewModel");
 const Event = require("../models/eventModel");
-// PATCH awards: assegna punti al partecipante della recensione approvata
-try {
-  await awardForApprovedReview(doc.participant);
-} catch (e) {
-  console.error("[awards] adminApprove failed award:", e?.message || e);
-}
+const { awardForApprovedReview } = require("../services/awards");
 /**
  * Helpers
  */
