@@ -1,4 +1,5 @@
 const Event = require("../models/eventModel");
+const { awardForAttendance } = require("../services/awards");
 const asyncHandler = require("express-async-handler");
 
 // ---- Stato evento derivato dal tempo corrente ----
@@ -425,6 +426,37 @@ const getParticipation = asyncHandler(async (req, res) => {
     && event.participants.some((p) => p.toString() === req.user._id.toString());
   res.json({ ok: true, in: inList });
 });
+// @desc Chiude evento e assegna punti ai partecipanti
+// @route PUT /api/events/:id/close
+// @access Private (admin)
+const closeEventAndAward = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const event = await Event.findById(id);
+  if (!event) {
+    res.status(404);
+    throw new Error("Evento non trovato");
+  }
+
+  const now = new Date();
+  if (!event.dateEnd || new Date(event.dateEnd) > now) {
+    res.status(400);
+    throw new Error("L'evento non risulta ancora concluso");
+  }
+
+  const participants = Array.isArray(event.participants) ? event.participants : [];
+  if (!participants.length) {
+    return res.json({ ok: true, message: "Nessun partecipante da premiare", awarded: 0 });
+  }
+
+  try {
+    const count = await awardForAttendance(participants);
+    return res.json({ ok: true, message: "Premi assegnati", awarded: count, eventId: id });
+  } catch (err) {
+    console.error("[closeEventAndAward] error:", err);
+    res.status(500);
+    throw new Error("Errore nella chiusura evento");
+  }
+});
 
 module.exports = {
   listEvents,
@@ -436,6 +468,7 @@ module.exports = {
   joinEvent,
   leaveEvent,
   getParticipation, // ← PATCH S6 export
+  closeEventAndAward, // ← NEW export
 };
 
 
