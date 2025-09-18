@@ -3,6 +3,7 @@
 
 const express = require("express");
 const router = express.Router();
+const { closeEventAndAward } = require("../controllers/eventController");
 
 const {
   // ⬇️ allineati ai nomi REALI presenti nel tuo eventController.js
@@ -36,7 +37,8 @@ router.get("/:id", getEventById);
 router.put("/:id", protect, authorize("organizer"), updateEvent);
 
 router.delete("/:id", protect, authorize("organizer"), deleteEvent);
-
+// Chiusura evento + award (admin)
+router.put("/:id/close", protect, authorize("admin"), closeEventAndAward);
 // --------------------------------------------------------
 // Partecipazione eventi
 // --------------------------------------------------------
@@ -47,6 +49,7 @@ router.post("/:id/leave", protect, leaveEvent);
 router.get("/:id/participation", protect, getParticipation);
 
 module.exports = router;
+
 
 
 
