@@ -389,12 +389,24 @@ const joinEvent = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("Evento non trovato");
   }
+
+  // 🔒 Blocca partecipazione se evento già concluso
+  const now = new Date();
+  const hasEnded =
+    (event.dateEnd && new Date(event.dateEnd) <= now) ||
+    (!event.dateEnd && event.dateStart && new Date(event.dateStart) <= now);
+  if (hasEnded) {
+    res.status(403);
+    throw new Error("Non puoi partecipare a un evento già concluso");
+  }
+
   if (!event.participants.some((p) => p.toString() === req.user._id.toString())) {
     event.participants.push(req.user._id);
     await event.save();
   }
   res.json({ ok: true, event });
 });
+
 
 // @desc Rimuove partecipante
 // @route POST /api/events/:id/leave
@@ -486,6 +498,7 @@ module.exports = {
   getParticipation, // ← PATCH S6 export
   closeEventAndAward, // ← NEW export
 };
+
 
 
 
