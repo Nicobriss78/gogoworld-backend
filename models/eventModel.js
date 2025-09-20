@@ -79,6 +79,9 @@ coordinates: { type: [Number] } // [lon, lat]
     // Relazioni
     organizer: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    // Idempotenza award su chiusura evento
+    awardedClosed: { type: Boolean, default: false },
+    awardedClosedAt: { type: Date },
   },
   { timestamps: true }
 );
@@ -99,6 +102,7 @@ eventSchema.index({ "participants._id": 1 });
 // eventSchema.index({ title: "text", city: "text", category: "text" });
 
 module.exports = mongoose.model("Event", eventSchema);
+
 
 
 
