@@ -441,10 +441,18 @@ const closeEventAndAward = asyncHandler(async (req, res) => {
     return res.json({ ok: true, message: "Evento già chiuso e premi assegnati", awarded: 0, already: true, eventId: id });
   }
   const now = new Date();
-  if (!event.dateEnd || new Date(event.dateEnd) > now) {
-    res.status(400);
-    throw new Error("L'evento non risulta ancora concluso");
-  }
+ // Considera evento concluso SE:
+// - esiste dateEnd ed è nel passato
+// - OPPURE non c'è dateEnd ma esiste dateStart ed è nel passato
+const hasEnded =
+  (event.dateEnd && new Date(event.dateEnd) <= now) ||
+  (!event.dateEnd && event.dateStart && new Date(event.dateStart) <= now);
+
+if (!hasEnded) {
+  res.status(400);
+  throw new Error("L'evento non risulta ancora concluso");
+}
+
 
   const participants = Array.isArray(event.participants) ? event.participants : [];
   if (!participants.length) {
@@ -478,6 +486,7 @@ module.exports = {
   getParticipation, // ← PATCH S6 export
   closeEventAndAward, // ← NEW export
 };
+
 
 
 
