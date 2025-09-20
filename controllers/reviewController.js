@@ -96,11 +96,14 @@ exports.createReview = async (req, res) => {
     const ev = await Event.findById(event).lean();
     if (!ev) return res.status(404).json({ ok: false, error: "Event not found" });
 
-    // evento concluso?
-    const end = ev.dateEnd ? new Date(ev.dateEnd) : (ev.dateStart ? new Date(ev.dateStart) : null);
-    if (!end || end > nowUtc()) {
-      return res.status(400).json({ ok: false, error: "You can review only after the event is finished" });
-    }
+// evento concluso? (coerente con join/close)
+const now = nowUtc();
+const hasEnded =
+  (ev.dateEnd && new Date(ev.dateEnd) <= now) ||
+  (!ev.dateEnd && ev.dateStart && new Date(ev.dateStart) <= now);
+if (!hasEnded) {
+  return res.status(400).json({ ok: false, error: "You can review only after the event is finished" });
+}
 
     // utente è tra i participants?
     // Nota: ev.participants può contenere ObjectId; confronto come stringhe
