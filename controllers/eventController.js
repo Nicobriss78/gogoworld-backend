@@ -436,7 +436,10 @@ const closeEventAndAward = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("Evento non trovato");
   }
-
+// Idempotenza: se già premiato, non riassegnare
+  if (event.awardedClosed === true) {
+    return res.json({ ok: true, message: "Evento già chiuso e premi assegnati", awarded: 0, already: true, eventId: id });
+  }
   const now = new Date();
   if (!event.dateEnd || new Date(event.dateEnd) > now) {
     res.status(400);
@@ -449,7 +452,12 @@ const closeEventAndAward = asyncHandler(async (req, res) => {
   }
 
   try {
-    const count = await awardForAttendance(participants);
+const count = await awardForAttendance(participants);
+    // Flag idempotenza su evento
+    event.awardedClosed = true;
+    event.awardedClosedAt = new Date();
+    await event.save({ validateModifiedOnly: true });
+
     return res.json({ ok: true, message: "Premi assegnati", awarded: count, eventId: id });
   } catch (err) {
     console.error("[closeEventAndAward] error:", err);
@@ -470,6 +478,7 @@ module.exports = {
   getParticipation, // ← PATCH S6 export
   closeEventAndAward, // ← NEW export
 };
+
 
 
 
