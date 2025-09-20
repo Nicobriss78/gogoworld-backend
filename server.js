@@ -13,7 +13,7 @@ if (morgan) app.use(morgan("dev"));
 
 // DB prima delle routes
 const connectDB = require("./db");
-connectDB().catch((err) => {
+const dbReady = connectDB().catch((err) => {
   console.error("❌ DB init failed:", err?.message || err);
   process.exit(1);
 });
@@ -58,6 +58,16 @@ app.use(cors(corsOptions));
 
 // 👉 Preflight CORS per tutte le rotte (AGGIUNTA CHIRURGICA)
 app.options("*", cors(corsOptions));
+// Assicura l'indice unico reviews (event+participant) anche in produzione
+dbReady.then(async () => {
+  try {
+    const Review = require("./models/reviewModel");
+    await Review.syncIndexes();
+    console.log("✅ Review indexes synced");
+  } catch (e) {
+    console.error("⚠️ Review index sync failed:", e?.message || e);
+  }
+});
 
 // Parser
 app.use(express.json({ limit: process.env.JSON_LIMIT || "2mb" }));
@@ -93,6 +103,7 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 GoGo.World API in ascolto sulla porta ${PORT}`);
 });
+
 
 
 
