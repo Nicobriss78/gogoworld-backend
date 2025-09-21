@@ -28,6 +28,15 @@ const reviewSchema = new Schema(
       required: true,
       index: true,
     },
+// Snapshot dello status dell’autore al momento della recensione
+  authorStatus: {
+    type: String,
+    enum: ["novizio", "esploratore", "veterano", "ambassador"],
+  },
+  authorScore: {
+    type: Number,
+    default: 0,
+  },
 
     // voto 1..5
     rating: {
