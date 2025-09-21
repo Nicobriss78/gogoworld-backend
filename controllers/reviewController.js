@@ -125,26 +125,40 @@ if (!hasEnded) {
   let snapScore = 0;
   let snapName = null;
 
-  if (req.user && (req.user.status || req.user.score !== undefined || req.user.displayName || req.user.name || req.user.email)) {
-    snapStatus = req.user.status || null;
-    snapScore = typeof req.user.score === "number" ? req.user.score : 0;
+  // 1) Prova a prendere da req.user ciò che c'è
+  if (req.user) {
+    if (req.user.status) snapStatus = req.user.status;
+    if (typeof req.user.score === "number") snapScore = req.user.score;
+    // prova a estrarre un nome utile
     snapName =
       (req.user.displayName && String(req.user.displayName).trim()) ||
       (req.user.name && String(req.user.name).trim()) ||
+      (req.user.username && String(req.user.username).trim()) ||
       (req.user.email && String(req.user.email).split("@")[0]) ||
       null;
-  } else {
-    const u = await User.findById(userId).select("status score displayName name email").lean();
+  }
+
+  // 2) Se manca qualcosa (spec. il nome), completa dal DB
+  if (snapName === null || snapStatus === null || typeof snapScore !== "number") {
+    const u = await User.findById(userId)
+      .select("status score displayName name username email")
+      .lean();
+
     if (u) {
-      snapStatus = u.status || null;
-      snapScore = typeof u.score === "number" ? u.score : 0;
-      snapName =
-        (u.displayName && String(u.displayName).trim()) ||
-        (u.name && String(u.name).trim()) ||
-        (u.email && String(u.email).split("@")[0]) ||
-        null;
+      if (snapStatus === null) snapStatus = u.status || null;
+      if (!(typeof snapScore === "number")) snapScore = (typeof u.score === "number" ? u.score : 0);
+
+      if (snapName === null) {
+        snapName =
+          (u.displayName && String(u.displayName).trim()) ||
+          (u.name && String(u.name).trim()) ||
+          (u.username && String(u.username).trim()) ||
+          (u.email && String(u.email).split("@")[0]) ||
+          null;
+      }
     }
   }
+
 
     const doc = await Review.create({
       event,
