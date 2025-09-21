@@ -37,7 +37,11 @@ const reviewSchema = new Schema(
     type: Number,
     default: 0,
   },
-
+// Snapshot del nome visualizzato al momento della recensione
+  authorName: {
+    type: String,
+    trim: true,
+  },
     // voto 1..5
     rating: {
       type: Number,
