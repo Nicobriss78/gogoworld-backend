@@ -120,18 +120,29 @@ if (!hasEnded) {
     if (dup) {
       return res.status(409).json({ ok: false, error: "You have already reviewed this event" });
     }
-// Snapshot status/score autore
+// Snapshot status/score/nome autore
   let snapStatus = null;
   let snapScore = 0;
+  let snapName = null;
 
-  if (req.user && (req.user.status || req.user.score !== undefined)) {
+  if (req.user && (req.user.status || req.user.score !== undefined || req.user.displayName || req.user.name || req.user.email)) {
     snapStatus = req.user.status || null;
     snapScore = typeof req.user.score === "number" ? req.user.score : 0;
+    snapName =
+      (req.user.displayName && String(req.user.displayName).trim()) ||
+      (req.user.name && String(req.user.name).trim()) ||
+      (req.user.email && String(req.user.email).split("@")[0]) ||
+      null;
   } else {
-    const u = await User.findById(userId).select("status score").lean();
+    const u = await User.findById(userId).select("status score displayName name email").lean();
     if (u) {
       snapStatus = u.status || null;
       snapScore = typeof u.score === "number" ? u.score : 0;
+      snapName =
+        (u.displayName && String(u.displayName).trim()) ||
+        (u.name && String(u.name).trim()) ||
+        (u.email && String(u.email).split("@")[0]) ||
+        null;
     }
   }
 
@@ -141,6 +152,7 @@ if (!hasEnded) {
       participant: userId,
       authorStatus: snapStatus,
       authorScore: snapScore,
+      authorScore: snapName,
       rating: ratingNum,
       comment: String(comment || "").trim(),
       status: "pending",
