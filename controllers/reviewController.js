@@ -3,6 +3,7 @@
 const mongoose = require("mongoose");
 const Review = require("../models/reviewModel");
 const Event = require("../models/eventModel");
+const User = require("../models/userModel");
 const { awardForApprovedReview } = require("../services/awards");
 /**
  * Helpers
@@ -119,11 +120,27 @@ if (!hasEnded) {
     if (dup) {
       return res.status(409).json({ ok: false, error: "You have already reviewed this event" });
     }
+// Snapshot status/score autore
+  let snapStatus = null;
+  let snapScore = 0;
+
+  if (req.user && (req.user.status || req.user.score !== undefined)) {
+    snapStatus = req.user.status || null;
+    snapScore = typeof req.user.score === "number" ? req.user.score : 0;
+  } else {
+    const u = await User.findById(userId).select("status score").lean();
+    if (u) {
+      snapStatus = u.status || null;
+      snapScore = typeof u.score === "number" ? u.score : 0;
+    }
+  }
 
     const doc = await Review.create({
       event,
       organizer: ev.organizer, // denormalizzato
       participant: userId,
+      authorStatus: snapStatus,
+      authorScore: snapScore,
       rating: ratingNum,
       comment: String(comment || "").trim(),
       status: "pending",
