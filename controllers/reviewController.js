@@ -160,17 +160,17 @@ if (!hasEnded) {
   }
 
 
-    const doc = await Review.create({
-      event,
-      organizer: ev.organizer, // denormalizzato
-      participant: userId,
-      authorStatus: snapStatus,
-      authorScore: snapScore,
-      authorScore: snapName,
-      rating: ratingNum,
-      comment: String(comment || "").trim(),
-      status: "pending",
-    });
+        const doc = await Review.create({
+        event,
+        organizer: ev.organizer, // denormalizzato
+        participant: userId,
+        authorStatus: snapStatus,
+        authorScore: Number(snapScore) || 0,
+        authorName: snapName,
+        rating: ratingNum,
+        comment: String(comment || "").trim(),
+        status: "pending",
+  });
 
     return res.status(201).json({ ok: true, review: { _id: doc._id, status: doc.status } });
   } catch (err) {
