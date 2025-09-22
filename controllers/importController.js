@@ -1,7 +1,6 @@
 // controllers/importController.js — GoGoWorld.life
 // Gestione import CSV eventi (Opzione A: bottone visibile a tutti, autorizzazione lato BE)
 
-const fs = require("fs");
 const { parse } = require("csv-parse/sync");
 const Event = require("../models/eventModel");
 
@@ -64,13 +63,12 @@ const importCsv = async (req, res, next) => {
     // Leggi contenuto CSV (supporta memoryStorage e diskStorage)
     let content;
     try {
-      if (req.file.buffer) {
-        content = req.file.buffer.toString("utf-8");
-      } else if (req.file.path) {
-        content = fs.readFileSync(req.file.path, "utf-8");
-      } else {
-        return res.status(400).json({ ok: false, error: "File non disponibile" });
-      }
+    if (req.file && req.file.buffer) {
+    content = req.file.buffer.toString("utf-8");
+    } else {
+    return res.status(400).json({ ok: false, error: "File non disponibile" });
+}
+
     } catch (e) {
       return res.status(400).json({ ok: false, error: "Impossibile leggere il file caricato" });
     }
@@ -281,12 +279,7 @@ const importCsv = async (req, res, next) => {
       ok: false,
       error: err.message || "Errore interno",
     });
-  } finally {
-    // cleanup file temporaneo
-    if (req.file && req.file.path) {
-      fs.unlink(req.file.path, () => {});
-    }
-  }
+}
 };
 
 module.exports = { importCsv };
