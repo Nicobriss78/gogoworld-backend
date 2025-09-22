@@ -1,9 +1,9 @@
 // backend/src/internal/middleware/auditLog.js — logging NON bloccante su file JSONL
 const fs = require("fs");
 const path = require("path");
-
+const { config } = require("../../config");
 const storageDir = path.join(process.cwd(), "storage");
-const auditPath = process.env.AUDIT_FILE || path.join(storageDir, "audit.jsonl");
+const auditPath = config.AUDIT_FILE || path.join(storageDir, "audit.jsonl");
 try { fs.mkdirSync(storageDir, { recursive: true }); } catch {}
 
 function auditLog(req, res, next) {
