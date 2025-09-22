@@ -3,7 +3,7 @@
 const express = require("express");
 const dotenv = require("dotenv");
 dotenv.config();
-
+const { config } = require("./config");
 const app = express();
 
 // Log opzionale (non bloccante)
@@ -99,10 +99,11 @@ const { errorHandler } = require("./middleware/error");
 app.use(errorHandler);
 
 // Avvio
-const PORT = process.env.PORT || 3000;
+const PORT = config.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 GoGo.World API in ascolto sulla porta ${PORT}`);
 });
+
 
 
 
