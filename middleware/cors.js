@@ -2,7 +2,8 @@
 
 // Legge gli origin permessi da env CORS_ORIGIN_FRONTEND
 // Esempio: https://playful-blini-646b72.netlify.app, https://www.tuodominio.it
-const FRONTEND_ORIGIN = process.env.CORS_ORIGIN_FRONTEND || '';
+const { config } = require("../config");
+const FRONTEND_ORIGIN = (config.CORS_ORIGIN_FRONTEND || []).join(',');
 const allowedOrigins = FRONTEND_ORIGIN
   .split(',')
   .map(s => s.trim())
