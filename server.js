@@ -4,6 +4,7 @@ const express = require("express");
 const dotenv = require("dotenv");
 dotenv.config();
 const { config } = require("./config");
+const { logger } = require("./core/logger"); // #CORE-LOGGER B1
 const app = express();
 
 // Log opzionale (non bloccante)
@@ -14,7 +15,7 @@ if (morgan) app.use(morgan("dev"));
 // DB prima delle routes
 const connectDB = require("./db");
 const dbReady = connectDB().catch((err) => {
-  console.error("❌ DB init failed:", err?.message || err);
+logger.error("❌ DB init failed:", err?.message || err);
   process.exit(1);
 });
 
@@ -63,9 +64,9 @@ dbReady.then(async () => {
   try {
     const Review = require("./models/reviewModel");
     await Review.syncIndexes();
-    console.log("✅ Review indexes synced");
+logger.info("✅ Review indexes synced");
   } catch (e) {
-    console.error("⚠️ Review index sync failed:", e?.message || e);
+logger.warn("⚠️ Review index sync failed:", e?.message || e);
   }
 });
 
@@ -101,8 +102,9 @@ app.use(errorHandler);
 // Avvio
 const PORT = config.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 GoGo.World API in ascolto sulla porta ${PORT}`);
+logger.info(`🚀 GoGo.World API in ascolto sulla porta ${PORT}`);
 });
+
 
 
 
