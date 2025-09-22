@@ -18,9 +18,8 @@ const {
   importEventsCsv,
 } = require("../controllers/adminController");
 
-// PATCH: multer per upload CSV
-const multer = require("multer");
-const upload = multer(); // usa memoria; ok per CSV piccoli
+// PATCH: upload CSV coerente con middleware/upload.js (memoryStorage + controlli CSV)
+const { uploadCsvSafe } = require("../middleware/upload");
 
 // PATCH (5): rate limiting per azioni admin
 const { adminLimiter } = require("../middleware/rateLimit");
@@ -60,16 +59,14 @@ router.post("/users/:id/can-organize", adminLimiter, protect, authorize("admin")
 // ---------------------------------------------------------------------------
 // Import massivo (CSV) – solo Admin
 // ---------------------------------------------------------------------------
-// PATCH: abilita upload del campo 'file' (multipart/form-data)
-// PATCH: adminLimiter per evitare flood
+// PATCH: usa uploadCsvSafe (multer memory + MIME/size CSV) + adminLimiter
 router.post(
   "/import/events",
   adminLimiter,
   protect,
   authorize("admin"),
-  upload.single("file"),
+  uploadCsvSafe,
   importEventsCsv
 );
 
 module.exports = router;
-
