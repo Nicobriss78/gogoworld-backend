@@ -17,5 +17,19 @@ const adminLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+// Limite scritture organizer: 20 richieste/min per IP
+const writeLimiter = rateLimit({
+windowMs: 60 * 1000,
+max: 20,
+standardHeaders: true,
+legacyHeaders: false,
+});
 
-module.exports = { loginLimiter, adminLimiter };
+// Limite partecipazioni (join/leave): 10 richieste / 5 min per IP
+const participationLimiter = rateLimit({
+windowMs: 5 * 60 * 1000,
+max: 10,
+standardHeaders: true,
+legacyHeaders: false,
+});
+module.exports = { loginLimiter, adminLimiter, writeLimiter, participationLimiter };
