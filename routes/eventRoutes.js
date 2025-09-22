@@ -19,6 +19,7 @@ const {
 } = require("../controllers/eventController");
 
 const { protect, authorize } = require("../middleware/auth");
+const { writeLimiter, participationLimiter, adminLimiter } = require("../middleware/rateLimit"); // #RL
 
 // --------------------------------------------------------
 // Eventi pubblici / query
@@ -28,17 +29,19 @@ router.get("/", listEvents);
 // --------------------------------------------------------
 // Creazione / gestione eventi (organizer only)
 // --------------------------------------------------------
-router.post("/", protect, authorize("organizer"), createEvent);
+router.post("/", writeLimiter, protect, authorize("organizer"), createEvent);
 
 router.get("/mine/list", protect, authorize("organizer"), listMyEvents);
 
 router.get("/:id", getEventById);
 
-router.put("/:id", protect, authorize("organizer"), updateEvent);
+router.put("/:id", writeLimiter, protect, authorize("organizer"), updateEvent);
 
-router.delete("/:id", protect, authorize("organizer"), deleteEvent);
+router.delete("/:id", writeLimiter, protect, authorize("organizer"), deleteEvent);
+
 // Chiusura evento + award (admin)
-router.post("/:id/join", participationLimiter, protect, joinEvent);
+router.put("/:id/close", adminLimiter, protect, authorize("admin"), closeEventAndAward);
+
 // --------------------------------------------------------
 // Partecipazione eventi
 // --------------------------------------------------------
@@ -49,6 +52,7 @@ router.post("/:id/leave", participationLimiter, protect, leaveEvent);
 router.get("/:id/participation", protect, getParticipation);
 
 module.exports = router;
+
 
 
 
