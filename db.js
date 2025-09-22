@@ -1,10 +1,10 @@
 // backend/db.js
 const mongoose = require('mongoose');
-
+const { config } = require("./config");
 mongoose.set('strictQuery', true);
 
 async function connectDB() {
-  const uri = process.env.MONGODB_URI;
+const uri = config.DB_URI;
   if (!uri) {
     throw new Error('MONGODB_URI non impostata nelle environment variables');
   }
