@@ -1,13 +1,13 @@
 const Event = require("../models/eventModel");
 const { awardForAttendance } = require("../services/awards");
 const asyncHandler = require("express-async-handler");
-
+const { config } = require("../config");
 // ---- Stato evento derivato dal tempo corrente ----
 // Status possibili: "ongoing" (in corso), "imminent" (imminente... "concluded" (appena concluso), "past" (oltre finestra concluso)
 // Usa ENV con default sicuri; timezone rimane un fallback concettuale (date salvate in UTC)
-const IMMINENT_HOURS = Number(process.env.IMMINENT_HOURS || 72);
-const SHOW_CONCLUDED_HOURS = Number(process.env.SHOW_CONCLUDED_HOURS || 12);
-// const DEFAULT_TIMEZONE = process.env.DEFAULT_TIMEZONE || "Europe/Rome"; // placeholder per evoluzioni future
+const IMMINENT_HOURS = Number(config.IMMINENT_HOURS || 72);
+const SHOW_CONCLUDED_HOURS = Number(config.SHOW_CONCLUDED_HOURS || 12);
+// const DEFAULT_TIMEZONE = "Europe/Rome"; // placeholder per evoluzioni future
 
 function computeEventStatus(ev, now = new Date()) {
   try {
@@ -498,6 +498,7 @@ module.exports = {
   getParticipation, // ← PATCH S6 export
   closeEventAndAward, // ← NEW export
 };
+
 
 
 
