@@ -1,5 +1,6 @@
 // backend/db.js
 const mongoose = require('mongoose');
+const { logger } = require("./core/logger"); // #CORE-LOGGER A1
 const { config } = require("./config");
 mongoose.set('strictQuery', true);
 
