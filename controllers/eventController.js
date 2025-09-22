@@ -2,6 +2,7 @@ const Event = require("../models/eventModel");
 const { awardForAttendance } = require("../services/awards");
 const asyncHandler = require("express-async-handler");
 const { config } = require("../config");
+const { logger } = require("../core/logger"); // #CORE-LOGGER D1
 // ---- Stato evento derivato dal tempo corrente ----
 // Status possibili: "ongoing" (in corso), "imminent" (imminente... "concluded" (appena concluso), "past" (oltre finestra concluso)
 // Usa ENV con default sicuri; timezone rimane un fallback concettuale (date salvate in UTC)
@@ -480,7 +481,7 @@ const count = await awardForAttendance(participants);
 
     return res.json({ ok: true, message: "Premi assegnati", awarded: count, eventId: id });
   } catch (err) {
-    console.error("[closeEventAndAward] error:", err);
+logger.error("[closeEventAndAward] error:", err);
     res.status(500);
     throw new Error("Errore nella chiusura evento");
   }
@@ -498,6 +499,7 @@ module.exports = {
   getParticipation, // ← PATCH S6 export
   closeEventAndAward, // ← NEW export
 };
+
 
 
 
