@@ -1,7 +1,6 @@
 // middleware/upload.js — GoGoWorld.life
 // Upload CSV (multer) per import massivo eventi
 
-const os = require("os");
 const path = require("path");
 const multer = require("multer");
 
@@ -11,18 +10,8 @@ function getMaxBytes() {
   return (isNaN(mb) || mb <= 0 ? 2 : mb) * 1024 * 1024;
 }
 
-// Storage temporaneo su FS (Render: /tmp è supportato)
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, os.tmpdir());
-  },
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname) || ".csv";
-    const base = path.basename(file.originalname, ext).replace(/[^\w.-]+/g, "_");
-    cb(null, `${base}-${Date.now()}${ext}`);
-  },
-});
-
+// Storage in RAM (containers friendly, no FS)
+const storage = multer.memoryStorage(); // #CSV-MEM
 // MIME comunemente usati per CSV (alcuni ambienti usano valori “generici”)
 const CSV_MIMES = new Set([
   "text/csv",
