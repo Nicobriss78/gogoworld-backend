@@ -12,6 +12,7 @@ const {
 } = require("../controllers/reviewController");
 
 const { protect, authorize } = require("../middleware/auth");
+const { adminLimiter, writeLimiter } = require("../middleware/rateLimit"); // #RL
 
 // -----------------------------------------------------------
 // Public / protected endpoints
@@ -21,18 +22,18 @@ const { protect, authorize } = require("../middleware/auth");
 // - Pubblico: solo approved
 // - Admin: può chiedere qualsiasi status
 router.get("/", listReviews);
-router.get("/pending", protect, authorize("admin"), adminListPending);
+router.get("/pending", adminLimiter, protect, authorize("admin"), adminListPending);
 
 // Crea nuova recensione (solo utente autenticato)
-router.post("/", protect, createReview);
+router.post("/", writeLimiter, protect, createReview);
 
 // Aggiorna propria recensione (entro 24h, solo se pending)
-router.patch("/:id", protect, updateMyReview);
+router.patch("/:id", writeLimiter, protect, updateMyReview);
 
 // -----------------------------------------------------------
 // Admin endpoints
 // -----------------------------------------------------------
-router.patch("/:id/approve", protect, authorize("admin"), adminApprove);
-router.patch("/:id/reject", protect, authorize("admin"), adminReject);
+router.patch("/:id/approve", adminLimiter, protect, authorize("admin"), adminApprove);
+router.patch("/:id/reject", adminLimiter, protect, authorize("admin"), adminReject);
 
 module.exports = router;
