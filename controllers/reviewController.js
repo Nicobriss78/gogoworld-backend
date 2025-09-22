@@ -5,6 +5,7 @@ const Review = require("../models/reviewModel");
 const Event = require("../models/eventModel");
 const User = require("../models/userModel");
 const { awardForApprovedReview } = require("../services/awards");
+const { logger } = require("../core/logger"); // #CORE-LOGGER C1
 /**
  * Helpers
  */
@@ -65,7 +66,7 @@ exports.listReviews = async (req, res) => {
     const total = await Review.countDocuments(query);
     return res.json({ ok: true, total, page: Number(page), limit: Number(limit), reviews: items });
   } catch (err) {
-    console.error("[reviews:list] error", err);
+logger.error("[reviews:list] error", err);
     return res.status(500).json({ ok: false, error: "Server error" });
   }
 };
@@ -178,7 +179,7 @@ if (!hasEnded) {
     if (err && err.code === 11000) {
       return res.status(409).json({ ok: false, error: "You have already reviewed this event" });
     }
-    console.error("[reviews:create] error", err);
+logger.error("[reviews:create] error", err);
     return res.status(500).json({ ok: false, error: "Server error" });
   }
 };
@@ -232,7 +233,7 @@ exports.updateMyReview = async (req, res) => {
     await doc.save();
     return res.json({ ok: true, review: { _id: doc._id, rating: doc.rating, comment: doc.comment } });
   } catch (err) {
-    console.error("[reviews:update] error", err);
+logger.error("[reviews:update] error", err);
     return res.status(500).json({ ok: false, error: "Server error" });
   }
 };
@@ -260,11 +261,11 @@ exports.adminApprove = async (req, res) => {
 try {
   await awardForApprovedReview(doc.participant);
 } catch (e) {
-  console.error("[awards] adminApprove failed award:", e?.message || e);
+logger.warn("[awards] adminApprove failed award:", e?.message || e);
 }
     return res.json({ ok: true, review: { _id: doc._id, status: doc.status } });
   } catch (err) {
-    console.error("[reviews:approve] error", err);
+logger.error("[reviews:approve] error", err);
     return res.status(500).json({ ok: false, error: "Server error" });
   }
 };
@@ -283,7 +284,7 @@ exports.adminReject = async (req, res) => {
     if (!doc) return res.status(404).json({ ok: false, error: "Review not found" });
     return res.json({ ok: true, review: { _id: doc._id, status: doc.status } });
   } catch (err) {
-    console.error("[reviews:reject] error", err);
+logger.error("[reviews:reject] error", err);
     return res.status(500).json({ ok: false, error: "Server error" });
   }
 };
@@ -310,7 +311,7 @@ exports.adminListPending = async (req, res) => {
     const total = await Review.countDocuments(query);
     return res.json({ ok: true, total, page: Number(page), limit: Number(limit), reviews: items });
   } catch (err) {
-    console.error("[reviews:adminListPending] error", err);
+logger.error("[reviews:adminListPending] error", err);
     return res.status(500).json({ ok: false, error: "Server error" });
   }
 };
