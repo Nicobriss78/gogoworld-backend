@@ -23,42 +23,12 @@ logger.error("❌ DB init failed:", err?.message || err);
 app.set("trust proxy", 1);
 
 // ---- CORS ----
-const cors = require("cors");
-function parseOrigins() {
-  const list = []
-    .concat((process.env.ALLOWED_ORIGINS || "").split(","))
-    .concat((process.env.CORS_ORIGIN_FRONTEND || "").split(","))
-    .map(s => String(s || "").trim())
-    .filter(Boolean);
-  return Array.from(new Set(list));
-}
-const ORIGINS = parseOrigins();
+const corsMiddleware = require("./middleware/cors"); // usa middleware dedicato
 
-const corsOptions = {
-  origin(origin, cb) {
-    // Richieste server-to-server (no Origin) sempre consentite
-    if (!origin) return cb(null, true);
-
-    // In produzione, se non configurato nessun origin, blocca esplicitamente
-    if (ORIGINS.length === 0 && process.env.NODE_ENV === "production") {
-      return cb(new Error("CORS_NOT_CONFIGURED"));
-    }
-
-    const clean = origin.replace(/\/$/, "");
-    if (ORIGINS.length === 0) return cb(null, true); // dev permissivo
-    if (ORIGINS.includes(origin) || ORIGINS.includes(clean)) return cb(null, true);
-
-    return cb(new Error("CORS_NOT_ALLOWED"));
-  },
-  methods: ["GET","POST","PUT","DELETE","PATCH","OPTIONS"],
-  allowedHeaders: ["Content-Type","Authorization","X-Requested-With","Accept"], // PATCH: aggiunto Accept
-  maxAge: 86400,
-  optionsSuccessStatus: 204, // PATCH: risposta uniforme ai preflight
-};
-app.use(cors(corsOptions));
+app.use(corsMiddleware);
 
 // 👉 Preflight CORS per tutte le rotte (AGGIUNTA CHIRURGICA)
-app.options("*", cors(corsOptions));
+app.options("*", corsMiddleware);
 // Assicura l'indice unico reviews (event+participant) anche in produzione
 dbReady.then(async () => {
   try {
@@ -104,6 +74,7 @@ const PORT = config.PORT || 3000;
 app.listen(PORT, () => {
 logger.info(`🚀 GoGo.World API in ascolto sulla porta ${PORT}`);
 });
+
 
 
 
