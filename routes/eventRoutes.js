@@ -38,17 +38,18 @@ router.put("/:id", protect, authorize("organizer"), updateEvent);
 
 router.delete("/:id", protect, authorize("organizer"), deleteEvent);
 // Chiusura evento + award (admin)
-router.put("/:id/close", protect, authorize("admin"), closeEventAndAward);
+router.post("/:id/join", participationLimiter, protect, joinEvent);
 // --------------------------------------------------------
 // Partecipazione eventi
 // --------------------------------------------------------
-router.post("/:id/join", protect, joinEvent);
-router.post("/:id/leave", protect, leaveEvent);
+router.post("/:id/join", participationLimiter, protect, joinEvent);
+router.post("/:id/leave", participationLimiter, protect, leaveEvent);
 
 // 🔎 PATCH S6: nuova rotta diagnostica partecipazione
 router.get("/:id/participation", protect, getParticipation);
 
 module.exports = router;
+
 
 
 
