@@ -3,6 +3,7 @@ const { awardForAttendance } = require("../services/awards");
 const asyncHandler = require("express-async-handler");
 const { config } = require("../config");
 const { logger } = require("../core/logger"); // #CORE-LOGGER D1
+const cache = require("../adapters/cache"); // #CACHE-ADAPTER
 // ---- Stato evento derivato dal tempo corrente ----
 // Status possibili: "ongoing" (in corso), "imminent" (imminente... "concluded" (appena concluso), "past" (oltre finestra concluso)
 // Usa ENV con default sicuri; timezone rimane un fallback concettuale (date salvate in UTC)
@@ -152,12 +153,20 @@ const listEvents = asyncHandler(async (req, res) => {
   if (!req.query.approvalStatus) {
     filters.approvalStatus = "approved";
   }
+// #CACHE-ADAPTER
+  const cacheKey = "events:list:" + JSON.stringify(req.query || {});
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    logger.debug("[cache] HIT listEvents", cacheKey);
+    return res.json({ ok: true, events: cached });
+  }
 
   const events = await Event.find(filters).sort({ dateStart: 1 });
   const now = new Date();
   const payload = attachStatusToArray(events, now);
-  res.json({ ok: true, events: payload });
-});
+  cache.set(cacheKey, payload, 60000); // TTL 60s
+  logger.debug("[cache] MISS listEvents", cacheKey);
+  res.json({ ok: true, events: payload });});
 
 // @desc Ottiene eventi creati dall’organizzatore corrente
 // @route GET /api/events/mine/list
@@ -232,7 +241,8 @@ const createEvent = asyncHandler(async (req, res) => {
   });
 
   const created = await event.save();
-  res.status(201).json({ ok: true, event: created });
+cache.delByPrefix("events:list:");
+res.status(201).json({ ok: true, event: created });
 });
 
 // @desc Aggiorna un evento
@@ -355,8 +365,8 @@ const updateEvent = asyncHandler(async (req, res) => {
     }
   }
   const updated = await event.save();
-  res.json({ ok: true, event: updated });
-});
+cache.delByPrefix("events:list:");
+res.json({ ok: true, event: updated });});
 
 // @desc Elimina un evento
 // @route DELETE /api/events/:id
@@ -378,7 +388,8 @@ const deleteEvent = asyncHandler(async (req, res) => {
   }
 
   await event.deleteOne();
-  res.json({ ok: true, message: "Evento eliminato" });
+cache.delByPrefix("events:list:");
+res.json({ ok: true, message: "Evento eliminato" });
 });
 
 // @desc Aggiunge partecipante
@@ -499,6 +510,7 @@ module.exports = {
   getParticipation, // ← PATCH S6 export
   closeEventAndAward, // ← NEW export
 };
+
 
 
 
