@@ -1,6 +1,7 @@
 // backend/src/internal/middleware/idempotency.js
 // Prevenzione doppie operazioni (in-memory). Per persistenza usare Redis o Mongo TTL.
-const windowMs = parseInt(process.env.IDEMP_TTL_MS || '300000', 10); // default 5 min
+const { config } = require("../../config");
+const windowMs = Number(config.IDEMP_TTL_MS || 300000); // default 5 min
 const seen = new Map();
 
 function withIdempotency(req, res, next) {
