@@ -16,9 +16,9 @@ const uri = config.DB_URI;
       // serverSelectionTimeoutMS evita attese infinite
       serverSelectionTimeoutMS: 15000
     });
-    console.log('✅ MongoDB connected');
+    logger.info('✅ MongoDB connected');
   } catch (err) {
-    console.error('❌ MongoDB connection error:', err?.message || err);
+    logger.error('❌ MongoDB connection error:', err?.message || err);
     throw err;
   }
 }
