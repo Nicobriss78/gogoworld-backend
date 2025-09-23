@@ -16,6 +16,7 @@ const {
   setUserRole,
   setUserCanOrganize,
   importEventsCsv,
+  exportUsersCsv,
 } = require("../controllers/adminController");
 
 // PATCH: upload CSV coerente con middleware/upload.js (memoryStorage + controlli CSV)
@@ -51,6 +52,7 @@ router.delete("/events/:id/force", adminLimiter, protect, authorize("admin"), fo
 // Utenti (moderazione ruoli/ban)
 // ---------------------------------------------------------------------------
 router.get("/users", protect, authorize("admin"), listUsers);
+router.get("/users/export.csv", protect, authorize("admin"), exportUsersCsv);
 router.post("/users/:id/ban", adminLimiter, protect, authorize("admin"), banUser);
 router.post("/users/:id/unban", adminLimiter, protect, authorize("admin"), unbanUser);
 router.post("/users/:id/role", adminLimiter, protect, authorize("admin"), setUserRole);
