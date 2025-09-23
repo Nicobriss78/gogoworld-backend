@@ -284,30 +284,48 @@ const payload = {
 
 // GET /api/admin/users?q=&role=&canOrganize=&isBanned=
 const listUsers = asyncHandler(async (req, res) => {
-  const q = req.query || {};
-  const where = {};
+const q = req.query || {};
+const where = {};
+ 
+if (q.role) where.role = q.role;
+if (q.canOrganize !== undefined && q.canOrganize !== "")
+where.canOrganize = q.canOrganize === "true" || q.canOrganize === true;
+if (q.isBanned !== undefined && q.isBanned !== "")
+where.isBanned = q.isBanned === "true" || q.isBanned === true;
+if (q.status) where.status = q.status;
 
-  if (q.role) where.role = q.role;
-  if (q.canOrganize !== undefined) where.canOrganize = q.canOrganize === "true" || q.canOrganize === true;
-  if (q.isBanned !== undefined) where.isBanned = q.isBanned === "true" || q.isBanned === true;
+if (q.q) {
+const rx = likeRx(q.q);
+where.$or = [{ name: rx }, { email: rx }];
+}
 
-  if (q.q) {
-    const rx = likeRx(q.q);
-    where.$or = [
-      { name: rx },
-      { email: rx },
-    ];
-  }
+if (q.scoreMin || q.scoreMax) {
+const scoreFilter = {};
+if (q.scoreMin) scoreFilter.$gte = Number(q.scoreMin);
+if (q.scoreMax) scoreFilter.$lte = Number(q.scoreMax);
+where.score = scoreFilter;
+}
 
-// Dedup alla fonte: raggruppa per _id per evitare qualsiasi duplicato
-const usersAgg = await User.aggregate([
-{ $match: where },
-{ $sort: { role: 1, canOrganize: -1, createdAt: -1 } },
-{ $group: { _id: "$_id", doc: { $first: "$$ROOT" } } },
-{ $replaceRoot: { newRoot: "$doc" } },
-]);
-res.json({ ok: true, users: usersAgg });
+const page = Math.max(parseInt(q.page) || 1, 1);
+const limit = Math.min(parseInt(q.limit) || 20, 100);
+const skip = (page - 1) * limit;
+ 
+const total = await User.countDocuments(where);
+const users = await User.find(where)
+.sort({ role: 1, canOrganize: -1, createdAt: -1 })
+.skip(skip)
+.limit(limit);
+
+res.json({
+ok: true,
+page,
+limit,
+total,
+totalPages: Math.ceil(total / limit),
+users,
 });
+});
+
 
 // POST /api/admin/users/:id/ban
 const banUser = asyncHandler(async (req, res) => {
@@ -367,6 +385,51 @@ const toggleCanOrganize = asyncHandler(async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // EXPORT — identico, con soli alias per allineare i nomi attesi dalle routes
 // ─────────────────────────────────────────────────────────────────────────────
+// GET /api/admin/users/export.csv — export coerente ai filtri (stream)
+const { stringify } = require("csv-stringify/sync");
+
+const exportUsersCsv = asyncHandler(async (req, res) => {
+const q = req.query || {};
+const where = {};
+ 
+if (q.role) where.role = q.role;
+if (q.canOrganize !== undefined && q.canOrganize !== "")
+where.canOrganize = q.canOrganize === "true" || q.canOrganize === true;
+if (q.isBanned !== undefined && q.isBanned !== "")
+where.isBanned = q.isBanned === "true" || q.isBanned === true;
+if (q.status) where.status = q.status;
+ 
+if (q.q) {
+const rx = likeRx(q.q);
+where.$or = [{ name: rx }, { email: rx }];
+}
+ 
+if (q.scoreMin || q.scoreMax) {
+const scoreFilter = {};
+if (q.scoreMin) scoreFilter.$gte = Number(q.scoreMin);
+if (q.scoreMax) scoreFilter.$lte = Number(q.scoreMax);
+where.score = scoreFilter;
+}
+
+const users = await User.find(where).sort({ createdAt: -1 }).lean();
+const rows = users.map(u => ({
+id: u._id,
+name: u.name,
+email: u.email,
+role: u.role,
+status: u.status,
+score: u.score,
+canOrganize: u.canOrganize,
+isBanned: u.isBanned,
+createdAt: u.createdAt,
+}));
+const csv = stringify(rows, { header: true });
+
+res.setHeader("Content-Type", "text/csv");
+res.setHeader("Content-Disposition", "attachment; filename=\"users.csv\"");
+res.send(csv);
+});
+
 module.exports = {
   // Events
   listModerationEvents,
@@ -380,6 +443,7 @@ module.exports = {
 
   // Users
   listUsers,
+  exportUsersCsv,
   banUser,
   unbanUser,
   setUserRole,
