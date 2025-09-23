@@ -386,7 +386,21 @@ const toggleCanOrganize = asyncHandler(async (req, res) => {
 // EXPORT — identico, con soli alias per allineare i nomi attesi dalle routes
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/admin/users/export.csv — export coerente ai filtri (stream)
-const { stringify } = require("csv-stringify/sync");
+// CSV helper senza dipendenze esterne
+function toCsv(rows) {
+if (!rows || !rows.length) return "";
+const headers = Object.keys(rows[0]);
+const esc = (v) => {
+if (v === null || v === undefined) v = "";
+v = String(v);
+if (/[",\n]/.test(v)) v = '"' + v.replace(/"/g, '""') + '"';
+return v;
+};
+const out = [];
+out.push(headers.join(","));
+for (const r of rows) out.push(headers.map(h => esc(r[h])).join(","));
+return out.join("\n");
+}
 
 const exportUsersCsv = asyncHandler(async (req, res) => {
 const q = req.query || {};
@@ -423,7 +437,7 @@ canOrganize: u.canOrganize,
 isBanned: u.isBanned,
 createdAt: u.createdAt,
 }));
-const csv = stringify(rows, { header: true });
+const csv = toCsv(rows);
 
 res.setHeader("Content-Type", "text/csv");
 res.setHeader("Content-Disposition", "attachment; filename=\"users.csv\"");
