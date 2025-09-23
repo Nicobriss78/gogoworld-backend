@@ -1,6 +1,9 @@
 // services/awards.js — calcolo status, award punti e contatori
 const mongoose = require("mongoose");
 const User = require("../models/userModel");
+const Event = require("../models/eventModel");
+const { logger } = require("../core/logger");
+const cache = require("../adapters/cache");
 
 // Soglie status per score
 function statusFromScore(score = 0) {
@@ -57,10 +60,63 @@ async function awardForAttendance(userIds = [], { points = 1 } = {}) {
 
   return updates;
 }
+/**
+* Chiude eventi scaduti non ancora premiati e assegna 1 punto ai partecipanti.
+* - Idempotente: se awardedClosed === true, salta.
+* - Invalidazione cache: delByPrefix('events:list:')
+* - Audit via logger (no FS)
+*/
+async function closeAndAwardExpiredEvents({ traceId } = {}) {
+const now = new Date();
+// Eventi "terminati" e non ancora premiati
+const candidates = await Event.find({
+awardedClosed: { $ne: true },
+$or: [
+{ dateEnd: { $lte: now } },
+{ dateEnd: { $exists: false }, dateStart: { $lte: now } }
+]
+}).select("_id participants awardedClosed dateStart dateEnd");
+
+let processed = 0;
+let awardedTotal = 0;
+
+for (const ev of candidates) {
+try {
+// Idempotenza per sicurezza
+if (ev.awardedClosed === true) continue;
+
+const participants = Array.isArray(ev.participants) ? ev.participants : [];
+let count = 0;
+if (participants.length) {
+try {
+count = await awardForAttendance(participants);
+} catch (e) {
+logger.error("[awards] awardForAttendance failed", { traceId, eventId: ev._id, error: e && e.message });
+}
+}
+ev.awardedClosed = true;
+ev.awardedClosedAt = new Date();
+await ev.save({ validateModifiedOnly: true });
+
+processed += 1;
+awardedTotal += (count || 0);
+} catch (e) {
+logger.error("[awards] closeAndAwardExpiredEvents: event error", { traceId, eventId: ev && ev._id, error: e && e.message });
+}
+}
+ 
+// Invalidazione cache delle liste
+try { cache.delByPrefix("events:list:"); } catch {}
+
+logger.info("[awards] closeAndAwardExpiredEvents done", { traceId, processed, awardedTotal });
+return { processed, awardedTotal };
+}
 
 module.exports = {
-  statusFromScore,
-  recalcStatus,
-  awardForApprovedReview,
-  awardForAttendance
+statusFromScore,
+recalcStatus,
+awardForApprovedReview,
+awardForAttendance,
+closeAndAwardExpiredEvents
 };
+
