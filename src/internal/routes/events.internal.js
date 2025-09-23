@@ -1,13 +1,13 @@
 // backend/src/internal/routes/events.internal.js
 const express = require('express');
 const router = express.Router();
-
+const { logger } = require('../../../core/logger');
 // Import del modello Event per struttura: backend/models/eventModel.js
 let EventModel;
 try {
   EventModel = require('../../../models/eventModel');
 } catch (e) {
-  console.error("Errore nel require di models/eventModel.js:", e.message);
+logger.error("Errore nel require di models/eventModel.js:", e.message);
 }
 
 /**
@@ -139,6 +139,28 @@ router.post('/import/events', async (req, res) => {
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message });
   }
+});
+/**
+* POST /internal/events/cron/close-expired
+* - simulate:true -> non esegue; risponde con echo
+* - simulate:false -> esegue la chiusura idempotente + premio
+* Protetta da internalAuth + withIdempotency + auditLog (montati nel router /internal)
+*/
+router.post('/cron/close-expired', async (req, res) => {
+const { simulate = true } = req.body || {};
+
+if (simulate) {
+return res.status(200).json({ ok: true, simulate: true, action: 'cron-close-expired' });
+}
+try {
+// Lazy import per evitare require circolari
+const { closeAndAwardExpiredEvents } = require('../../../services/awards');
+const result = await closeAndAwardExpiredEvents({ traceId: req.id });
+return res.status(200).json({ ok: true, simulate: false, ...result });
+} catch (err) {
+logger.error('[internal/cron] close-expired error:', err);
+return res.status(500).json({ ok: false, error: err.message });
+}
 });
 
 module.exports = router;
