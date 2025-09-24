@@ -11,12 +11,15 @@ const {
   registerUser,
   authUser,
   getUserProfile,
-  // setSessionRole, // (RIMOSSO: non più usato)
-  // PATCH: aggiunto
   enableOrganizer,
+  verifyEmail,
+  forgotPassword,
+  resetPassword,
 } = require("../controllers/userController");
 
+
 const { protect } = require("../middleware/auth");
+const { loginLimiter, writeLimiter } = require("../middleware/rateLimit");
 
 // PATCH: rate limiting (login)
 const { loginLimiter } = require("../middleware/rateLimit");
@@ -41,7 +44,12 @@ router.post("/session-role", protect, (req, res) => {
 
 // Private: abilita modalità organizzatore (Opzione B)
 router.post("/me/enable-organizer", protect, enableOrganizer);
+// Public: email verify / forgot / reset
+router.get("/verify", verifyEmail);
+router.post("/forgot", loginLimiter, forgotPassword);
+router.post("/reset", writeLimiter, resetPassword);
 
 module.exports = router;
+
 
 
