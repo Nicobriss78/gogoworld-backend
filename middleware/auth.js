@@ -19,15 +19,19 @@ const User = require("../models/userModel");
 const protect = asyncHandler(async (req, res, next) => {
   let token;
 
-  // Atteso header: Authorization: Bearer <token>
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith("Bearer ")
-  ) {
+// Header Authorization: Bearer <token> (case-insensitive, spazi tollerati)
+  const auth = typeof req.headers.authorization === "string" ? req.headers.authorization.trim() : "";
+  const match = auth.match(/^Bearer\s+(.+)$/i);
+  if (match && match[1]) {
     try {
-      token = req.headers.authorization.split(" ")[1];
+      token = match[1].trim();
+      if (!token) {
+        res.status(401);
+        throw new Error("Not authorized, empty token");
+      }
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
       // decoded.id atteso nel payload
       const user = await User.findById(decoded.id).select(
         "_id name email role canOrganize isBanned"
@@ -59,11 +63,17 @@ const protect = asyncHandler(async (req, res, next) => {
       }
 
       return next();
-    } catch (err) {
-      // Token invalido/expired
+} catch (err) {
       res.status(401);
+      if (err?.name === "TokenExpiredError") {
+        throw new Error("Not authorized, token expired");
+      }
+      if (err?.name === "JsonWebTokenError") {
+        throw new Error("Not authorized, token invalid");
+      }
       throw new Error("Not authorized, token failed");
     }
+
   }
 
   res.status(401);
