@@ -7,7 +7,8 @@
 const asyncHandler = require("express-async-handler");
 const jwt = require("jsonwebtoken");
 const User = require("../models/userModel");
-
+const crypto = require("crypto");
+const { logger } = require("../core/logger");
 // -----------------------------------------------------------------------------
 // Generate JWT
 // -----------------------------------------------------------------------------
@@ -134,11 +135,97 @@ const enableOrganizer = asyncHandler(async (req, res) => {
 
   res.json({ ok: true, canOrganize: true });
 });
+// -----------------------------------------------------------------------------
+// VERIFY EMAIL (GET /api/users/verify?token=...)
+// -----------------------------------------------------------------------------
+const verifyEmail = asyncHandler(async (req, res) => {
+  const token = String(req.query.token || "");
+  if (!token) {
+    res.status(400);
+    throw new Error("Missing token");
+  }
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  const now = new Date();
+  const user = await User.findOne({
+    verificationTokenHash: tokenHash,
+    verificationTokenExpires: { $gt: now },
+  });
+  if (!user) {
+    res.status(400);
+    throw new Error("Invalid or expired token");
+  }
+  user.verified = true;
+  user.verificationTokenHash = undefined;
+  user.verificationTokenExpires = undefined;
+  await user.save();
+  res.json({ ok: true, verified: true });
+});
+
+// -----------------------------------------------------------------------------
+// FORGOT PASSWORD (POST /api/users/forgot { email })
+// -----------------------------------------------------------------------------
+const forgotPassword = asyncHandler(async (req, res) => {
+  const email = String(req.body.email || "").toLowerCase().trim();
+  if (!email) {
+    res.status(400);
+    throw new Error("Email richiesta");
+  }
+  const user = await User.findOne({ email });
+  if (!user) {
+    // Non riveliamo se esiste o meno
+    return res.json({ ok: true });
+  }
+  const raw = crypto.randomBytes(32).toString("hex");
+  const tokenHash = crypto.createHash("sha256").update(raw).digest("hex");
+  user.resetTokenHash = tokenHash;
+  user.resetTokenExpires = new Date(Date.now() + 60 * 60 * 1000); // 1h
+  await user.save();
+
+  const base = process.env.FRONTEND_URL || process.env.API_PUBLIC_BASE || "";
+  const link = `${base}/reset.html?token=${encodeURIComponent(raw)}`;
+  // In DEV logghiamo, in PROD il tuo MailAdapter invierà davvero
+  if (logger && logger.info) {
+    logger.info(`[mail][reset] to=${email} link=${link}`);
+  }
+  res.json({ ok: true });
+});
+
+// -----------------------------------------------------------------------------
+// RESET PASSWORD (POST /api/users/reset { token, password })
+// -----------------------------------------------------------------------------
+const resetPassword = asyncHandler(async (req, res) => {
+  const token = String(req.body.token || "");
+  const newPassword = String(req.body.password || "");
+  if (!token || !newPassword) {
+    res.status(400);
+    throw new Error("Token e password richiesti");
+  }
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  const now = new Date();
+  const user = await User.findOne({
+    resetTokenHash: tokenHash,
+    resetTokenExpires: { $gt: now },
+  });
+  if (!user) {
+    res.status(400);
+    throw new Error("Invalid or expired token");
+  }
+  user.password = newPassword;
+  user.resetTokenHash = undefined;
+  user.resetTokenExpires = undefined;
+  await user.save();
+  res.json({ ok: true, reset: true });
+});
+
 
 module.exports = {
   registerUser,
   authUser,
   getUserProfile,
   enableOrganizer,
+  verifyEmail,
+  forgotPassword,
+  resetPassword,
 };
+
 
