@@ -169,6 +169,7 @@ const listEvents = asyncHandler(async (req, res) => {
   cache.set(cacheKey, payload, 60000); // TTL 60s
   logger.debug("[cache] MISS listEvents", cacheKey);
   res.json({ ok: true, events: payload });
+  });
 
 // @desc Ottiene eventi creati dall’organizzatore corrente
 // @route GET /api/events/mine/list
@@ -373,6 +374,7 @@ const updateEvent = asyncHandler(async (req, res) => {
   const updated = await event.save();
 cache.delByPrefix("events:list:");
 res.json({ ok: true, event: updated });
+});
 
 // @desc Elimina un evento
 // @route DELETE /api/events/:id
@@ -541,6 +543,7 @@ module.exports = {
   getParticipation, // ← PATCH S6 export
   closeEventAndAward, // ← NEW export
 };
+
 
 
 
