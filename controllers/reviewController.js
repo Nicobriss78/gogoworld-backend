@@ -68,7 +68,7 @@ exports.listReviews = async (req, res) => {
     const total = await Review.countDocuments(query);
     return res.json({ ok: true, total, page: Number(page), limit: Number(limit), reviews: items });
   } catch (err) {
-logger.error("[reviews:list] error", err);
+    logger.error("[reviews:list] error", err);
     return res.status(500).json({ ok: false, error: "Server error" });
   }
 };
@@ -192,6 +192,7 @@ await notify("review_created_pending", {
     if (err && err.code === 11000) {
       return res.status(409).json({ ok: false, error: "You have already reviewed this event" });
     }
+    
 logger.error("[reviews:create] error", err);
     return res.status(500).json({ ok: false, error: "Server error" });
   }
@@ -246,6 +247,7 @@ exports.updateMyReview = async (req, res) => {
     await doc.save();
     return res.json({ ok: true, review: { _id: doc._id, rating: doc.rating, comment: doc.comment } });
   } catch (err) {
+    
 logger.error("[reviews:update] error", err);
     return res.status(500).json({ ok: false, error: "Server error" });
   }
@@ -274,7 +276,7 @@ exports.adminApprove = async (req, res) => {
 try {
   await awardForApprovedReview(doc.participant);
 } catch (e) {
-logger.warn("[awards] adminApprove failed award:", e?.message || e);
+  logger.warn("[awards] adminApprove failed award:", e?.message || e);
 }
     await notify("review_approved", {
   reviewId: doc?._id?.toString?.() || String(doc?._id || ""),
@@ -336,6 +338,7 @@ exports.adminListPending = async (req, res) => {
     const total = await Review.countDocuments(query);
     return res.json({ ok: true, total, page: Number(page), limit: Number(limit), reviews: items });
   } catch (err) {
+    
 logger.error("[reviews:adminListPending] error", err);
     return res.status(500).json({ ok: false, error: "Server error" });
   }
