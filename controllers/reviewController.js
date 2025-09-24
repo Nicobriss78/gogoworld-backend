@@ -6,6 +6,8 @@ const Event = require("../models/eventModel");
 const User = require("../models/userModel");
 const { awardForApprovedReview } = require("../services/awards");
 const { logger } = require("../core/logger"); // #CORE-LOGGER C1
+const { notify } = require("../services/notifications"); // #NOTIFY-ADAPTER
+
 /**
  * Helpers
  */
@@ -100,9 +102,15 @@ exports.createReview = async (req, res) => {
 
 // evento concluso? (coerente con join/close)
 const now = nowUtc();
-const hasEnded =
-  (ev.dateEnd && new Date(ev.dateEnd) <= now) ||
-  (!ev.dateEnd && ev.dateStart && new Date(ev.dateStart) <= now);
+const hasEnded = (() => {
+  if (ev.dateEnd) return new Date(ev.dateEnd) < now;
+  if (ev.dateStart) {
+    const endOfStart = new Date(ev.dateStart);
+    endOfStart.setHours(23, 59, 59, 999);
+    return now > endOfStart;
+  }
+  return false;
+})();
 if (!hasEnded) {
   return res.status(400).json({ ok: false, error: "You can review only after the event is finished" });
 }
@@ -172,6 +180,11 @@ if (!hasEnded) {
         comment: String(comment || "").trim(),
         status: "pending",
   });
+await notify("review_created_pending", {
+  reviewId: doc?._id?.toString?.() || String(doc?._id || ""),
+  eventId: doc?.event?.toString?.() || String(doc?.event || ""),
+  participantId: req.user?._id?.toString?.() || String(req.user?._id || ""),
+});
 
     return res.status(201).json({ ok: true, review: { _id: doc._id, status: doc.status } });
   } catch (err) {
@@ -263,6 +276,12 @@ try {
 } catch (e) {
 logger.warn("[awards] adminApprove failed award:", e?.message || e);
 }
+    await notify("review_approved", {
+  reviewId: doc?._id?.toString?.() || String(doc?._id || ""),
+  eventId: doc?.event?.toString?.() || String(doc?.event || ""),
+  participantId: doc?.participant?.toString?.() || String(doc?.participant || ""),
+});
+
     return res.json({ ok: true, review: { _id: doc._id, status: doc.status } });
   } catch (err) {
 logger.error("[reviews:approve] error", err);
@@ -282,6 +301,12 @@ exports.adminReject = async (req, res) => {
     ).lean();
 
     if (!doc) return res.status(404).json({ ok: false, error: "Review not found" });
+    await notify("review_rejected", {
+  reviewId: doc?._id?.toString?.() || String(doc?._id || ""),
+  eventId: doc?.event?.toString?.() || String(doc?.event || ""),
+participantId: doc?.participant?.toString?.() || String(doc?.participant || ""),
+});
+
     return res.json({ ok: true, review: { _id: doc._id, status: doc.status } });
   } catch (err) {
 logger.error("[reviews:reject] error", err);
