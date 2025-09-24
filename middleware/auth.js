@@ -4,6 +4,7 @@
 // - Esteso `authorize(...roles)` per consentire gli endpoint "organizer"
 // anche a `canOrganize === true` e a `role === "admin"`.
 // - PATCH Step B: blocco immediato degli utenti bannati (isBanned).
+// - PATCH Hardening: in `protect` risposte JSON 401/403 auto-contenute (no throw).
 // - Nessuna altra logica alterata.
 
 const jwt = require("jsonwebtoken");
@@ -19,70 +20,59 @@ const User = require("../models/userModel");
 const protect = asyncHandler(async (req, res, next) => {
   let token;
 
-// Header Authorization: Bearer <token> (case-insensitive, spazi tollerati)
+  // Header Authorization: Bearer <token> (case-insensitive, spazi tollerati)
   const auth = typeof req.headers.authorization === "string" ? req.headers.authorization.trim() : "";
   const match = auth.match(/^Bearer\s+(.+)$/i);
   if (!match || !match[1] || !match[1].trim()) {
-  res.status(401);
-  throw new Error("Not authorized, no token");
-}
-
-  if (match && match[1]) {
-    try {
-      token = match[1].trim();
-      if (!token) {
-        res.status(401);
-        throw new Error("Not authorized, empty token");
-      }
-
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-      // decoded.id atteso nel payload
-      const user = await User.findById(decoded.id).select(
-        "_id name email role canOrganize isBanned"
-      );
-
-      if (!user) {
-        res.status(401);
-        throw new Error("Not authorized");
-      }
-
-      // Idratazione coerente con i controller esistenti:
-      // - molti punti leggono req.user._id
-      // - altri leggono req.user.id
-      // - aggiungiamo anche role e canOrganize per i guard di autorizzazione
-      req.user = {
-        _id: user._id,
-        id: user._id, // alias compatibilità
-        email: user.email,
-        name: user.name,
-        role: (user.role || "participant").toString().toLowerCase(), // normalize
-        canOrganize: user.canOrganize === true,
-        isBanned: user.isBanned === true,
-      };
-
-      // 🔒 PATCH Step B: blocca subito gli account bannati
-      if (req.user.isBanned) {
-        res.status(403);
-        throw new Error("Account banned");
-      }
-
-      return next();
-} catch (err) {
-      res.status(401);
-      if (err?.name === "TokenExpiredError") {
-        throw new Error("Not authorized, token expired");
-      }
-      if (err?.name === "JsonWebTokenError") {
-        throw new Error("Not authorized, token invalid");
-      }
-      throw new Error("Not authorized, token failed");
-    }
-
+    return res.status(401).json({ ok: false, error: "not_authorized_no_token" });
   }
 
-  res.status(401);
-  throw new Error("Not authorized, no token");
+  try {
+    token = match[1].trim();
+    if (!token) {
+      return res.status(401).json({ ok: false, error: "not_authorized_empty_token" });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // decoded.id atteso nel payload
+    const user = await User.findById(decoded.id).select(
+      "_id name email role canOrganize isBanned"
+    );
+
+    if (!user) {
+      return res.status(401).json({ ok: false, error: "not_authorized_user_not_found" });
+    }
+
+    // Idratazione coerente con i controller esistenti:
+    // - molti punti leggono req.user._id
+    // - altri leggono req.user.id
+    // - aggiungiamo anche role e canOrganize per i guard di autorizzazione
+    req.user = {
+      _id: user._id,
+      id: user._id, // alias compatibilità
+      email: user.email,
+      name: user.name,
+      role: (user.role || "participant").toString().toLowerCase(), // normalize
+      canOrganize: user.canOrganize === true,
+      isBanned: user.isBanned === true,
+    };
+
+    // 🔒 PATCH Step B: blocca subito gli account bannati
+    if (req.user.isBanned) {
+      return res.status(403).json({ ok: false, error: "account_banned" });
+    }
+
+    return next();
+  } catch (err) {
+    if (err?.name === "TokenExpiredError") {
+      return res.status(401).json({ ok: false, error: "token_expired" });
+    }
+    if (err?.name === "JsonWebTokenError") {
+      return res.status(401).json({ ok: false, error: "token_invalid" });
+    }
+    return res.status(401).json({ ok: false, error: "token_failed" });
+  }
 });
 
 // -----------------------------------------------------------------------------
@@ -130,4 +120,3 @@ module.exports = {
   protect,
   authorize,
 };
-
