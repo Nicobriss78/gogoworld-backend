@@ -7,6 +7,13 @@ const { config } = require("./config");
 const { logger } = require("./core/logger"); // #CORE-LOGGER B1
 const app = express();
 
+// Hardening: rimuove header X-Powered-By
+app.disable("x-powered-by");
+
+// security middlewares imports
+const helmet = require("helmet");
+const hpp = require("hpp");
+
 // Log opzionale (non bloccante)
 let morgan = null;
 try { morgan = require("morgan"); } catch { /* opzionale */ }
@@ -15,7 +22,7 @@ if (morgan) app.use(morgan("dev"));
 // DB prima delle routes
 const connectDB = require("./db");
 const dbReady = connectDB().catch((err) => {
-logger.error("❌ DB init failed:", err?.message || err);
+  logger.error("❌ DB init failed:", err?.message || err);
   process.exit(1);
 });
 
@@ -34,15 +41,21 @@ dbReady.then(async () => {
   try {
     const Review = require("./models/reviewModel");
     await Review.syncIndexes();
-logger.info("✅ Review indexes synced");
+    logger.info("✅ Review indexes synced");
   } catch (e) {
-logger.warn("⚠️ Review index sync failed:", e?.message || e);
+    logger.warn("⚠️ Review index sync failed:", e?.message || e);
   }
 });
 
 // Parser
 app.use(express.json({ limit: process.env.JSON_LIMIT || "2mb" }));
 app.use(express.urlencoded({ extended: true }));
+
+// ---- Security Middlewares ----
+app.use(helmet({
+  crossOriginEmbedderPolicy: false, // compatibilità con frontend Netlify
+}));
+app.use(hpp());
 
 // ---- Routes ----
 const userRoutes = require("./routes/userRoutes");
@@ -71,15 +84,8 @@ app.use(errorHandler);
 // Avvio
 const PORT = config.PORT || 3000;
 app.listen(PORT, () => {
-logger.info(`🚀 GoGo.World API in ascolto sulla porta ${PORT}`);
+  logger.info(`🚀 GoGo.World API in ascolto sulla porta ${PORT}`);
 });
-
-
-
-
-
-
-
 
 
 
