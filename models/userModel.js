@@ -12,6 +12,13 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true, trim: true, lowercase: true },
     password: { type: String, required: true },
     role: { type: String, enum: ["participant", "organizer", "admin"], default: "participant" },
+    // Email verification
+verified: { type: Boolean, default: false },
+verificationTokenHash: { type: String },
+verificationTokenExpires: { type: Date },
+// Password reset
+resetTokenHash: { type: String },
+resetTokenExpires: { type: Date },
     // Admin moderation flags
     isBanned: { type: Boolean, default: false },
     // PATCH: libertà iniziale per tutti di organizzare eventi
@@ -54,4 +61,5 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
 
 const User = mongoose.model("User", userSchema);
 module.exports = User;
+
 
