@@ -22,6 +22,11 @@ const protect = asyncHandler(async (req, res, next) => {
 // Header Authorization: Bearer <token> (case-insensitive, spazi tollerati)
   const auth = typeof req.headers.authorization === "string" ? req.headers.authorization.trim() : "";
   const match = auth.match(/^Bearer\s+(.+)$/i);
+  if (!match || !match[1] || !match[1].trim()) {
+  res.status(401);
+  throw new Error("Not authorized, no token");
+}
+
   if (match && match[1]) {
     try {
       token = match[1].trim();
