@@ -4,6 +4,8 @@ const asyncHandler = require("express-async-handler");
 const { config } = require("../config");
 const { logger } = require("../core/logger"); // #CORE-LOGGER D1
 const cache = require("../adapters/cache"); // #CACHE-ADAPTER
+const { notify } = require("../services/notifications"); // #NOTIFY-ADAPTER
+
 // ---- Stato evento derivato dal tempo corrente ----
 // Status possibili: "ongoing" (in corso), "imminent" (imminente... "concluded" (appena concluso), "past" (oltre finestra concluso)
 // Usa ENV con default sicuri; timezone rimane un fallback concettuale (date salvate in UTC)
@@ -166,7 +168,7 @@ const listEvents = asyncHandler(async (req, res) => {
   const payload = attachStatusToArray(events, now);
   cache.set(cacheKey, payload, 60000); // TTL 60s
   logger.debug("[cache] MISS listEvents", cacheKey);
-  res.json({ ok: true, events: payload });});
+  res.json({ ok: true, events: payload });
 
 // @desc Ottiene eventi creati dall’organizzatore corrente
 // @route GET /api/events/mine/list
@@ -241,6 +243,10 @@ const createEvent = asyncHandler(async (req, res) => {
   });
 
   const created = await event.save();
+  await notify("event_created", {
+  eventId: created?._id?.toString?.() || String(created?._id || ""),
+  organizerId: req.user?._id?.toString?.() || String(req.user?._id || ""),
+});
 cache.delByPrefix("events:list:");
 res.status(201).json({ ok: true, event: created });
 });
@@ -366,7 +372,7 @@ const updateEvent = asyncHandler(async (req, res) => {
   }
   const updated = await event.save();
 cache.delByPrefix("events:list:");
-res.json({ ok: true, event: updated });});
+res.json({ ok: true, event: updated });
 
 // @desc Elimina un evento
 // @route DELETE /api/events/:id
@@ -404,9 +410,18 @@ const joinEvent = asyncHandler(async (req, res) => {
 
   // 🔒 Blocca partecipazione se evento già concluso
   const now = new Date();
-  const hasEnded =
-    (event.dateEnd && new Date(event.dateEnd) <= now) ||
-    (!event.dateEnd && event.dateStart && new Date(event.dateStart) <= now);
+// Evento "concluso" se:
+// - esiste dateEnd e now > dateEnd
+// - altrimenti (no dateEnd): now > fine giornata di dateStart
+const hasEnded = (() => {
+if (event.dateEnd) return new Date(event.dateEnd) < now;
+if (event.dateStart) {
+const endOfStart = new Date(event.dateStart);
+endOfStart.setHours(23, 59, 59, 999);
+return now > endOfStart;
+}
+return false;
+})();
   if (hasEnded) {
     res.status(403);
     throw new Error("Non puoi partecipare a un evento già concluso");
@@ -415,6 +430,11 @@ const joinEvent = asyncHandler(async (req, res) => {
   if (!event.participants.some((p) => p.toString() === req.user._id.toString())) {
     event.participants.push(req.user._id);
     await event.save();
+    await notify("event_joined", {
+  eventId: event?._id?.toString?.() || String(event?._id || ""),
+  participantId: req.user?._id?.toString?.() || String(req.user?._id || ""),
+});
+
   }
   res.json({ ok: true, event });
 });
@@ -433,6 +453,11 @@ const leaveEvent = asyncHandler(async (req, res) => {
     (p) => p.toString() !== req.user._id.toString()
   );
   await event.save();
+  await notify("event_left", {
+  eventId: event?._id?.toString?.() || String(event?._id || ""),
+  participantId: req.user?._id?.toString?.() || String(req.user?._id || ""),
+});
+
   res.json({ ok: true, event });
 });
 
@@ -468,9 +493,15 @@ const closeEventAndAward = asyncHandler(async (req, res) => {
  // Considera evento concluso SE:
 // - esiste dateEnd ed è nel passato
 // - OPPURE non c'è dateEnd ma esiste dateStart ed è nel passato
-const hasEnded =
-  (event.dateEnd && new Date(event.dateEnd) <= now) ||
-  (!event.dateEnd && event.dateStart && new Date(event.dateStart) <= now);
+const hasEnded = (() => {
+if (event.dateEnd) return new Date(event.dateEnd) < now;
+if (event.dateStart) {
+const endOfStart = new Date(event.dateStart);
+endOfStart.setHours(23, 59, 59, 999);
+return now > endOfStart;
+}
+return false;
+})();
 
 if (!hasEnded) {
   res.status(400);
@@ -510,6 +541,7 @@ module.exports = {
   getParticipation, // ← PATCH S6 export
   closeEventAndAward, // ← NEW export
 };
+
 
 
 
