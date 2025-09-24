@@ -9,6 +9,19 @@ function buildErrorPayload(err, req, res) {
 
   let message = "Errore interno inatteso";
   let code = "SERVER_ERROR";
+  // ---- CORS negato ----
+  if (err?.code === "CORS_NOT_ALLOWED" || /not allowed by cors/i.test(err?.message || "")) {
+    return {
+      status: err.status || 403,
+      payload: {
+        ok: false,
+        error: "Origin non consentito",
+        code: "CORS_NOT_ALLOWED",
+        ...(process.env.NODE_ENV !== "production" && err.stack ? { stack: err.stack } : {}),
+      },
+    };
+  }
+
 
   // ---- Mongoose ValidationError (schema) ----
   if (err?.name === "ValidationError") {
