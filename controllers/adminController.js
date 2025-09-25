@@ -93,7 +93,25 @@ const approveEvent = asyncHandler(async (req, res) => {
   await ev.save();
   res.json({ ok: true, event: ev });
 });
+// POST /api/admin/events/:id/unapprove
+const unapproveEvent = asyncHandler(async (req, res) => {
+  const ev = await Event.findById(req.params.id);
+  if (!ev) { res.status(404); throw new Error("Evento non trovato"); }
 
+  // Revoca approvazione → torna in revisione (pending)
+  ev.approvalStatus = "pending";
+
+  // Come in unblock: riparto pulito (reset di reason/notes) e traccio chi ha fatto l’azione
+  ev.moderation = {
+    reason: undefined,
+    notes: undefined,
+    updatedBy: req.user._id,
+    updatedAt: now(),
+  };
+
+  await ev.save();
+  res.json({ ok: true, event: ev });
+});
 // POST /api/admin/events/:id/reject
 const rejectEvent = asyncHandler(async (req, res) => {
   const { reason } = req.body || {};
@@ -448,6 +466,7 @@ module.exports = {
   // Events
   listModerationEvents,
   approveEvent,
+  unapproveEvent,
   rejectEvent,
   blockEvent,
   unblockEvent,
