@@ -6,6 +6,7 @@ const { protect, authorize } = require("../middleware/auth");
 const {
   listModerationEvents,
   approveEvent,
+  unapproveEvent,
   rejectEvent,
   blockEvent,
   unblockEvent,
@@ -51,6 +52,7 @@ router.use(protect, authorize("admin"));
 // ---------------------------------------------------------------------------
 router.get("/events", protect, authorize("admin"), listModerationEvents);
 router.post("/events/:id/approve", adminLimiter, requireInternalKey, protect, authorize("admin"), approveEvent);
+router.post("/events/:id/unapprove", adminLimiter, requireInternalKey, protect, authorize("admin"), unapproveEvent);
 router.post("/events/:id/reject", adminLimiter, requireInternalKey, protect, authorize("admin"), rejectEvent);
 router.post("/events/:id/block", adminLimiter, requireInternalKey, protect, authorize("admin"), blockEvent);
 router.post("/events/:id/unblock", adminLimiter, requireInternalKey, protect, authorize("admin"), unblockEvent);
