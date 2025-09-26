@@ -97,11 +97,13 @@ eventSchema.index({ location: '2dsphere' });
 
 // PATCH IDX: indici aggiuntivi per query più frequenti
 eventSchema.index({ approvalStatus: 1, visibility: 1, dateStart: 1 });
-eventSchema.index({ "participants._id": 1 });
+eventSchema.index({ organizer: 1, approvalStatus: 1, createdAt: -1 });
+eventSchema.index({ participants: 1 });
 // (facoltativo, se usi ricerche testuali su titolo/città/categoria)
 // eventSchema.index({ title: "text", city: "text", category: "text" });
 
 module.exports = mongoose.model("Event", eventSchema);
+
 
 
 
