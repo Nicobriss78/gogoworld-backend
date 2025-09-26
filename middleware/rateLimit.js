@@ -56,5 +56,13 @@ const participationLimiter = rateLimit({
   legacyHeaders: false,
   handler: rateLimitJsonHandler,
 });
+// Limite monitor (client-error relay): 10 richieste/min per IP
+const monitorLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: rateLimitJsonHandler,
+});
 
-module.exports = { loginLimiter, registerLimiter, adminLimiter, writeLimiter, participationLimiter };
+module.exports = { loginLimiter, registerLimiter, adminLimiter, writeLimiter, participationLimiter, monitorLimiter };
