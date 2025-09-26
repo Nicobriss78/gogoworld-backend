@@ -24,7 +24,7 @@ const {
 const { uploadCsvSafe } = require("../middleware/upload");
 
 // PATCH (5): rate limiting per azioni admin
-const { adminLimiter } = require("../middleware/rateLimit");
+const { adminLimiter, monitorLimiter } = require("../middleware/rateLimit");
 // Guard opzionale con chiave interna: se INTERNAL_API_KEY non è settata, non blocca
 function requireInternalKey(req, res, next) {
   const needed = config.INTERNAL_API_KEY;
@@ -80,6 +80,39 @@ router.post(
   authorize("admin"),
   uploadCsvSafe,
   importEventsCsv
+);
+// ---------------------------------------------------------------------------
+// Monitoraggio errori client (Admin FE → Backend → Sentry)
+// Protetta da: requireInternalKey + monitorLimiter
+// ---------------------------------------------------------------------------
+router.post(
+  "/monitor/client-error",
+  requireInternalKey,
+  monitorLimiter,
+  express.json({ limit: "10kb" }),
+  async (req, res) => {
+    try {
+      const { message, stack, href, ua, ts } = req.body || {};
+      if (!message || typeof message !== "string") {
+        return res.status(400).json({ ok: false, error: "invalid_payload" });
+      }
+
+      // Inoltra a Sentry lato server (se inizializzato), altrimenti fallback su STDOUT
+      if (global.Sentry && typeof global.Sentry.captureMessage === "function") {
+        global.Sentry.captureMessage(message, {
+          level: "error",
+          extra: { stack, href, ua, ts, source: "client-admin" },
+        });
+      } else {
+        console.error("ClientError:", { message, stack, href, ua, ts });
+      }
+
+      return res.json({ ok: true });
+    } catch (err) {
+      console.error("Monitor route error:", err);
+      return res.status(500).json({ ok: false, error: "internal_error" });
+    }
+  }
 );
 
 module.exports = router;
