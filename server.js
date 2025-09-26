@@ -84,6 +84,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/reviews", reviewRoutes); // PATCH: recensioni
 app.use("/healthz", healthRoutes); // #HEALTHZ
 // Root & Health
+app.get("/api/health", (_req, res) => res.json({ ok: true, ts: Date.now() }));
 app.get("/", (_req, res) => res.json({ ok: true, name: "GoGo.World API", version: "v1" }));
 
 // 404
@@ -100,6 +101,7 @@ const PORT = config.PORT || 3000;
 app.listen(PORT, () => {
   logger.info(`🚀 GoGo.World API in ascolto sulla porta ${PORT}`);
 });
+
 
 
 
