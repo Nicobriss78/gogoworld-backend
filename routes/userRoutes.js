@@ -19,12 +19,12 @@ const {
 
 
 const { protect } = require("../middleware/auth");
-const { loginLimiter, writeLimiter } = require("../middleware/rateLimit");
+const { loginLimiter, registerLimiter, writeLimiter } = require("../middleware/rateLimit");
 
 // PATCH: rate limiting (login)
 
 // Public
-router.post("/", registerUser);
+router.post("/", registerLimiter, registerUser);
 router.post("/login", loginLimiter, authUser); // ⬅️ PATCH: applica limiter al login
 
 // Private
@@ -49,6 +49,7 @@ router.post("/forgot", loginLimiter, forgotPassword);
 router.post("/reset", writeLimiter, resetPassword);
 
 module.exports = router;
+
 
 
 
