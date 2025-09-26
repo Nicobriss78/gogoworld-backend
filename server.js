@@ -55,6 +55,20 @@ app.use(express.urlencoded({ extended: true }));
 app.use(helmet({
   crossOriginEmbedderPolicy: false, // compatibilità con frontend Netlify
 }));
+// CSP minimale: consente solo risorse dal self (Netlify domain) + inline styles sicuri
+app.use(
+  helmet.contentSecurityPolicy({
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"], // solo script locali
+      styleSrc: ["'self'", "'unsafe-inline'"], // inline style ok (es. bootstrap, admin UI)
+      imgSrc: ["'self'", "data:"], // immagini locali o inline
+      connectSrc: ["'self'", config.BASE_URL || ""], // API backend
+      frameAncestors: ["'none'"], // nessun embedding in iframe
+    },
+  })
+);
+
 app.use(hpp());
 
 // ---- Routes ----
@@ -86,6 +100,7 @@ const PORT = config.PORT || 3000;
 app.listen(PORT, () => {
   logger.info(`🚀 GoGo.World API in ascolto sulla porta ${PORT}`);
 });
+
 
 
 
