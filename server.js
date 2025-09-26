@@ -5,6 +5,20 @@ const dotenv = require("dotenv");
 dotenv.config();
 const { config } = require("./config");
 const { logger } = require("./core/logger"); // #CORE-LOGGER B1
+// Sentry (server-only). DSN/ENV/RELEASE da variabili d'ambiente.
+// Nessun effetto se @sentry/node non è installato o DSN assente.
+let Sentry = null;
+try { Sentry = require("@sentry/node"); } catch { /* opzionale */ }
+if (Sentry && process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.SENTRY_ENV || (config.NODE_ENV || "production"),
+    release: process.env.SENTRY_RELEASE || undefined,
+    tracesSampleRate: 0, // "light": niente tracing
+  });
+  global.Sentry = Sentry;
+}
+
 const app = express();
 
 // Hardening: rimuove header X-Powered-By
@@ -70,7 +84,8 @@ app.use(
 );
 
 app.use(hpp());
-
+// Sentry request handler (se inizializzato)
+if (global.Sentry) app.use(global.Sentry.Handlers.requestHandler());
 // ---- Routes ----
 const userRoutes = require("./routes/userRoutes");
 const eventRoutes = require("./routes/eventRoutes");
@@ -91,16 +106,31 @@ app.get("/", (_req, res) => res.json({ ok: true, name: "GoGo.World API", version
 app.use((req, res, _next) => {
   res.status(404).json({ ok: false, error: "NOT_FOUND", path: req.originalUrl });
 });
-
+// Sentry error handler (se inizializzato) — deve stare prima del nostro handler
+if (global.Sentry) app.use(global.Sentry.Handlers.errorHandler());
 // Error handler centralizzato
 const { errorHandler } = require("./middleware/error");
 app.use(errorHandler);
+// Global safety nets (log + Sentry se disponibile)
+process.on("unhandledRejection", (reason) => {
+  try {
+    if (global.Sentry) global.Sentry.captureException(reason);
+    logger.error("UnhandledRejection:", reason && reason.message ? reason.message : String(reason));
+  } catch {}
+});
+process.on("uncaughtException", (err) => {
+  try {
+    if (global.Sentry) global.Sentry.captureException(err);
+    logger.error("UncaughtException:", err && err.message ? err.message : String(err));
+  } catch {}
+});
 
 // Avvio
 const PORT = config.PORT || 3000;
 app.listen(PORT, () => {
   logger.info(`🚀 GoGo.World API in ascolto sulla porta ${PORT}`);
 });
+
 
 
 
