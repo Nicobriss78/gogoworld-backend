@@ -24,6 +24,22 @@ function pick(obj, keys) {
   });
   return out;
 }
+// -----------------------------
+// Admin Action Logger (container-friendly: STDOUT JSON)
+// -----------------------------
+function logAdmin(action, data) {
+  try {
+    const payload = {
+      evt: "admin_action",
+      action,
+      ...data,
+      ts: Date.now(),
+    };
+    console.log(JSON.stringify(payload));
+  } catch (_) {
+    // non bloccare il flusso in caso di errori di log
+  }
+}
 
 // -----------------------------
 // Eventi — Moderazione
@@ -97,6 +113,10 @@ const approveEvent = asyncHandler(async (req, res) => {
     organizerId: ev?.organizer?.toString?.() || String(ev?.organizer || ""),
     adminId: req?.user?._id?.toString?.() || String(req?.user?._id || ""),
   });
+logAdmin("event_approved", {
+    eventId: String(ev?._id || ""),
+    adminId: String(req?.user?._id || "")
+  });
 
   res.json({ ok: true, event: ev });
 });
@@ -122,7 +142,10 @@ const unapproveEvent = asyncHandler(async (req, res) => {
     organizerId: ev?.organizer?.toString?.() || String(ev?.organizer || ""),
     adminId: req?.user?._id?.toString?.() || String(req?.user?._id || ""),
   });
-
+logAdmin("event_unapproved", {
+    eventId: String(ev?._id || ""),
+    adminId: String(req?.user?._id || "")
+  });
   res.json({ ok: true, event: ev });
 });
 // POST /api/admin/events/:id/reject
@@ -139,6 +162,10 @@ const rejectEvent = asyncHandler(async (req, res) => {
     eventId: ev?._id?.toString?.() || String(ev?._id || ""),
     reason: (req?.body?.reason || "").toString().trim(),
     adminId: req?.user?._id?.toString?.() || String(req?.user?._id || ""),
+  });
+logAdmin("event_rejected", {
+    eventId: String(ev?._id || ""),
+    adminId: String(req?.user?._id || "")
   });
 
   res.json({ ok: true, event: ev });
@@ -167,6 +194,10 @@ const blockEvent = asyncHandler(async (req, res) => {
     reason: ev?.moderation?.reason || "",
     adminId: req?.user?._id?.toString?.() || String(req?.user?._id || ""),
   });
+logAdmin("event_blocked", {
+    eventId: String(ev?._id || ""),
+    adminId: String(req?.user?._id || "")
+  });
 
   res.json({ ok: true, event: ev });
 });
@@ -189,6 +220,10 @@ const unblockEvent = asyncHandler(async (req, res) => {
     eventId: ev?._id?.toString?.() || String(ev?._id || ""),
     adminId: req?.user?._id?.toString?.() || String(req?.user?._id || ""),
   });
+logAdmin("event_unblocked", {
+    eventId: String(ev?._id || ""),
+    adminId: String(req?.user?._id || "")
+  });
 
   res.json({ ok: true, event: ev });
 });
@@ -202,7 +237,10 @@ const forceDeleteEvent = asyncHandler(async (req, res) => {
     eventId: ev?._id?.toString?.() || String(ev?._id || ""),
     adminId: req?.user?._id?.toString?.() || String(req?.user?._id || ""),
   });
-
+logAdmin("event_force_deleted", {
+    eventId: String(ev?._id || ""),
+    adminId: String(req?.user?._id || "")
+  });
   res.json({ ok: true, message: "Evento eliminato definitivamente" });
 });
 
