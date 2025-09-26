@@ -40,6 +40,10 @@ resetTokenExpires: { type: Date },
   },
   { timestamps: true }
 );
+// Indici utili per filtri admin e ordering recente
+userSchema.index({ role: 1, createdAt: -1 });
+userSchema.index({ status: 1, createdAt: -1 });
+userSchema.index({ isBanned: 1, createdAt: -1 });
 
 // Hash password solo se modificata/nuova
 userSchema.pre("save", async function (next) {
@@ -61,5 +65,6 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
 
 const User = mongoose.model("User", userSchema);
 module.exports = User;
+
 
 
