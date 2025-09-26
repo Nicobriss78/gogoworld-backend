@@ -5,6 +5,7 @@
 const asyncHandler = require("express-async-handler");
 const Event = require("../models/eventModel");
 const User = require("../models/userModel");
+const { notify } = require("../services/notifications");
 
 // -----------------------------
 // Utils
@@ -91,6 +92,12 @@ const approveEvent = asyncHandler(async (req, res) => {
     updatedAt: now(),
   };
   await ev.save();
+  await notify("event_approved", {
+    eventId: ev?._id?.toString?.() || String(ev?._id || ""),
+    organizerId: ev?.organizer?.toString?.() || String(ev?.organizer || ""),
+    adminId: req?.user?._id?.toString?.() || String(req?.user?._id || ""),
+  });
+
   res.json({ ok: true, event: ev });
 });
 // POST /api/admin/events/:id/unapprove
@@ -110,6 +117,12 @@ const unapproveEvent = asyncHandler(async (req, res) => {
   };
 
   await ev.save();
+  await notify("event_unapproved", {
+    eventId: ev?._id?.toString?.() || String(ev?._id || ""),
+    organizerId: ev?.organizer?.toString?.() || String(ev?.organizer || ""),
+    adminId: req?.user?._id?.toString?.() || String(req?.user?._id || ""),
+  });
+
   res.json({ ok: true, event: ev });
 });
 // POST /api/admin/events/:id/reject
@@ -122,6 +135,12 @@ const rejectEvent = asyncHandler(async (req, res) => {
   const ev = await Event.findById(req.params.id);
   if (!ev) { res.status(404); throw new Error("Evento non trovato"); }
   await setModeration(ev, "rejected", pick(req.body, ["reason","notes"]), req.user._id);
+  await notify("event_rejected", {
+    eventId: ev?._id?.toString?.() || String(ev?._id || ""),
+    reason: (req?.body?.reason || "").toString().trim(),
+    adminId: req?.user?._id?.toString?.() || String(req?.user?._id || ""),
+  });
+
   res.json({ ok: true, event: ev });
 });
 
@@ -143,6 +162,12 @@ const blockEvent = asyncHandler(async (req, res) => {
     updatedAt: now(),
   };
   await ev.save();
+  await notify("event_blocked", {
+    eventId: ev?._id?.toString?.() || String(ev?._id || ""),
+    reason: ev?.moderation?.reason || "",
+    adminId: req?.user?._id?.toString?.() || String(req?.user?._id || ""),
+  });
+
   res.json({ ok: true, event: ev });
 });
 
@@ -160,6 +185,11 @@ const unblockEvent = asyncHandler(async (req, res) => {
     updatedAt: now(),
   };
   await ev.save();
+  await notify("event_unblocked", {
+    eventId: ev?._id?.toString?.() || String(ev?._id || ""),
+    adminId: req?.user?._id?.toString?.() || String(req?.user?._id || ""),
+  });
+
   res.json({ ok: true, event: ev });
 });
 
@@ -168,6 +198,11 @@ const forceDeleteEvent = asyncHandler(async (req, res) => {
   const ev = await Event.findById(req.params.id);
   if (!ev) { res.status(404); throw new Error("Evento non trovato"); }
   await ev.deleteOne();
+  await notify("event_force_deleted", {
+    eventId: ev?._id?.toString?.() || String(ev?._id || ""),
+    adminId: req?.user?._id?.toString?.() || String(req?.user?._id || ""),
+  });
+
   res.json({ ok: true, message: "Evento eliminato definitivamente" });
 });
 
