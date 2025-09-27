@@ -114,5 +114,18 @@ router.post(
     }
   }
 );
+// Error handler locale per payload troppo grande su /monitor/client-error
+// Restituisce JSON coerente (413) invece del messaggio grezzo del body-parser
+router.use("/monitor/client-error", (err, _req, res, next) => {
+  if (!err) return next();
+  // Body parser di Express usa 'type' o 'status' per segnalare payload eccessivo
+  const tooLarge = err.type === "entity.too.large" || err.status === 413 || err.statusCode === 413;
+  if (!tooLarge) return next(err);
+  return res.status(413).json({
+    ok: false,
+    error: "payload_too_large",
+    code: "MONITOR_PAYLOAD_413",
+  });
+});
 
 module.exports = router;
