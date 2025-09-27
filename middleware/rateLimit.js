@@ -47,7 +47,6 @@ const writeLimiter = rateLimit({
   handler: rateLimitJsonHandler,
 });
 
-
 // Limite partecipazioni (join/leave): 10 richieste / 5 min per IP
 const participationLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -64,5 +63,21 @@ const monitorLimiter = rateLimit({
   legacyHeaders: false,
   handler: rateLimitJsonHandler,
 });
+// Limite fetch banner attivi: 60 richieste/min per IP
+const bannerFetchLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: rateLimitJsonHandler,
+});
 
-module.exports = { loginLimiter, registerLimiter, adminLimiter, writeLimiter, participationLimiter, monitorLimiter };
+// Limite click banner: 10 richieste/min per IP
+const bannerClickLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: rateLimitJsonHandler,
+});
+module.exports = { loginLimiter, registerLimiter, adminLimiter, writeLimiter, participationLimiter, monitorLimiter, bannerFetchLimiter, bannerClickLimiter };
