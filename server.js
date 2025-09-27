@@ -89,12 +89,14 @@ if (global.Sentry) app.use(global.Sentry.Handlers.requestHandler());
 // ---- Routes ----
 const userRoutes = require("./routes/userRoutes");
 const eventRoutes = require("./routes/eventRoutes");
+const bannerRoutes = require("./routes/bannerRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const reviewRoutes = require("./routes/reviewRoutes"); // PATCH: recensioni
 const healthRoutes = require("./routes/health"); // #HEALTHZ
 
 app.use("/api/users", userRoutes);
 app.use("/api/events", eventRoutes);
+app.use("/api/banners", bannerRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/reviews", reviewRoutes); // PATCH: recensioni
 app.use("/healthz", healthRoutes); // #HEALTHZ
@@ -130,6 +132,7 @@ const PORT = config.PORT || 3000;
 app.listen(PORT, () => {
   logger.info(`🚀 GoGo.World API in ascolto sulla porta ${PORT}`);
 });
+
 
 
 
