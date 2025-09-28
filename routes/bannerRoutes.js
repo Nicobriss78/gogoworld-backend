@@ -29,6 +29,12 @@ router.post(
   bannerClickLimiter,
   bannerController.clickBanner
 );
+// Supporta anche GET per i link diretti
+router.get(
+  "/:id/click",
+  bannerClickLimiter,
+  bannerController.clickBanner
+);
 
 // ------------------------------------------------------------------
 // Admin CRUD & Moderazione
