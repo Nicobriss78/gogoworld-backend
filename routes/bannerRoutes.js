@@ -97,5 +97,13 @@ router.post(
   authorize("admin"),
   bannerController.resumeBanner
 );
+// Organizer submit banner
+router.post(
+  "/submit",
+  adminLimiter,
+  protect,
+  authorize("organizer","admin"),
+  bannerController.submitBannerRequest
+);
 
 module.exports = router;
