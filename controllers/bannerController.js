@@ -101,6 +101,7 @@ exports.getActiveBanners = async (req, res) => {
       const filter = {
         placement,
         isActive: true,
+        status: "ACTIVE",
         ...timeActiveFilter(),
       };
 
@@ -314,7 +315,7 @@ exports.approveBanner = async (req,res) => {
     let nextStatus = "ACTIVE";
     if (b.activeFrom && new Date(b.activeFrom) > now) nextStatus = "SCHEDULED";
 
-    await Banner.updateOne({ _id:id }, { $set: { status: nextStatus, isActive: true }});
+    await Banner.updateOne({ _id:id }, { $set: { status: nextStatus, isActive: true, approvedAt: new Date() }});
     return res.status(204).send();
   } catch (err) {
     console.error("[Banner] approve error:", err);
