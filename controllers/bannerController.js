@@ -365,3 +365,44 @@ exports.resumeBanner = async (req,res) => {
     return res.status(500).json({ ok:false, error:"internal_error" });
   }
 };
+// Organizer — submit banner request
+exports.submitBannerRequest = async (req, res) => {
+  try {
+    const body = req.body || {};
+    const required = ["title", "imageUrl", "targetUrl", "placement"];
+    for (const k of required) {
+      if (!body[k]) return res.status(400).json({ ok:false, error:`${k} is required` });
+    }
+
+    // Consenti solo URL https
+    const isHttps = (u) => { try { const x = new URL(String(u)); return x.protocol === "https:"; } catch { return false; } };
+    if (!isHttps(body.imageUrl) || !isHttps(body.targetUrl)) {
+      return res.status(400).json({ ok:false, error:"imageUrl and targetUrl must be https://" });
+    }
+
+    const doc = new Banner({
+      type: "event_promo",
+      source: "organizer",
+      status: "PENDING_REVIEW",
+      eventId: body.eventId || null,
+      title: String(body.title).trim(),
+      imageUrl: String(body.imageUrl).trim(),
+      targetUrl: String(body.targetUrl).trim(),
+      placement: body.placement,
+      country: body.country || null,
+      region: body.region || null,
+      isActive: true,
+      activeFrom: body.activeFrom || null,
+      activeTo: body.activeTo || null,
+      priority: body.priority !== undefined ? Number(body.priority) : 100,
+      createdBy: req.user && req.user._id ? req.user._id : null,
+      notes: body.notes || ""
+    });
+
+    await doc.save();
+    return res.status(201).json({ ok:true, data:{ id: String(doc._id) }});
+  } catch (err) {
+    console.error("[Banner] submitBannerRequest error:", err);
+    return res.status(500).json({ ok:false, error:"internal_error" });
+  }
+};
