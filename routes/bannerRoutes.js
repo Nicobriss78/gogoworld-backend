@@ -8,7 +8,9 @@ const bannerController = require("../controllers/bannerController");
 const {
   bannerFetchLimiter,
   bannerClickLimiter,
+  adminLimiter,
 } = require("../middleware/rateLimit");
+const { protect, authorize } = require("../middleware/auth");
 
 // ------------------------------------------------------------------
 // Pubbliche
@@ -29,22 +31,71 @@ router.post(
 );
 
 // ------------------------------------------------------------------
-// Admin CRUD (stubs) — da completare in B1/2 con proxy Netlify
-// ------------------------------------------------------------------
-const { adminLimiter } = require("../middleware/rateLimit");
-const { requireAdmin } = require("../middleware/auth");
-
-// router.post("/", adminLimiter, requireAdmin, bannerController.createBanner);
-// router.put("/:id", adminLimiter, requireAdmin, bannerController.updateBanner);
-// router.delete("/:id", adminLimiter, requireAdmin, bannerController.deleteBanner);
 // Admin CRUD & Moderazione
-router.get("/", adminLimiter, requireAdmin, bannerController.listBannersAdmin);
-router.post("/", adminLimiter, requireAdmin, bannerController.createBanner);
-router.put("/:id", adminLimiter, requireAdmin, bannerController.updateBanner);
-router.delete("/:id", adminLimiter, requireAdmin, bannerController.deleteBanner);
+// ------------------------------------------------------------------
 
-router.post("/:id/approve", adminLimiter, requireAdmin, bannerController.approveBanner);
-router.post("/:id/reject", adminLimiter, requireAdmin, bannerController.rejectBanner);
-router.post("/:id/pause", adminLimiter, requireAdmin, bannerController.pauseBanner);
-router.post("/:id/resume", adminLimiter, requireAdmin, bannerController.resumeBanner);
+router.get(
+  "/",
+  adminLimiter,
+  protect,
+  authorize("admin"),
+  bannerController.listBannersAdmin
+);
+
+router.post(
+  "/",
+  adminLimiter,
+  protect,
+  authorize("admin"),
+  bannerController.createBanner
+);
+
+router.put(
+  "/:id",
+  adminLimiter,
+  protect,
+  authorize("admin"),
+  bannerController.updateBanner
+);
+
+router.delete(
+  "/:id",
+  adminLimiter,
+  protect,
+  authorize("admin"),
+  bannerController.deleteBanner
+);
+
+router.post(
+  "/:id/approve",
+  adminLimiter,
+  protect,
+  authorize("admin"),
+  bannerController.approveBanner
+);
+
+router.post(
+  "/:id/reject",
+  adminLimiter,
+  protect,
+  authorize("admin"),
+  bannerController.rejectBanner
+);
+
+router.post(
+  "/:id/pause",
+  adminLimiter,
+  protect,
+  authorize("admin"),
+  bannerController.pauseBanner
+);
+
+router.post(
+  "/:id/resume",
+  adminLimiter,
+  protect,
+  authorize("admin"),
+  bannerController.resumeBanner
+);
+
 module.exports = router;
