@@ -315,7 +315,14 @@ exports.approveBanner = async (req,res) => {
     let nextStatus = "ACTIVE";
     if (b.activeFrom && new Date(b.activeFrom) > now) nextStatus = "SCHEDULED";
 
-    await Banner.updateOne({ _id:id }, { $set: { status: nextStatus, isActive: true, approvedAt: new Date() }});
+const updated = await Banner.findOneAndUpdate(
+  { _id: id, status: "PENDING_REVIEW" },
+  { $set: { status: nextStatus, isActive: true, approvedAt: new Date() } },
+  { new: true }
+);
+if (!updated) {
+  return res.status(404).json({ ok: false, error: "already_processed_or_missing" });
+}
     return res.status(204).send();
   } catch (err) {
     console.error("[Banner] approve error:", err);
