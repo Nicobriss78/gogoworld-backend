@@ -1,71 +1,110 @@
 // backend/models/bannerModel.js
-// Modello Banner (B1/1) + BannerStatsDaily per conteggi giornalieri light
+// Modello Banner (B1/1 + estensioni UI Admin/Organizer) + BannerStatsDaily
 
 const mongoose = require("mongoose");
 
 /**
- * Tipologie supportate in B1:
- * - sponsor: vetrina pubblicitaria clienti generici
- * - event_promo: grandi eventi a pagamento messi in primo piano
- * - house: annunci interni della piattaforma (fallback)
+ * Tipologie:
+ * - sponsor: vetrina pubblicitaria clienti generici (terze parti)
+ * - event_promo: promozione di un evento della piattaforma (organizer)
+ * - house: annunci interni della piattaforma (GoGoWorld)
  *
  * Placement iniziali:
  * - home_top
  * - events_list_inline
+ *
+ * Origine:
+ * - admin_third_party (inserito da admin per clienti terzi)
+ * - admin_house (annunci interni)
+ * - organizer (richieste dagli organizzatori)
+ *
+ * Stati:
+ * - DRAFT, PENDING_PAYMENT, PENDING_REVIEW, SCHEDULED,
+ * ACTIVE, PAUSED, ENDED, REJECTED
  */
+
+const ALLOWED_TYPES = ["sponsor", "event_promo", "house"];
+const ALLOWED_PLACEMENTS = ["home_top", "events_list_inline"];
+const ALLOWED_SOURCES = ["admin_third_party", "admin_house", "organizer"];
+const ALLOWED_STATUSES = [
+  "DRAFT",
+  "PENDING_PAYMENT",
+  "PENDING_REVIEW",
+  "SCHEDULED",
+  "ACTIVE",
+  "PAUSED",
+  "ENDED",
+  "REJECTED",
+];
 
 const bannerSchema = new mongoose.Schema(
   {
+    // Classificazione
     type: {
       type: String,
-      enum: ["sponsor", "event_promo", "house"],
+      enum: ALLOWED_TYPES,
       required: true,
       index: true,
     },
-    title: { type: String, trim: true, required: true },
+    source: {
+      type: String,
+      enum: ALLOWED_SOURCES,
+      required: true,
+      index: true,
+    },
+    status: {
+      type: String,
+      enum: ALLOWED_STATUSES,
+      default: "DRAFT",
+      index: true,
+    },
 
-    // Asset e destinazione
+    // Collegamento evento (solo per type=event_promo)
+    eventId: { type: mongoose.Schema.Types.ObjectId, ref: "Event", index: true },
+
+    // Creatività
+    title: { type: String, trim: true, required: true },
     imageUrl: { type: String, trim: true, required: true },
     targetUrl: { type: String, trim: true, required: true },
 
     // Posizionamento UI
     placement: {
       type: String,
-      enum: ["home_top", "events_list_inline"],
+      enum: ALLOWED_PLACEMENTS,
       required: true,
       index: true,
     },
 
-    // Target geografico (opzionale). In B1 useremo country/region per filtrare.
+    // Target geografico (opzionale)
     country: { type: String, trim: true }, // ISO 3166-1 alpha-2 (es. "IT")
     region: { type: String, trim: true }, // es. "Basilicata"
 
-    // Finestra di attività e stato
+    // Finestra di attività e stato legacy (compat)
     isActive: { type: Boolean, default: true, index: true },
     activeFrom: { type: Date, default: null, index: true },
     activeTo: { type: Date, default: null, index: true },
 
     // Ordinamento e rotazione
-    priority: { type: Number, default: 100, index: true }, // più basso = più alto in lista
+    priority: { type: Number, default: 100, index: true }, // più basso = più alto
 
     // Contatori cumulativi (diagnostica rapida)
     impressionsTotal: { type: Number, default: 0 },
     clicksTotal: { type: Number, default: 0 },
 
-    // Audit minimale
+    // Audit
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     notes: { type: String, trim: true },
   },
   { timestamps: true }
 );
 
-// Indici compositi utili alle query attive per placement/area/finestra
+// Indici utili
 bannerSchema.index({ placement: 1, isActive: 1, priority: 1 });
 bannerSchema.index({ country: 1, region: 1, isActive: 1 });
 bannerSchema.index({ activeFrom: 1, activeTo: 1 });
+bannerSchema.index({ type: 1, source: 1, status: 1, placement: 1 });
 
-// Facile controllo finestre: consideriamo "attivo nel tempo" se
-// (activeFrom null o <= now) && (activeTo null o > now).
+// Attivo “nel tempo” se (from null|<=now) && (to null|>now)
 bannerSchema.statics.timeActiveFilter = function (now = new Date()) {
   return {
     $and: [
@@ -81,7 +120,7 @@ bannerSchema.statics.timeActiveFilter = function (now = new Date()) {
 const bannerStatsDailySchema = new mongoose.Schema(
   {
     banner: { type: mongoose.Schema.Types.ObjectId, ref: "Banner", index: true, required: true },
-    day: { type: Date, required: true, index: true }, // normalizzato a 00:00:00 UTC
+    day: { type: Date, required: true, index: true }, // 00:00:00 UTC
     impressions: { type: Number, default: 0 },
     clicks: { type: Number, default: 0 },
   },
@@ -95,7 +134,6 @@ function normalizeDay(d = new Date()) {
   dt.setUTCHours(0, 0, 0, 0);
   return dt;
 }
-
 bannerStatsDailySchema.statics.keyFor = function (bannerId, date = new Date()) {
   return { banner: bannerId, day: normalizeDay(date) };
 };
@@ -106,4 +144,8 @@ const BannerStatsDaily = mongoose.model("BannerStatsDaily", bannerStatsDailySche
 module.exports = {
   Banner,
   BannerStatsDaily,
+  ALLOWED_TYPES,
+  ALLOWED_PLACEMENTS,
+  ALLOWED_SOURCES,
+  ALLOWED_STATUSES,
 };
