@@ -77,8 +77,9 @@ app.use(
       scriptSrc: ["'self'"], // solo script locali
       styleSrc: ["'self'", "'unsafe-inline'"], // inline style ok (es. bootstrap, admin UI)
       imgSrc: ["'self'", "data:"], // immagini locali o inline
-      connectSrc: ["'self'", config.BASE_URL || ""], // API backend
-      frameAncestors: ["'none'"], // nessun embedding in iframe
+ // costruisci connectSrc filtrando valori vuoti
+ connectSrc: (["'self'", config.BASE_URL].filter(Boolean)),
+ frameAncestors: ["'none'"], // nessun embedding in iframe
     },
   })
 );
@@ -132,6 +133,7 @@ const PORT = config.PORT || 3000;
 app.listen(PORT, () => {
   logger.info(`🚀 GoGo.World API in ascolto sulla porta ${PORT}`);
 });
+
 
 
 
