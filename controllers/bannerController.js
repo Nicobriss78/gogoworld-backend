@@ -108,6 +108,13 @@ exports.getActiveBanners = async (req, res) => {
       const area = areaFilter(country, region);
       if (Object.keys(area).length) {
         Object.assign(filter, area);
+         // Enforce finestra temporale anche se il model helper cambia naming/logica
+       const nowDt = new Date();
+       const _and = Array.isArray(filter.$and) ? filter.$and.slice() : [];
+       _and.push({ $or: [{ activeFrom: null }, { activeFrom: { $lte: nowDt } }] });
+       _and.push({ $or: [{ activeTo: null }, { activeTo: { $gte: nowDt } }] });
+       filter.$and = _and;
+
       }
 
       // Ordinamento: priority ASC (più piccolo => più rilevante), poi update più recente
