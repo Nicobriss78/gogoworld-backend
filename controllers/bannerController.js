@@ -231,6 +231,24 @@ exports.listBannersAdmin = async (req, res) => {
     return res.status(500).json({ ok: false, error: "internal_error" });
   }
 };
+// Lista MIEI banner (organizer)
+exports.listBannersMine = async (req, res) => {
+  try {
+    const q = req.query || {};
+    const me = req.user && req.user._id ? req.user._id : null;
+    if (!me) return res.status(401).json({ ok:false, error:"not_authorized" });
+
+    const filter = { createdBy: me };
+    if (q.status) filter.status = String(q.status);
+    if (q.placement) filter.placement = String(q.placement);
+
+    const items = await Banner.find(filter).sort({ updatedAt: -1 }).lean();
+    return res.json({ ok: true, data: items });
+  } catch (err) {
+    console.error("[Banner] listBannersMine error:", err);
+    return res.status(500).json({ ok: false, error: "internal_error" });
+  }
+};
 
 exports.createBanner = async (req, res) => {
   try {
