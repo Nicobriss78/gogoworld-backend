@@ -35,6 +35,15 @@ router.get(
   bannerClickLimiter,
   bannerController.clickBanner
 );
+// ------------------------------------------------------------------
+// Organizer: lista dei MIEI banner
+// ------------------------------------------------------------------
+router.get(
+  "/mine",
+  protect,
+  authorize("organizer", "admin"),
+  bannerController.listBannersMine
+);
 
 // ------------------------------------------------------------------
 // Admin CRUD & Moderazione
