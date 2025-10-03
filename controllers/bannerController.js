@@ -249,6 +249,54 @@ exports.listBannersMine = async (req, res) => {
     return res.status(500).json({ ok: false, error: "internal_error" });
   }
 };
+// Organizer: lista MIEI banner con filtri opzionali
+exports.listBannersMine = async (req, res) => {
+try {
+const me = req.user && req.user._id ? req.user._id : null;
+if (!me) return res.status(401).json({ ok:false, error:"not_authorized" });
+
+const q = req.query || {};
+const filter = { createdBy: me };
+ 
+// status: accetta 'expired' (logico) oppure gli stati reali (ACTIVE/PAUSED/...)
+if (q.status) {
+const s = String(q.status).trim().toUpperCase();
+if (s === "EXPIRED") {
+// gestito sotto con $and (activeTo < now)
+} else {
+filter.status = s; // es.: ACTIVE, PAUSED, PENDING_REVIEW, SCHEDULED, REJECTED, DRAFT
+}
+}
+if (q.placement) filter.placement = String(q.placement);
+ 
+// Filtro temporale opzionale: intervallo [from,to] (ISO date) + 'expired'
+const and = [];
+const now = new Date();
+if (q.from) {
+const from = new Date(q.from);
+and.push({ $or: [{ activeTo: null }, { activeTo: { $gte: from } }] }); // non finiti prima di 'from'
+}
+if (q.to) {
+const to = new Date(q.to);
+and.push({ $or: [{ activeFrom: null }, { activeFrom: { $lte: to } }] }); // iniziati entro 'to'
+}
+if (q.status && String(q.status).trim().toUpperCase() === "EXPIRED") {
+and.push({ activeTo: { $ne: null, $lt: now } }); // scaduti
+}
+if (and.length) filter.$and = and;
+ 
+const items = await Banner.find(filter).sort({ updatedAt: -1, priority: 1 }).lean();
+// Campo calcolato lato BE: isExpired
+const data = items.map(b => {
+const exp = !!(b.activeTo && new Date(b.activeTo) < now);
+return Object.assign(b, { isExpired: exp });
+});
+return res.json({ ok:true, data });
+} catch (err) {
+console.error("[Banner] listBannersMine error:", err);
+return res.status(500).json({ ok:false, error:"internal_error" });
+}
+};
 
 exports.createBanner = async (req, res) => {
   try {
