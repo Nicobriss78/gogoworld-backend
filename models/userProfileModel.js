@@ -1,5 +1,9 @@
 // models/userProfileModel.js — profilo utente esteso
-//
+// [DEPRECATED - C1 usa subdocumento users.profile]
+// Questo model non è più utilizzato dalle dinamiche attive.
+// Conservato solo per retrocompatibilità/lettura storica.
+// Non importarlo in nuovi file: usare users.profile (Scelta A).
+
 // Non usato direttamente nelle dinamiche di base, ma previsto per dati aggiuntivi.
 // Collega 1:1 a User tramite userId.
 
@@ -18,4 +22,4 @@ const userProfileSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model("UserProfile", userProfileSchema);
+module.exports = mongoose.models.UserProfile || mongoose.model("UserProfile", userProfileSchema);
