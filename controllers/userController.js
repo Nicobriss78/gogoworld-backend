@@ -23,18 +23,24 @@ const generateToken = (id) => {
 // -----------------------------------------------------------------------------
 const registerUser = asyncHandler(async (req, res) => {
   const { name, email, password, role } = req.body;
-
+const nicknameFrom =
+    (typeof name === "string" && name.trim()) ||
+    (typeof email === "string" && email.includes("@") ? email.split("@")[0] : "");
   const userExists = await User.findOne({ email });
   if (userExists) {
     res.status(400);
     throw new Error("User already exists");
   }
 
-  const user = await User.create({
+const user = await User.create({
     name,
     email,
     password,
     role: role || "participant",
+    profile: {
+      nickname: nicknameFrom || undefined,
+      privacy: { optInDM: false, dmsFrom: "everyone" }
+    }
   });
 
   if (user) {
@@ -227,5 +233,6 @@ module.exports = {
   forgotPassword,
   resetPassword,
 };
+
 
 
