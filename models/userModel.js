@@ -23,6 +23,24 @@ resetTokenExpires: { type: Date },
     isBanned: { type: Boolean, default: false },
     // PATCH: libertà iniziale per tutti di organizzare eventi
     canOrganize: { type: Boolean, default: true },
+// ★ NEW: Profilo utente (C1)
+    profile: {
+      nickname: { type: String, trim: true, maxlength: 40 },
+      birthYear: { type: Number, min: 1900, max: 2100 }, // opzionale
+      region: { type: String, trim: true, maxlength: 60 }, // es. "Calabria"
+      city: { type: String, trim: true, maxlength: 120 },// opzionale
+      avatarUrl: { type: String, trim: true },
+      socials: [{ type: String, trim: true }], // opzionale: link social
+      bio: { type: String, trim: true, maxlength: 1000 },
+      interests: [{ type: String, trim: true }],
+      languages: [{ type: String, trim: true }],
+
+      // Privacy messaggi diretti (C4, enforcement in /api/dm/*)
+      privacy: {
+        optInDM: { type: Boolean, default: false }, // consenso esplicito ai DM
+        dmsFrom: { type: String, enum: ["everyone","followers","nobody"], default: "everyone" }
+      }
+    },
 
     // ★ NEW: Gamification / Reputation
     score: { type: Number, default: 0 },
@@ -44,7 +62,8 @@ resetTokenExpires: { type: Date },
 userSchema.index({ role: 1, createdAt: -1 });
 userSchema.index({ status: 1, createdAt: -1 });
 userSchema.index({ isBanned: 1, createdAt: -1 });
-
+userSchema.index({ "profile.nickname": 1 });
+userSchema.index({ "profile.region": 1 });
 // Hash password solo se modificata/nuova
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
@@ -65,6 +84,7 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
 
 const User = mongoose.model("User", userSchema);
 module.exports = User;
+
 
 
 
