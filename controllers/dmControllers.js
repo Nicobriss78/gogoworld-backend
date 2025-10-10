@@ -1,4 +1,4 @@
-// controllers/dmController.js — C2 DM (MVP testo)
+// controllers/dmControllers.js — C2 DM (MVP testo)
 const mongoose = require("mongoose");
 const Message = require("../models/messageModel");
 const User = require("../models/userModel");
