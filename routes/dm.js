@@ -7,7 +7,7 @@ const {
   listMessages,
   markRead,
   getUnreadCount,
-} = require("../controllers/dmController");
+} = require("../controllers/dmControllers");
 
 // Auth middleware del progetto
 let { protect } = { protect: null };
