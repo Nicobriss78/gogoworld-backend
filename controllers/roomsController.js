@@ -32,8 +32,8 @@ exports.openOrJoinEvent = async (req, res, next) => {
     if (!ev) return res.status(404).json({ ok: false, error: "EVENT_NOT_FOUND" });
 
     // Calcola finestra chat (default: -48h / +24h)
-    const startAt = new Date(ev.startAt);
-    const endAt = new Date(ev.endAt);
+    const startAt = new Date(ev.dateStart);
+    const endAt = new Date(ev.dateEnd || ev.dateStart);
     const activeFrom = ev.chat?.activeFrom || new Date(startAt.getTime() - 48 * 3600 * 1000);
     const activeUntil = ev.chat?.activeUntil || new Date(endAt.getTime() + 24 * 3600 * 1000);
 
