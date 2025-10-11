@@ -96,6 +96,8 @@ const reviewRoutes = require("./routes/reviewRoutes"); // PATCH: recensioni
 const healthRoutes = require("./routes/health"); // #HEALTHZ
 const profileRoutes = require("./routes/profile"); // NEW: profilo utente (C1)
 const dmRoutes = require("./routes/dm"); // NEW: messaggi 1:1 (C2)
+const roomsRoutes = require("./routes/rooms"); // NEW: chat evento pubblica (C2.2)
+
 
 app.use("/api/users", userRoutes);
 app.use("/api/events", eventRoutes);
@@ -104,6 +106,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/reviews", reviewRoutes); // PATCH: recensioni
 app.use("/api/profile", profileRoutes); // NEW: profilo utente (C1)
 app.use("/api/dm", dmRoutes); // NEW: messaggi 1:1 (C2)
+app.use("/api/rooms", roomsRoutes); // NEW: chat evento pubblica (C2.2)
 app.use("/healthz", healthRoutes); // #HEALTHZ
 // Root & Health
 app.get("/api/health", (_req, res) => res.json({ ok: true, ts: Date.now() }));
@@ -137,6 +140,7 @@ const PORT = config.PORT || 3000;
 app.listen(PORT, () => {
   logger.info(`🚀 GoGo.World API in ascolto sulla porta ${PORT}`);
 });
+
 
 
 
