@@ -48,7 +48,7 @@ exports.openOrJoinEvent = async (req, res, next) => {
         isArchived: false,
         activeFrom,
         activeUntil,
-        createdBy: ev.organizerId || meId,
+        createdBy: ev.organizer || meId,
       });
       room = room.toObject();
     }
