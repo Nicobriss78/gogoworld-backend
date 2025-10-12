@@ -70,7 +70,13 @@ coordinates: { type: [Number] } // [lon, lat]
     isFree: { type: Boolean, default: false },
     price: { type: Number, min: 0 },
     currency: { type: String, trim: true, default: "EUR" }, // ISO 4217
-
+    // Accesso e visibilità avanzata
+    isPrivate: { type: Boolean, default: false, index: true },
+    accessCode: { type: String, trim: true }, // codice d'accesso opzionale per eventi privati
+    chat: {
+    activeFrom: { type: Date },
+    activeUntil: { type: Date }
+},
     // Media e tag
     tags: { type: [String], default: [] },
     images: { type: [String], default: [] },
@@ -98,10 +104,14 @@ eventSchema.index({ location: '2dsphere' });
 eventSchema.index({ approvalStatus: 1, visibility: 1, dateStart: 1 });
 eventSchema.index({ organizer: 1, approvalStatus: 1, createdAt: -1 });
 eventSchema.index({ participants: 1 });
+// Nuovi indici per eventi privati
+eventSchema.index({ isPrivate: 1 });
+eventSchema.index({ accessCode: 1 });
 // (facoltativo, se usi ricerche testuali su titolo/città/categoria)
 // eventSchema.index({ title: "text", city: "text", category: "text" });
 
 module.exports = mongoose.model("Event", eventSchema);
+
 
 
 
