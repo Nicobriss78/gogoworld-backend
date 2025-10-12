@@ -30,7 +30,22 @@ exports.openOrJoinEvent = async (req, res, next) => {
     // Carica evento per titolo e finestra
     const ev = await Event.findById(eventId).lean();
     if (!ev) return res.status(404).json({ ok: false, error: "EVENT_NOT_FOUND" });
-
+    // Evento privato: se manca o non coincide il codice, non creare/ritornare la room
+    if (ev.isPrivate) {
+      const provided = (req.body && typeof req.body.code === "string") ? req.body.code.trim() : "";
+      const expected = (ev.accessCode || "").trim();
+      if (!provided || !expected || provided !== expected) {
+        // locked finché non viene fornito il codice corretto
+        return res.json({
+          ok: true,
+          data: {
+            locked: true,
+        // opzionale: puoi mostrare titolo/durata senza roomId
+        title: ev.title || "Evento privato",
+      }
+    });
+  }
+}
     // Calcola finestra chat (default: -48h / +24h)
     const startAt = new Date(ev.dateStart);
     const endAt = new Date(ev.dateEnd || ev.dateStart);
@@ -44,7 +59,7 @@ exports.openOrJoinEvent = async (req, res, next) => {
         type: "event",
         eventId: eventIdObj,
         title: ev.title || "Chat evento",
-        isPrivate: false,
+        isPrivate: !!ev.isPrivate,
         isArchived: false,
         activeFrom,
         activeUntil,
@@ -87,6 +102,23 @@ exports.getEventRoomMeta = async (req, res, next) => {
     const eventIdObj = new mongoose.Types.ObjectId(eventId);
     const room = await Room.findOne({ type: "event", eventId: eventIdObj }).lean();
     if (!room) return res.status(404).json({ ok: false, error: "ROOM_NOT_FOUND" });
+// Carica evento per capire se è privato
+    const ev = await Event.findById(eventIdObj).lean();
+    // Se l'evento è privato e l'utente non è membro della room → locked, niente roomId
+if (ev?.isPrivate) {
+  const meId = req.user && req.user.id;
+  if (!meId) return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
+  const meMember = await RoomMember.findOne({ roomId: room._id, userId: meId }).lean();
+  if (!meMember) {
+    return res.json({
+      ok: true,
+      data: {
+        locked: true,
+        title: room.title
+      }
+    });
+  }
+}
 
     const now = new Date();
     const canSend = withinWindow(now, room.activeFrom, room.activeUntil) && !room.isArchived;
@@ -270,6 +302,73 @@ exports.getRoomsUnreadCount = async (req, res, next) => {
     const rows = await Room.aggregate(pipeline);
     const unread = rows.length ? rows[0].unread : 0;
     return res.json({ ok: true, unread });
+  } catch (err) {
+    next(err);
+  }
+};
+// --- POST /api/rooms/event/:eventId/unlock ---
+// Body: { code: "xxxxx" }
+exports.unlockEvent = async (req, res, next) => {
+  try {
+    const meId = req.user && req.user.id;
+    if (!meId) return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
+
+    const { eventId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      return res.status(400).json({ ok: false, error: "INVALID_EVENT_ID" });
+    }
+    const eventIdObj = new mongoose.Types.ObjectId(eventId);
+
+    const ev = await Event.findById(eventIdObj).lean();
+    if (!ev) return res.status(404).json({ ok: false, error: "EVENT_NOT_FOUND" });
+
+    // Evento pubblico: nessun codice richiesto (idempotente)
+    if (!ev.isPrivate) {
+      return res.json({ ok: true, data: { unlocked: true, reason: "PUBLIC_EVENT" } });
+    }
+
+    // Verifica codice
+    const provided = (req.body && typeof req.body.code === "string") ? req.body.code.trim() : "";
+    const expected = (ev.accessCode || "").trim();
+    if (!provided || !expected || provided !== expected) {
+      return res.status(403).json({ ok: false, error: "INVALID_CODE" });
+    }
+
+    // Assicurati che la room esista (privata)
+    let room = await Room.findOne({ type: "event", eventId: eventIdObj }).lean();
+    if (!room) {
+      const startAt = new Date(ev.dateStart);
+      const endAt = new Date(ev.dateEnd || ev.dateStart);
+      const activeFrom = ev.chat?.activeFrom || new Date(startAt.getTime() - 48 * 3600 * 1000);
+      const activeUntil = ev.chat?.activeUntil || new Date(endAt.getTime() + 24 * 3600 * 1000);
+      room = await Room.create({
+        type: "event",
+        eventId: eventIdObj,
+        title: ev.title || "Chat evento",
+        isPrivate: true,
+        isArchived: false,
+        activeFrom,
+        activeUntil,
+        createdBy: ev.organizer || meId,
+      });
+      room = room.toObject();
+    }
+
+    // Upsert membership per l'utente
+    await RoomMember.updateOne(
+      { roomId: room._id, userId: meId },
+      { $setOnInsert: { joinedAt: new Date() } },
+      { upsert: true }
+    );
+
+    return res.json({
+      ok: true,
+      data: {
+        unlocked: true,
+        roomId: String(room._id),
+        title: room.title
+      }
+    });
   } catch (err) {
     next(err);
   }
