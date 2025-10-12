@@ -20,6 +20,11 @@ try {
 
 // Rate-limit semplice per invio messaggi room (robusto, in-memory)
 const buckets = new Map();
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, b] of buckets) if (now > b.resetAt) buckets.delete(k);
+}, 5 * 60 * 1000);
+
 function roomLimiter(req, res, next) {
   try {
     const meId = (req.user && req.user.id) || "anon";
