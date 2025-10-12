@@ -26,7 +26,7 @@ exports.openOrJoinEvent = async (req, res, next) => {
 
     const { eventId } = req.params;
     if (!isValidObjectId(eventId)) return res.status(400).json({ ok: false, error: "INVALID_EVENT_ID" });
-
+    const eventIdObj = new mongoose.Types.ObjectId(eventId);
     // Carica evento per titolo e finestra
     const ev = await Event.findById(eventId).lean();
     if (!ev) return res.status(404).json({ ok: false, error: "EVENT_NOT_FOUND" });
@@ -38,11 +38,11 @@ exports.openOrJoinEvent = async (req, res, next) => {
     const activeUntil = ev.chat?.activeUntil || new Date(endAt.getTime() + 24 * 3600 * 1000);
 
     // Evento pubblico: stanza pubblica
-    let room = await Room.findOne({ type: "event", eventId }).lean();
+    let room = await Room.findOne({ type: "event", eventId: eventIdObj }).lean();
     if (!room) {
       room = await Room.create({
         type: "event",
-        eventId,
+        eventId: eventIdObj,
         title: ev.title || "Chat evento",
         isPrivate: false,
         isArchived: false,
@@ -84,8 +84,8 @@ exports.getEventRoomMeta = async (req, res, next) => {
   try {
     const { eventId } = req.params;
     if (!isValidObjectId(eventId)) return res.status(400).json({ ok: false, error: "INVALID_EVENT_ID" });
-
-    const room = await Room.findOne({ type: "event", eventId }).lean();
+    const eventIdObj = new mongoose.Types.ObjectId(eventId);
+    const room = await Room.findOne({ type: "event", eventId: eventIdObj }).lean();
     if (!room) return res.status(404).json({ ok: false, error: "ROOM_NOT_FOUND" });
 
     const now = new Date();
@@ -114,18 +114,18 @@ exports.listMessages = async (req, res, next) => {
 
     const { roomId } = req.params;
     if (!isValidObjectId(roomId)) return res.status(400).json({ ok: false, error: "INVALID_ROOM_ID" });
-
+    const roomIdObj = new mongoose.Types.ObjectId(roomId);
     const limit = Math.max(1, Math.min(100, Number(req.query.limit) || 50));
     const before = req.query.before ? new Date(req.query.before) : null;
 
-    const find = { roomId };
+    const find = { roomId: roomIdObj };
     if (before) find.createdAt = { $lt: before };
 
     const list = await RoomMessage.find(find).sort({ createdAt: -1 }).limit(limit).lean();
 
     // mark read (lastReadAt)
     await RoomMember.updateOne(
-      { roomId, userId: meId },
+      { roomId: roomIdObj, userId: meId },
       { $set: { lastReadAt: new Date() } },
       { upsert: true }
     );
@@ -163,7 +163,12 @@ exports.postMessage = async (req, res, next) => {
 
     const t = sanitizeText(req.body?.text || "");
     if (!t || t.length === 0 || t.length > 2000) return res.status(400).json({ ok: false, error: "INVALID_TEXT" });
-
+    // Garantisci membership (serve per coerenza con lastReadAt/unread)
+    await RoomMember.updateOne(
+     { roomId: room._id, userId: meId },
+     { $setOnInsert: { joinedAt: new Date() } },
+     { upsert: true }
+    );
     const doc = await RoomMessage.create({ roomId, sender: meId, text: t });
     return res.status(201).json({
       ok: true,
@@ -181,10 +186,10 @@ exports.markRead = async (req, res, next) => {
     if (!meId) return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
     const { roomId } = req.params;
     if (!isValidObjectId(roomId)) return res.status(400).json({ ok: false, error: "INVALID_ROOM_ID" });
-
+    const roomIdObj = new mongoose.Types.ObjectId(roomId);
     const upTo = req.body?.upTo ? new Date(req.body.upTo) : new Date();
     await RoomMember.updateOne(
-      { roomId, userId: meId },
+      { roomId: roomIdObj, userId: meId },
       { $set: { lastReadAt: upTo } },
       { upsert: true }
     );
@@ -201,31 +206,66 @@ exports.getRoomsUnreadCount = async (req, res, next) => {
     if (!meId) return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
 
     // Conta le room dove esiste almeno un messaggio più recente del lastReadAt (o nessun lastReadAt)
-    const pipeline = [
-      { $match: { type: "event", isArchived: false } },
-      {
-        $lookup: {
-          from: "roommembers",
-          let: { roomId: "$_id" },
-          pipeline: [
-            { $match: { $expr: { $and: [ { $eq: ["$roomId", "$$roomId"] }, { $eq: ["$userId", new mongoose.Types.ObjectId(meId)] } ] } } },
-            { $project: { lastReadAt: 1, _id: 0 } }
-          ],
-          as: "me"
-        }
-      },
-      {
-        $lookup: {
-          from: "roommessages",
-          localField: "_id",
-          foreignField: "roomId",
-          as: "msgs"
-        }
-      },
-      { $project: { me: { $first: "$me" }, lastMsgAt: { $max: "$msgs.createdAt" } } },
-      { $match: { $expr: { $and: [ { $ne: ["$lastMsgAt", null] }, { $or: [ { $eq: ["$me.lastReadAt", null] }, { $lt: ["$me.lastReadAt", "$lastMsgAt"] } ] } ] } } },
-      { $count: "unread" }
-    ];
+ const pipeline = [
+ { $match: { type: "event", isArchived: false } },
+
+ // Membership dell'utente nella room (obbligatoria)
+ {
+ $lookup: {
+ from: "roommembers",
+ let: { roomId: "$_id" },
+ pipeline: [
+ {
+ $match: {
+ $expr: {
+ $and: [
+ { $eq: ["$roomId", "$$roomId"] },
+ { $eq: ["$userId", new mongoose.Types.ObjectId(meId)] }
+ ]
+ }
+ }
+ },
+ { $project: { lastReadAt: 1, _id: 0 } }
+ ],
+ as: "me"
+ }
+ },
+ // Scarta room dove l'utente NON è membro
+ { $unwind: { path: "$me", preserveNullAndEmptyArrays: false } },
+
+ // Ultimo messaggio (senza caricare tutto l'array)
+ {
+ $lookup: {
+ from: "roommessages",
+ let: { roomId: "$_id" },
+ pipeline: [
+ { $match: { $expr: { $eq: ["$roomId", "$$roomId"] } } },
+ { $sort: { createdAt: -1 } },
+ { $limit: 1 },
+ { $project: { createdAt: 1, _id: 0 } }
+ ],
+ as: "last"
+ }
+ },
+ { $unwind: { path: "$last", preserveNullAndEmptyArrays: false } },
+
+ { $project: { lastReadAt: "$me.lastReadAt", lastMsgAt: "$last.createdAt" } },
+
+ // Non letti: nessun lastReadAt o lastReadAt < lastMsgAt
+ {
+ $match: {
+ $expr: {
+ $or: [
+ { $eq: ["$lastReadAt", null] },
+ { $lt: ["$lastReadAt", "$lastMsgAt"] }
+ ]
+ }
+ }
+ },
+
+ { $count: "unread" }
+ ];
+
 
     const rows = await Room.aggregate(pipeline);
     const unread = rows.length ? rows[0].unread : 0;
