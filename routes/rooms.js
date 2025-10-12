@@ -4,6 +4,7 @@ const router = express.Router();
 const {
   openOrJoinEvent,
   getEventRoomMeta,
+  unlockEvent,
   listMessages,
   postMessage,
   markRead,
@@ -46,8 +47,8 @@ function roomLimiter(req, res, next) {
 
 // Routes (evento pubblico)
 router.post("/event/:eventId/open-or-join", protect, openOrJoinEvent);
+router.post("/event/:eventId/unlock", protect, unlockEvent);
 router.get("/event/:eventId", protect, getEventRoomMeta);
-
 router.get("/:roomId/messages", protect, listMessages);
 router.post("/:roomId/messages", protect, roomLimiter, postMessage);
 router.post("/:roomId/read", protect, markRead);
