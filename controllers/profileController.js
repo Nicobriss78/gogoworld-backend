@@ -81,8 +81,13 @@ exports.getMyProfile = async (req, res, next) => {
     if (!me) return res.status(404).json({ ok: false, error: "NOT_FOUND" });
 
     const pub = toPublicProfile(me);
-    // opzionale: includi qualche metadato self-only (non sensibile)
-    return res.json({ ok: true, data: pub });
+// Aggiungi campi "self-only" che non vogliamo esporre pubblicamente
+const selfOnly = {
+  birthYear: me?.profile?.birthYear ?? null,
+};
+
+// Risposta: unisce pubblico + self-only
+return res.json({ ok: true, data: { ...pub, ...selfOnly } });
   } catch (err) {
     next(err);
   }
@@ -99,14 +104,20 @@ exports.updateMyProfile = async (req, res, next) => {
 
     const patch = pickProfileUpdate(req.body && req.body.profile ? req.body.profile : req.body || {});
     // Minimal validation lato server
-    if (patch.birthYear && (patch.birthYear < 1900 || patch.birthYear > 2100)) {
-      return res.status(400).json({ ok: false, error: "INVALID_BIRTH_YEAR" });
-    }
+// Validazione robusta di birthYear se presente nel patch
+if (Object.prototype.hasOwnProperty.call(patch, "birthYear")) {
+  const y = Number(patch.birthYear);
+  if (!Number.isInteger(y) || y < 1900 || y > 2100) {
+    return res.status(400).json({ ok: false, error: "INVALID_BIRTH_YEAR" });
+  }
+  patch.birthYear = y;
+}
+
 
     const updated = await User.findByIdAndUpdate(
       meId,
       { $set: Object.fromEntries(Object.entries(patch).map(([k, v]) => [`profile.${k}`, v])) },
-      { new: true }
+      { new: true, runValidators: true, context: "query" }
     ).lean();
 
     if (!updated) return res.status(404).json({ ok: false, error: "NOT_FOUND" });
