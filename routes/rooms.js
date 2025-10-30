@@ -1,4 +1,9 @@
 // routes/rooms.js — C2.2
+  // Gestione Room eventi.
+  // In precedenza la finestra di invio era limitata a ±48 h attorno all’evento.
+  // Ora la chat è attiva dal momento dell’approvazione dell’evento fino a 24 h dopo la sua fine.
+  // Tutti i controlli di finestra sono gestiti nei controller.
+
 const express = require("express");
 const router = express.Router();
 const {
