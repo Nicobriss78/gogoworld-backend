@@ -107,6 +107,10 @@ const approveEvent = asyncHandler(async (req, res) => {
     updatedBy: req.user._id,
     updatedAt: now(),
   };
+  // Imposta approvedAt alla prima approvazione
+  if (!ev.approvedAt) {
+    ev.approvedAt = now();
+  }
   await ev.save();
   await notify("event_approved", {
     eventId: ev?._id?.toString?.() || String(ev?._id || ""),
