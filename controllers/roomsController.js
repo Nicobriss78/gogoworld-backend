@@ -47,10 +47,10 @@ exports.openOrJoinEvent = async (req, res, next) => {
   }
 }
     // Calcola finestra chat (default: -48h / +24h)
-    const startAt = new Date(ev.dateStart);
-    const endAt = new Date(ev.dateEnd || ev.dateStart);
-    const activeFrom = ev.chat?.activeFrom || new Date(startAt.getTime() - 48 * 3600 * 1000);
-    const activeUntil = ev.chat?.activeUntil || new Date(endAt.getTime() + 24 * 3600 * 1000);
+   const startAt = new Date(ev.dateStart);
+   const endAt = new Date(ev.dateEnd || ev.dateStart);
+   const activeFrom = ev.approvedAt ? new Date(ev.approvedAt) : (ev.createdAt ? new Date(ev.createdAt) : new Date());
+   const activeUntil = new Date(endAt.getTime() + 24 * 3600 * 1000);
 
     // Evento pubblico: stanza pubblica
     let room = await Room.findOne({ type: "event", eventId: eventIdObj }).lean();
@@ -76,7 +76,7 @@ exports.openOrJoinEvent = async (req, res, next) => {
     );
 
     const now = new Date();
-    const canSend = withinWindow(now, room.activeFrom, room.activeUntil) && !room.isArchived;
+   const canSend = (!room.activeUntil || now <= new Date(room.activeUntil)) && !room.isArchived;
 
     return res.json({
       ok: true,
@@ -121,7 +121,7 @@ if (ev?.isPrivate) {
 }
 
     const now = new Date();
-    const canSend = withinWindow(now, room.activeFrom, room.activeUntil) && !room.isArchived;
+    const canSend = (!room.activeUntil || now <= new Date(room.activeUntil)) && !room.isArchived;
     return res.json({
       ok: true,
       data: {
@@ -189,8 +189,8 @@ exports.postMessage = async (req, res, next) => {
     if (!room || room.isArchived) return res.status(403).json({ ok: false, error: "ROOM_CLOSED" });
 
     const now = new Date();
-    if (!withinWindow(now, room.activeFrom, room.activeUntil)) {
-      return res.status(403).json({ ok: false, error: "SEND_WINDOW_CLOSED" });
+    if (room.activeUntil && now > new Date(room.activeUntil)) {
+    return res.status(403).json({ ok: false, error: "SEND_WINDOW_CLOSED" });
     }
 
     const t = sanitizeText(req.body?.text || "");
