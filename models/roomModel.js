@@ -18,6 +18,9 @@ const roomSchema = new Schema(
   },
   { timestamps: { createdAt: true, updatedAt: true } }
 );
+ // Chat attiva da approvazione evento (activeFrom) fino a 24h dopo la fine evento (activeUntil)
+ activeFrom: { type: Date, default: null, index: true },
+ activeUntil: { type: Date, default: null, index: true },
 
 // Indici utili
 roomSchema.index({ type: 1, eventId: 1 }, { unique: true, partialFilterExpression: { type: "event", eventId: { $type: "objectId" } } });
