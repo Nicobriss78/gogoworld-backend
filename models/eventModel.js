@@ -57,6 +57,7 @@ coordinates: { type: [Number] } // [lon, lat]
       default: "pending",
       index: true,
     },
+    approvedAt: { type: Date, default: null, index: true },
     moderation: {
       reason: { type: String, trim: true },
       notes: { type: String, trim: true },
@@ -107,10 +108,12 @@ eventSchema.index({ participants: 1 });
 // Nuovi indici per eventi privati
 eventSchema.index({ isPrivate: 1 });
 eventSchema.index({ accessCode: 1 });
+eventSchema.index({ approvedAt: 1 });
 // (facoltativo, se usi ricerche testuali su titolo/città/categoria)
 // eventSchema.index({ title: "text", city: "text", category: "text" });
 
 module.exports = mongoose.model("Event", eventSchema);
+
 
 
 
