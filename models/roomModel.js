@@ -10,6 +10,7 @@ const roomSchema = new Schema(
     title: { type: String, required: true },
     isPrivate: { type: Boolean, default: false }, // evento privato => true (qui: false)
     isArchived: { type: Boolean, default: false, index: true },
+ // Chat attiva da approvazione evento (activeFrom) fino a 24h dopo la fine evento (activeUntil)
 
     activeFrom: { type: Date, default: null, index: true },
     activeUntil: { type: Date, default: null, index: true },
@@ -18,9 +19,6 @@ const roomSchema = new Schema(
   },
   { timestamps: { createdAt: true, updatedAt: true } }
 );
- // Chat attiva da approvazione evento (activeFrom) fino a 24h dopo la fine evento (activeUntil)
- activeFrom: { type: Date, default: null, index: true },
- activeUntil: { type: Date, default: null, index: true },
 
 // Indici utili
 roomSchema.index({ type: 1, eventId: 1 }, { unique: true, partialFilterExpression: { type: "event", eventId: { $type: "objectId" } } });
