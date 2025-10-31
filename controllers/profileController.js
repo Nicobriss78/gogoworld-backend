@@ -1,6 +1,34 @@
 // controllers/profileController.js — C1 Profilo (users.profile subdoc)
 const mongoose = require("mongoose");
 const User = require("../models/userModel");
+const fs = require("fs");
+const path = require("path");
+const multer = require("multer");
+
+// Directory avatars
+const AVATAR_DIR = path.join(__dirname, "..", "uploads", "avatars");
+fs.mkdirSync(AVATAR_DIR, { recursive: true });
+
+// Storage + security
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, AVATAR_DIR),
+  filename: (req, file, cb) => {
+    const ext = (path.extname(file.originalname) || "").toLowerCase();
+    cb(null, `${req.user?.id || "anon"}-${Date.now()}${ext}`);
+  }
+});
+const fileFilter = (_req, file, cb) => {
+  const ok = /^image\/(png|jpe?g|webp)$/.test(file.mimetype);
+  cb(ok ? null : new Error("INVALID_FILE_TYPE"), ok);
+};
+const upload = multer({
+  storage,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+  fileFilter
+});
+
+// Middleware single-file per campo "avatar"
+exports.uploadAvatarMiddleware = upload.single("avatar");
 
 // Utils -------------------------------------------------------------
 /**
@@ -144,6 +172,39 @@ exports.getPublicProfile = async (req, res, next) => {
 
     return res.json({ ok: true, data: toPublicProfile(user) });
   } catch (err) {
+    next(err);
+  }
+};
+/**
+ * POST /api/profile/me/avatar
+ * Carica avatar (PNG/JPG/WEBP max 2MB), salva file e aggiorna profile.avatarUrl
+ */
+exports.uploadAvatar = async (req, res, next) => {
+  try {
+    const meId = req.user && req.user.id;
+    if (!meId) return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
+
+    if (!req.file) {
+      return res.status(400).json({ ok: false, error: "NO_FILE" });
+    }
+
+    const relUrl = `/uploads/avatars/${req.file.filename}`;
+
+    await User.findByIdAndUpdate(
+      meId,
+      { $set: { "profile.avatarUrl": relUrl } },
+      { new: false }
+    );
+
+    return res.json({ ok: true, avatarUrl: relUrl });
+  } catch (err) {
+    // normalizza errori multer
+    if (String(err?.message || "").includes("File too large")) {
+      return res.status(400).json({ ok: false, error: "FILE_TOO_LARGE" });
+    }
+    if (String(err?.message || "").includes("INVALID_FILE_TYPE")) {
+      return res.status(400).json({ ok: false, error: "INVALID_FILE_TYPE" });
+    }
     next(err);
   }
 };
