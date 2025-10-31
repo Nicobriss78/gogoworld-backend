@@ -1,7 +1,13 @@
 // routes/profile.js — C1 Profilo
 const express = require("express");
 const router = express.Router();
-const { getMyProfile, updateMyProfile, getPublicProfile } = require("../controllers/profileController");
+const {
+  getMyProfile,
+  updateMyProfile,
+  getPublicProfile,
+  uploadAvatarMiddleware,
+  uploadAvatar
+} = require("../controllers/profileController");
 
 // Middleware auth già in progetto (usato nelle altre rotte)
 let { protect } = { protect: null };
@@ -18,7 +24,8 @@ router.get("/me", protect, getMyProfile);
 
 // PUT /api/profile/me
 router.put("/me", protect, updateMyProfile);
-
+// POST /api/profile/me/avatar
+router.post("/me/avatar", protect, uploadAvatarMiddleware, uploadAvatar);
 // Public profile
 // GET /api/profile/:userId
 router.get("/:userId", getPublicProfile);
