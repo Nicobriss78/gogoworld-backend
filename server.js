@@ -3,6 +3,7 @@
 const express = require("express");
 const dotenv = require("dotenv");
 dotenv.config();
+const path = require("path");
 const { config } = require("./config");
 const { logger } = require("./core/logger"); // #CORE-LOGGER B1
 // Sentry (server-only). DSN/ENV/RELEASE da variabili d'ambiente.
@@ -87,6 +88,8 @@ app.use(
 app.use(hpp());
 // Sentry request handler (se inizializzato)
 if (global.Sentry) app.use(global.Sentry.Handlers.requestHandler());
+// Static per file caricati (avatar, ecc.)
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // ---- Routes ----
 const userRoutes = require("./routes/userRoutes");
 const eventRoutes = require("./routes/eventRoutes");
@@ -140,6 +143,7 @@ const PORT = config.PORT || 3000;
 app.listen(PORT, () => {
   logger.info(`🚀 GoGo.World API in ascolto sulla porta ${PORT}`);
 });
+
 
 
 
