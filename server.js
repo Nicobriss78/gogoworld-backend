@@ -90,6 +90,9 @@ app.use(hpp());
 if (global.Sentry) app.use(global.Sentry.Handlers.requestHandler());
 // Static per file caricati (avatar, ecc.)
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// Static anche dietro al proxy /api/* (Netlify → Render)
+app.use("/api/uploads", express.static(path.join(__dirname, "uploads")));
+
 // ---- Routes ----
 const userRoutes = require("./routes/userRoutes");
 const eventRoutes = require("./routes/eventRoutes");
@@ -143,6 +146,7 @@ const PORT = config.PORT || 3000;
 app.listen(PORT, () => {
   logger.info(`🚀 GoGo.World API in ascolto sulla porta ${PORT}`);
 });
+
 
 
 
