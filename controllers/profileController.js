@@ -188,7 +188,7 @@ exports.uploadAvatar = async (req, res, next) => {
       return res.status(400).json({ ok: false, error: "NO_FILE" });
     }
 
-    const relUrl = `/uploads/avatars/${req.file.filename}`;
+const relUrl = `/api/uploads/avatars/${req.file.filename}`;
 
     await User.findByIdAndUpdate(
       meId,
