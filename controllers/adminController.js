@@ -51,11 +51,23 @@ const listModerationEvents = asyncHandler(async (req, res) => {
   const where = {};
 
   // Filtri tassonomici/geografici opzionali
-  ["region","country","city","category","subcategory","type","language","target","visibility"].forEach(k => {
+ ["region","country","city","category","subcategory","type","language","target"].forEach(k => {
     if (q[k]) where[k] = q[k];
   });
+// VISIBILITY esplicita: mappa su isPrivate quando vale "public"/"private",
+  // altrimenti consenti filtro diretto su "draft"
+  if (q.visibility) {
+    const v = String(q.visibility).toLowerCase().trim();
+    if (v === "public") {
+      where.isPrivate = false; // tutti gli eventi pubblici
+    } else if (v === "private") {
+      where.isPrivate = true; // tutti i privati (anche se il campo visibility non è perfettamente allineato)
+    } else if (v === "draft") {
+      where.visibility = "draft"; // bozza rimane su stringa visibility
+    }
+  }
 
-  if (q.approvalStatus) where.approvalStatus = q.approvalStatus;
+  if (q.approvalStatus) where.approvalStatus = String(q.approvalStatus).toLowerCase().trim();
   if (q.organizerId) where.organizer = q.organizerId;
   if (q.q) {
     const rx = likeRx(q.q);
