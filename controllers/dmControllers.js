@@ -15,14 +15,23 @@ function sanitizeText(s) {
   if (typeof s !== "string") return "";
   return s.replace(/\s+/g, " ").trim();
 }
-function privacyBlocks(sender, recipientUser) {
-  // Blocca se destinatario non ha opt-in o ha "nobody" o "followers" (decisione MVP)
-  const p = (recipientUser.profile || {}).privacy || {};
-  if (!p.optInDM) return "DM_NOT_ALLOWED";
-  if (p.dmsFrom === "nobody") return "DM_NOT_ALLOWED";
-  if (p.dmsFrom === "followers") return "DM_NOT_ALLOWED"; // MVP: blocchiamo in attesa di feature follow
-  return null;
-}
+ function privacyBlocks(sender, recipientUser) {
+   // Blocchi privacy del destinatario (MVP) + blocklist
+   const prof = (recipientUser.profile || {});
+   const p = prof.privacy || {};
+   // 1) Opt-in globale
+   if (!p.optInDM) return "DM_NOT_ALLOWED";
+   // 2) Sorgenti consentite
+   if (p.dmsFrom === "nobody") return "DM_NOT_ALLOWED";
+   if (p.dmsFrom === "followers") return "DM_NOT_ALLOWED"; // in attesa di feature "follow"
+   // 3) Blocklist del destinatario (se assente, trattata come lista vuota)
+   try {
+   const blocked = Array.isArray(prof.blocked) ? prof.blocked.map(String) : [];
+   if (blocked.includes(String(sender))) return "BLOCKED_BY_USER";
+   } catch {}
+   return null;
+ }
+
 
 // ---------- POST /api/dm/messages ----------
 exports.sendMessage = async (req, res, next) => {
