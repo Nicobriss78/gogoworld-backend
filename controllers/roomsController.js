@@ -306,6 +306,97 @@ exports.getRoomsUnreadCount = async (req, res, next) => {
     next(err);
   }
 };
+// --- GET /api/rooms/mine ---
+// Elenca le chat evento dove l'utente è membro, ordinate per attività recente.
+// Restituisce una shape compatibile con rooms.js (event: {_id, id, title}, activeUntil, ecc.)
+exports.listMine = async (req, res, next) => {
+  try {
+    const meId = req.user && req.user.id;
+    if (!meId) return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
+
+    const meObj = new mongoose.Types.ObjectId(meId);
+
+    // Pipeline: Room "event" non archiviate → membership del corrente → join con Event → proiezione shape
+    const rows = await Room.aggregate([
+      { $match: { type: "event", isArchived: false } },
+
+      // membership corrente (RoomMember)
+      {
+        $lookup: {
+          from: "roommembers",
+          let: { roomId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$roomId", "$$roomId"] },
+                    { $eq: ["$userId", meObj] }
+                  ]
+                }
+              }
+            },
+            { $project: { _id: 0, lastReadAt: 1, joinedAt: 1 } }
+          ],
+          as: "me"
+        }
+      },
+      // tieni solo le room dove esiste membership
+      { $unwind: { path: "$me", preserveNullAndEmptyArrays: false } },
+
+      // join evento per avere id e titolo
+      {
+        $lookup: {
+          from: "events", // <- nome collection di Event (default Mongoose)
+          localField: "eventId",
+          foreignField: "_id",
+          as: "ev"
+        }
+      },
+      { $unwind: { path: "$ev", preserveNullAndEmptyArrays: true } },
+
+      // ultimo messaggio per ordinare in modo "vivo"
+      {
+        $lookup: {
+          from: "roommessages",
+          let: { roomId: "$_id" },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$roomId", "$$roomId"] } } },
+            { $sort: { createdAt: -1 } },
+            { $limit: 1 },
+            { $project: { _id: 0, createdAt: 1 } }
+          ],
+          as: "last"
+        }
+      },
+      { $unwind: { path: "$last", preserveNullAndEmptyArrays: true } },
+
+      {
+        $project: {
+          _id: 1,
+          title: { $ifNull: ["$title", { $ifNull: ["$ev.title", "Chat evento"] }] },
+          activeFrom: 1,
+          activeUntil: 1,
+          // costruisci sotto-oggetto event compatibile con rooms.js
+          event: {
+            _id: "$ev._id",
+            id: "$ev._id",
+            title: "$ev.title"
+          },
+          lastAt: { $ifNull: ["$last.createdAt", "$updatedAt"] }
+        }
+      },
+
+      { $sort: { lastAt: -1 } },
+      { $limit: 50 }
+    ]);
+
+    return res.json({ ok: true, data: rows });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // --- POST /api/rooms/event/:eventId/unlock ---
 // Body: { code: "xxxxx" }
 exports.unlockEvent = async (req, res, next) => {
