@@ -14,6 +14,7 @@ const {
   postMessage,
   markRead,
   getRoomsUnreadCount,
+  listMine, // <— AGGIUNTO
 } = require("../controllers/roomsController");
 
 // Auth middleware
