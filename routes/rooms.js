@@ -58,6 +58,8 @@ router.get("/:roomId/messages", protect, listMessages);
 router.post("/:roomId/messages", protect, roomLimiter, postMessage);
 router.post("/:roomId/read", protect, markRead);
 
+// Le mie stanze (dove l'utente è membro o ha interagito)
+router.get("/mine", protect, require("../controllers/roomsController").listMine);
 router.get("/unread-count", protect, getRoomsUnreadCount);
 
 module.exports = router;
