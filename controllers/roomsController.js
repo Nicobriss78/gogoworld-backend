@@ -370,6 +370,29 @@ exports.listMine = async (req, res, next) => {
         }
       },
       { $unwind: { path: "$last", preserveNullAndEmptyArrays: true } },
+// conteggio "unread" per stanza (messaggi con createdAt > lastReadAt dell'utente)
+        {
+          $lookup: {
+            from: "roommessages",
+            let: { roomId: "$_id", lr: "$mem.lastReadAt" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ["$roomId", "$$roomId"] },
+                      { $gt: ["$createdAt", { $ifNull: ["$$lr", new Date(0)] }] }
+                    ]
+                  }
+                }
+              },
+              // limite prudenziale per non caricare troppo in caso di stanze molto attive
+              { $limit: 1000 },
+              { $project: { _id: 1 } }
+            ],
+            as: "unreadArr"
+          }
+        },
 
       {
         $project: {
@@ -383,6 +406,7 @@ exports.listMine = async (req, res, next) => {
             id: "$ev._id",
             title: "$ev.title"
           },
+          unread: { $size: "$unreadArr" },
           lastAt: { $ifNull: ["$last.createdAt", "$updatedAt"] }
         }
       },
