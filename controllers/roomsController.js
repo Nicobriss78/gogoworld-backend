@@ -315,9 +315,9 @@ exports.listMine = async (req, res, next) => {
     if (!meId) return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
 
     const meObj = new mongoose.Types.ObjectId(meId);
-
+    const onlyActive = !!(req.query && (req.query.onlyActive === "1" || req.query.onlyActive === "true"));
     // Pipeline: Room "event" non archiviate → membership del corrente → join con Event → proiezione shape
-    const rows = await Room.aggregate([
+      const pipeline = [
       { $match: { type: "event", isArchived: false } },
 
       // membership corrente (RoomMember)
@@ -374,7 +374,7 @@ exports.listMine = async (req, res, next) => {
         {
           $lookup: {
             from: "roommessages",
-            let: { roomId: "$_id", lr: "$mem.lastReadAt" },
+            let: { roomId: "$_id", lr: "$me.lastReadAt" },
             pipeline: [
               {
                 $match: {
@@ -413,8 +413,17 @@ exports.listMine = async (req, res, next) => {
 
       { $sort: { lastAt: -1 } },
       { $limit: 50 }
-    ]);
+    ];
+// Se richiesto, mostra solo le stanze "attive" (almeno un messaggio presente)
+    if (onlyActive) {
+      // Inserisci un $match subito dopo l'$unwind di "last"
+      const idxUnwindLast = pipeline.findIndex(st => st && st.$unwind && st.$unwind.path === "$last");
+      if (idxUnwindLast !== -1) {
+        pipeline.splice(idxUnwindLast + 1, 0, { $match: { "last.createdAt": { $exists: true } } });
+      }
+    }
 
+    const rows = await Room.aggregate(pipeline);
     return res.json({ ok: true, data: rows });
   } catch (err) {
     next(err);
