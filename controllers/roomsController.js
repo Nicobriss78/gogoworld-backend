@@ -306,6 +306,73 @@ exports.getRoomsUnreadCount = async (req, res, next) => {
     next(err);
   }
 };
+// --- GET /api/rooms/unread-summary ---
+// Per ciascuna room dell'utente ritorna: { _id: <roomId>, unread: <n> }
+exports.getUnreadSummary = async (req, res, next) => {
+  try {
+    const meId = req.user && req.user.id;
+    if (!meId) return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
+    const meObj = new mongoose.Types.ObjectId(meId);
+
+    const pipeline = [
+      { $match: { type: "event", isArchived: false } },
+
+      // membership dell'utente nella room (obbligatoria)
+      {
+        $lookup: {
+          from: "roommembers",
+          let: { roomId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$roomId", "$$roomId"] },
+                    { $eq: ["$userId", meObj] }
+                  ]
+                }
+              }
+            },
+            { $project: { _id: 0, lastReadAt: 1 } }
+          ],
+          as: "me"
+        }
+      },
+      { $unwind: "$me" },
+
+      // conteggio messaggi non letti
+      {
+        $lookup: {
+          from: "roommessages",
+          let: { roomId: "$_id", lr: "$me.lastReadAt" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$roomId", "$$roomId"] },
+                    { $gt: ["$createdAt", { $ifNull: ["$$lr", new Date(0)] }] }
+                  ]
+                }
+              }
+            },
+            { $limit: 1000 }, // safety cap per non gonfiare la risposta
+            { $project: { _id: 1 } }
+          ],
+          as: "unreadArr"
+        }
+      },
+
+      // shape minimale
+      { $project: { _id: 1, unread: { $size: "$unreadArr" } } }
+    ];
+
+    const rows = await Room.aggregate(pipeline);
+    return res.json({ ok: true, data: rows });
+  } catch (err) {
+    next(err);
+  }
+};
 // --- GET /api/rooms/mine ---
 // Elenca le chat evento dove l'utente è membro, ordinate per attività recente.
 // Restituisce una shape compatibile con rooms.js (event: {_id, id, title}, activeUntil, ecc.)
