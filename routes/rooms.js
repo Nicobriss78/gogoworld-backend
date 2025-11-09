@@ -14,8 +14,10 @@ const {
   postMessage,
   markRead,
   getRoomsUnreadCount,
+  getUnreadSummary,
   listMine, // <— AGGIUNTO
 } = require("../controllers/roomsController");
+
 
 // Auth middleware
 let { protect } = { protect: null };
@@ -61,5 +63,6 @@ router.post("/:roomId/read", protect, markRead);
 
 // Le mie stanze (dove l'utente è membro o ha interagito)
 router.get("/unread-count", protect, getRoomsUnreadCount);
+router.get("/unread-summary", protect, getUnreadSummary);
 router.get("/mine", protect, listMine);
 module.exports = router;
