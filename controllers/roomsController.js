@@ -93,7 +93,71 @@ exports.openOrJoinEvent = async (req, res, next) => {
     next(err);
   }
 };
+// --- POST /api/rooms/dm/open-or-join ---
+// Crea o riapre una chat privata (DM) tra l'utente corrente e targetUserId
+exports.openOrJoinDM = async (req, res, next) => {
+  try {
+    const meId = req.user && req.user.id;
+    if (!meId) return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
 
+    const { targetUserId } = req.body || {};
+    if (!targetUserId || !mongoose.Types.ObjectId.isValid(targetUserId)) {
+      return res.status(400).json({ ok: false, error: "INVALID_TARGET" });
+    }
+    if (String(targetUserId) === String(meId)) {
+      return res.status(400).json({ ok: false, error: "SELF_DM_NOT_ALLOWED" });
+    }
+
+    const meObj = new mongoose.Types.ObjectId(meId);
+    const tgtObj = new mongoose.Types.ObjectId(targetUserId);
+
+    // Normalizza la coppia (dmA = min, dmB = max)
+    const [dmA, dmB] = String(meObj) < String(tgtObj) ? [meObj, tgtObj] : [tgtObj, meObj];
+
+    // Cerca room DM esistente
+    let room = await Room.findOne({ type: "dm", dmA, dmB }).lean();
+
+    // Se non esiste, crea la room + membership
+    if (!room) {
+      const created = await Room.create({
+        type: "dm",
+        dmA,
+        dmB,
+        title: null,
+        isPrivate: true,
+        isArchived: false,
+        createdBy: meObj,
+      });
+      room = created.toObject();
+
+      // Crea/garantisci membership per entrambi (upsert-like semplice)
+      await RoomMember.create([{ roomId: room._id, userId: dmA }, { roomId: room._id, userId: dmB }].map(x => ({
+        roomId: x.roomId, userId: x.userId, lastReadAt: new Date()
+      })));
+    }
+
+    // Peer = l'altro utente rispetto a me
+    const peerId = String(room.dmA) === String(meObj) ? room.dmB : room.dmA;
+    const peer = await (require("../models/userModel"))
+      .findById(peerId)
+      .select({ _id: 1, name: 1, "profile.avatarUrl": 1 })
+      .lean();
+
+    const peerOut = peer ? { _id: peer._id, name: peer.name, avatar: (peer.profile && peer.profile.avatarUrl) || null } : null;
+
+    return res.json({
+      ok: true,
+      data: {
+        roomId: room._id,
+        type: "dm",
+        peer: peerOut,
+        canSend: true
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
 // --- GET /api/rooms/event/:eventId ---
 exports.getEventRoomMeta = async (req, res, next) => {
   try {
@@ -385,7 +449,7 @@ exports.listMine = async (req, res, next) => {
     const onlyActive = !!(req.query && (req.query.onlyActive === "1" || req.query.onlyActive === "true"));
     // Pipeline: Room "event" non archiviate → membership del corrente → join con Event → proiezione shape
       const pipeline = [
-      { $match: { type: "event", isArchived: false } },
+ { $match: { isArchived: false, type: { $in: ["event", "dm"] } } },
 
       // membership corrente (RoomMember)
       {
@@ -410,6 +474,40 @@ exports.listMine = async (req, res, next) => {
       },
       // tieni solo le room dove esiste membership
       { $unwind: { path: "$me", preserveNullAndEmptyArrays: false } },
+// individua l'altro membro (peer) SOLO per DM
+      {
+        $lookup: {
+          from: "roommembers",
+          let: { roomId: "$_id", me: meObj },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$roomId", "$$roomId"] },
+                    { $ne: ["$userId", "$$me"] }
+                  ]
+                }
+              }
+            },
+            { $limit: 1 },
+            { $project: { _id: 0, userId: 1 } }
+          ],
+          as: "other"
+        }
+      },
+      { $unwind: { path: "$other", preserveNullAndEmptyArrays: true } },
+
+      // lookup utente peer (verrà nullo per le room "event")
+      {
+        $lookup: {
+          from: "users",
+          localField: "other.userId",
+          foreignField: "_id",
+          as: "peerUser"
+        }
+      },
+      { $unwind: { path: "$peerUser", preserveNullAndEmptyArrays: true } },
 
       // join evento per avere id e titolo
       {
@@ -461,18 +559,28 @@ exports.listMine = async (req, res, next) => {
           }
         },
 
-      {
+{
         $project: {
           _id: 1,
+          type: 1,
           title: { $ifNull: ["$title", { $ifNull: ["$ev.title", "Chat evento"] }] },
           activeFrom: 1,
           activeUntil: 1,
-          // costruisci sotto-oggetto event compatibile con rooms.js
+
+          // "event" valorizzato solo per type:"event"
           event: {
-            _id: "$ev._id",
-            id: "$ev._id",
-            title: "$ev.title"
+            _id: { $cond: [{ $eq: ["$type", "event"] }, "$ev._id", null] },
+            id: { $cond: [{ $eq: ["$type", "event"] }, "$ev._id", null] },
+            title: { $cond: [{ $eq: ["$type", "event"] }, "$ev.title", null] }
           },
+
+          // "peer" valorizzato solo per type:"dm"
+          peer: {
+            _id: { $cond: [{ $eq: ["$type", "dm"] }, "$peerUser._id", null] },
+            name: { $cond: [{ $eq: ["$type", "dm"] }, "$peerUser.name", null] },
+            avatar: { $cond: [{ $eq: ["$type", "dm"] }, "$peerUser.profile.avatarUrl", null] }
+          },
+
           unread: { $size: "$unreadArr" },
           lastAt: { $ifNull: ["$last.createdAt", "$updatedAt"] }
         }
