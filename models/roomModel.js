@@ -4,8 +4,11 @@ const { Schema } = mongoose;
 
 const roomSchema = new Schema(
   {
-    type: { type: String, enum: ["event", "topic"], required: true, index: true },
+    type: { type: String, enum: ["event", "topic", "dm"], required: true, index: true },
     eventId: { type: Schema.Types.ObjectId, ref: "Event", default: null, index: true },
+      // Coppia per DM: min/max tra i due userId (solo quando type === "dm")
+    dmA: { type: Schema.Types.ObjectId, ref: "User", default: null, index: true },
+    dmB: { type: Schema.Types.ObjectId, ref: "User", default: null, index: true },
     categoryKey: { type: String, default: null }, // solo per topic (non usato qui)
     title: { type: String, required: true },
     isPrivate: { type: Boolean, default: false }, // evento privato => true (qui: false)
@@ -22,5 +25,5 @@ const roomSchema = new Schema(
 
 // Indici utili
 roomSchema.index({ type: 1, eventId: 1 }, { unique: true, partialFilterExpression: { type: "event", eventId: { $type: "objectId" } } });
-
+roomSchema.index({ type: 1, dmA: 1, dmB: 1 }, { unique: true, partialFilterExpression: { type: "dm", dmA: { $type: "objectId" }, dmB: { $type: "objectId" } } });
 module.exports = mongoose.models.Room || mongoose.model("Room", roomSchema);
