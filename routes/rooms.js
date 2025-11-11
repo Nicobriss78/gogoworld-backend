@@ -6,17 +6,17 @@
 
 const express = require("express");
 const router = express.Router();
-const {
-  openOrJoinEvent,
-  getEventRoomMeta,
-  unlockEvent,
-  listMessages,
-  postMessage,
-  markRead,
-  getRoomsUnreadCount,
-  getUnreadSummary,
-  listMine, // <— AGGIUNTO
-} = require("../controllers/roomsController");
+   const {
+   openOrJoinEvent,
+   openOrJoinDM,
+   getEventRoomMeta,
+   unlockEvent,
+   listMessages,
+   postMessage,
+   markRead,
+   getRoomsUnreadCount,
+   listMine, // <— AGGIUNTO
+   } = require("../controllers/roomsController");
 
 
 // Auth middleware
@@ -60,7 +60,8 @@ router.get("/event/:eventId", protect, getEventRoomMeta);
 router.get("/:roomId/messages", protect, listMessages);
 router.post("/:roomId/messages", protect, roomLimiter, postMessage);
 router.post("/:roomId/read", protect, markRead);
-
+// Routes (DM)
+router.post("/dm/open-or-join", protect, openOrJoinDM);
 // Le mie stanze (dove l'utente è membro o ha interagito)
 router.get("/unread-count", protect, getRoomsUnreadCount);
 router.get("/unread-summary", protect, getUnreadSummary);
