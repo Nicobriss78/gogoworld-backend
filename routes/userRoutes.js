@@ -15,8 +15,8 @@ const {
   verifyEmail,
   forgotPassword,
   resetPassword,
+  searchUsers,
 } = require("../controllers/userController");
-
 
 const { protect } = require("../middleware/auth");
 const { loginLimiter, registerLimiter, writeLimiter } = require("../middleware/rateLimit");
@@ -43,12 +43,15 @@ router.post("/session-role", protect, (req, res) => {
 
 // Private: abilita modalità organizzatore (Opzione B)
 router.post("/me/enable-organizer", protect, enableOrganizer);
+// Private: ricerca utenti
+router.get("/search", protect, searchUsers);
 // Public: email verify / forgot / reset
 router.get("/verify", verifyEmail);
 router.post("/forgot", loginLimiter, forgotPassword);
 router.post("/reset", writeLimiter, resetPassword);
 
 module.exports = router;
+
 
 
 
