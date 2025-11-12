@@ -225,7 +225,6 @@ const resetPassword = asyncHandler(async (req, res) => {
 
 // --- GET /api/users/search?query=... (auth) ---
 // Ritorna: _id, name, avatar (profile.avatarUrl), city, region
-const asyncHandler = require("express-async-handler"); // già presente in testa
 
 const buildRegex = (q) => {
   try {
@@ -272,6 +271,7 @@ module.exports = {
   resetPassword,
   searchUsers,
 };
+
 
 
 
