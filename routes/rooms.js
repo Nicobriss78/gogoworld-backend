@@ -6,17 +6,18 @@
 
 const express = require("express");
 const router = express.Router();
-   const {
-   openOrJoinEvent,
-   openOrJoinDM,
-   getEventRoomMeta,
-   unlockEvent,
-   listMessages,
-   postMessage,
-   markRead,
-   getRoomsUnreadCount,
-   listMine, // <— AGGIUNTO
-   } = require("../controllers/roomsController");
+const {
+  openOrJoinEvent,
+  openOrJoinDM,
+  getEventRoomMeta,
+  unlockEvent,
+  listMessages,
+  postMessage,
+  markRead,
+  getRoomsUnreadCount,
+  getUnreadSummary, // <-- aggiungi questo
+  listMine,
+} = require("../controllers/roomsController");
 
 
 // Auth middleware
