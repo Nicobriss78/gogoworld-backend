@@ -223,6 +223,44 @@ const resetPassword = asyncHandler(async (req, res) => {
   res.json({ ok: true, reset: true });
 });
 
+// --- GET /api/users/search?query=... (auth) ---
+// Ritorna: _id, name, avatar (profile.avatarUrl), city, region
+const asyncHandler = require("express-async-handler"); // già presente in testa
+
+const buildRegex = (q) => {
+  try {
+    return new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+  } catch {
+    return new RegExp("", "i");
+  }
+};
+
+const searchUsers = asyncHandler(async (req, res) => {
+  const q = String(req.query.query || "").trim();
+  if (!q || q.length < 2) {
+    return res.json({ ok: true, data: [] });
+  }
+  const rx = buildRegex(q);
+  const rows = await User.find(
+    {
+      isBanned: false,
+      $or: [{ name: rx }, { "profile.nickname": rx }],
+    },
+    { name: 1, "profile.avatarUrl": 1, "profile.city": 1, "profile.region": 1 }
+  )
+    .sort({ name: 1 })
+    .limit(20)
+    .lean();
+
+  const data = rows.map((u) => ({
+    _id: u._id,
+    name: u.name,
+    avatar: u.profile?.avatarUrl || null,
+    city: u.profile?.city || null,
+    region: u.profile?.region || null,
+  }));
+  return res.json({ ok: true, data });
+});
 
 module.exports = {
   registerUser,
@@ -232,7 +270,9 @@ module.exports = {
   verifyEmail,
   forgotPassword,
   resetPassword,
+  searchUsers,
 };
+
 
 
 
