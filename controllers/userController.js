@@ -240,11 +240,14 @@ const searchUsers = asyncHandler(async (req, res) => {
     return res.json({ ok: true, data: [] });
   }
   const rx = buildRegex(q);
-  const rows = await User.find(
+  const meId = req.user && req.user._id;
+const rows = await User.find(
     {
       isBanned: false,
+      ...(meId ? { _id: { $ne: meId } } : {}),
       $or: [{ name: rx }, { "profile.nickname": rx }],
     },
+
     { name: 1, "profile.avatarUrl": 1, "profile.city": 1, "profile.region": 1 }
   )
     .sort({ name: 1 })
@@ -271,6 +274,7 @@ module.exports = {
   resetPassword,
   searchUsers,
 };
+
 
 
 
