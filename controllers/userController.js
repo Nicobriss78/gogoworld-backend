@@ -289,7 +289,6 @@ const searchUsers = asyncHandler(async (req, res) => {
       hasBlockedMe,
       role: u.role || null, // ⬅️ AGGIUNTO
       };
-    };
   });
 
   return res.json({ ok: true, data });
@@ -387,6 +386,7 @@ module.exports = {
   blockUser,
   unblockUser,
 };
+
 
 
 
