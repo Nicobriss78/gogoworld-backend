@@ -239,29 +239,108 @@ const searchUsers = asyncHandler(async (req, res) => {
   if (!q || q.length < 2) {
     return res.json({ ok: true, data: [] });
   }
+
   const rx = buildRegex(q);
   const meId = req.user && req.user._id;
-const rows = await User.find(
+
+  // Carichiamo l'utente corrente solo se loggato, per sapere chi ha bloccato chi
+  let me = null;
+  if (meId) {
+    me = await User.findById(meId).select("blockedUsers").lean();
+  }
+
+  const rows = await User.find(
     {
       isBanned: false,
       ...(meId ? { _id: { $ne: meId } } : {}),
       $or: [{ name: rx }, { "profile.nickname": rx }],
     },
-
-    { name: 1, "profile.avatarUrl": 1, "profile.city": 1, "profile.region": 1 }
+    {
+      name: 1,
+      "profile.avatarUrl": 1,
+      "profile.city": 1,
+      "profile.region": 1,
+      blockedUsers: 1, // per capire se l'altro ha bloccato me
+    }
   )
     .sort({ name: 1 })
     .limit(20)
     .lean();
 
-  const data = rows.map((u) => ({
-    _id: u._id,
-    name: u.name,
-    avatar: u.profile?.avatarUrl || null,
-    city: u.profile?.city || null,
-    region: u.profile?.region || null,
-  }));
+  const meIdStr = meId ? meId.toString() : null;
+
+  const data = rows.map((u) => {
+    const uid = u._id.toString();
+
+    const blockedByMe =
+      me?.blockedUsers?.some((id) => id.toString() === uid) || false;
+
+    const hasBlockedMe =
+      u.blockedUsers?.some((id) => id.toString() === meIdStr) || false;
+
+    return {
+      _id: u._id,
+      name: u.name,
+      avatar: u.profile?.avatarUrl || null,
+      city: u.profile?.city || null,
+      region: u.profile?.region || null,
+      blockedByMe,
+      hasBlockedMe,
+    };
+  });
+
   return res.json({ ok: true, data });
+});
+
+// -----------------------------------------------------------------------------
+// 31.2 - Blocchi utente (block/unblock)
+// -----------------------------------------------------------------------------
+
+/**
+ * POST /api/users/block
+ * Body: { userId }
+ * L'utente loggato blocca userId
+ */
+const blockUser = asyncHandler(async (req, res) => {
+  const meId = req.user._id;
+  const { userId } = req.body || {};
+
+  if (!userId || userId === meId.toString()) {
+    return res.status(400).json({ message: "Invalid userId" });
+  }
+
+  const me = await User.findById(meId).select("blockedUsers");
+  if (!me) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  if (!me.blockedUsers.some((id) => id.toString() === userId)) {
+    me.blockedUsers.push(userId);
+    await me.save();
+  }
+
+  return res.json({ ok: true, blocked: true });
+});
+
+/**
+ * POST /api/users/unblock
+ * Body: { userId }
+ */
+const unblockUser = asyncHandler(async (req, res) => {
+  const meId = req.user._id;
+  const { userId } = req.body || {};
+
+  const me = await User.findById(meId).select("blockedUsers");
+  if (!me) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  me.blockedUsers = me.blockedUsers.filter(
+    (id) => id.toString() !== String(userId)
+  );
+  await me.save();
+
+  return res.json({ ok: true, blocked: false });
 });
 
 module.exports = {
@@ -273,7 +352,11 @@ module.exports = {
   forgotPassword,
   resetPassword,
   searchUsers,
+  blockUser,
+  unblockUser,
 };
+
+
 
 
 
