@@ -16,6 +16,8 @@ const {
   forgotPassword,
   resetPassword,
   searchUsers,
+  blockUser,
+  unblockUser,
 } = require("../controllers/userController");
 
 const { protect } = require("../middleware/auth");
@@ -45,12 +47,17 @@ router.post("/session-role", protect, (req, res) => {
 router.post("/me/enable-organizer", protect, enableOrganizer);
 // Private: ricerca utenti
 router.get("/search", protect, searchUsers);
+// Private: block / unblock utente (DM / abuso)
+router.post("/:userId/block", protect, blockUser);
+router.post("/:userId/unblock", protect, unblockUser);
 // Public: email verify / forgot / reset
 router.get("/verify", verifyEmail);
 router.post("/forgot", loginLimiter, forgotPassword);
 router.post("/reset", writeLimiter, resetPassword);
 
+
 module.exports = router;
+
 
 
 
