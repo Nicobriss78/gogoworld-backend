@@ -303,7 +303,7 @@ const searchUsers = asyncHandler(async (req, res) => {
  */
 const blockUser = asyncHandler(async (req, res) => {
   const meId = req.user._id;
-  const { userId } = req.body || {};
+  const userId = req.params.userId || (req.body && req.body.userId);
 
   if (!userId || userId === meId.toString()) {
     return res.status(400).json({ message: "Invalid userId" });
@@ -328,7 +328,7 @@ const blockUser = asyncHandler(async (req, res) => {
  */
 const unblockUser = asyncHandler(async (req, res) => {
   const meId = req.user._id;
-  const { userId } = req.body || {};
+  const userId = req.params.userId || (req.body && req.body.userId);
 
   const me = await User.findById(meId).select("blockedUsers");
   if (!me) {
@@ -355,6 +355,7 @@ module.exports = {
   blockUser,
   unblockUser,
 };
+
 
 
 
