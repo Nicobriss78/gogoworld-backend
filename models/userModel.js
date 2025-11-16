@@ -41,7 +41,15 @@ resetTokenExpires: { type: Date },
         dmsFrom: { type: String, enum: ["everyone","followers","nobody"], default: "everyone" }
       }
     },
+    
+    // Blocchi utente (31.1) — elenco degli utenti che questo utente ha bloccato
+    // Usato per:
+    // - vietare DM se A ha bloccato B o B ha bloccato A
+    // - in futuro, nascondere contenuti di utenti bloccati (recensioni / chat, ecc.)
+    blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
 
+    // ★ NEW: Gamification / Reputation
+    score: { type: Number, default: 0 },
     // ★ NEW: Gamification / Reputation
     score: { type: Number, default: 0 },
     status: {
@@ -84,6 +92,7 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
 
 const User = mongoose.model("User", userSchema);
 module.exports = User;
+
 
 
 
