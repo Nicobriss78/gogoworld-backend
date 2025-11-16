@@ -261,6 +261,7 @@ const searchUsers = asyncHandler(async (req, res) => {
       "profile.city": 1,
       "profile.region": 1,
       blockedUsers: 1, // per capire se l'altro ha bloccato me
+      role: 1,
     }
   )
     .sort({ name: 1 })
@@ -286,6 +287,8 @@ const searchUsers = asyncHandler(async (req, res) => {
       region: u.profile?.region || null,
       blockedByMe,
       hasBlockedMe,
+      role: u.role || null, // ⬅️ AGGIUNTO
+      };
     };
   });
 
@@ -302,25 +305,48 @@ const searchUsers = asyncHandler(async (req, res) => {
  * L'utente loggato blocca userId
  */
 const blockUser = asyncHandler(async (req, res) => {
-  const meId = req.user._id;
-  const userId = req.params.userId || (req.body && req.body.userId);
+  const meId = req.user && req.user._id;
+  const targetId = req.params.userId || (req.body && req.body.userId);
 
-  if (!userId || userId === meId.toString()) {
-    return res.status(400).json({ message: "Invalid userId" });
+  if (!meId || !targetId) {
+    return res.status(400).json({ ok: false, error: "Dati mancanti" });
   }
 
+  // Non posso bloccare me stesso
+  if (String(meId) === String(targetId)) {
+    return res
+      .status(400)
+      .json({ ok: false, error: "Non puoi bloccare te stesso" });
+  }
+
+  // Recupero utente bersaglio (serve ruolo)
+  const target = await User.findById(targetId).select("role");
+  if (!target) {
+    return res.status(404).json({ ok: false, error: "Utente non trovato" });
+  }
+
+  // 🚫 BLOCCO DELL'ADMIN NON CONSENTITO
+  if (target.role === "admin") {
+    return res
+      .status(403)
+      .json({ ok: false, error: "Non puoi bloccare l'amministratore" });
+  }
+
+  // Recupero l'utente corrente
   const me = await User.findById(meId).select("blockedUsers");
   if (!me) {
-    return res.status(404).json({ message: "User not found" });
+    return res.status(404).json({ ok: false, error: "User not found" });
   }
 
-  if (!me.blockedUsers.some((id) => id.toString() === userId)) {
-    me.blockedUsers.push(userId);
+  // Aggiungo ai bloccati solo se non già presente
+  if (!me.blockedUsers.some((id) => id.toString() === String(targetId))) {
+    me.blockedUsers.push(targetId);
     await me.save();
   }
 
   return res.json({ ok: true, blocked: true });
 });
+
 
 /**
  * POST /api/users/unblock
@@ -355,6 +381,7 @@ module.exports = {
   blockUser,
   unblockUser,
 };
+
 
 
 
