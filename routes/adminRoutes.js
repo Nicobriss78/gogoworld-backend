@@ -70,17 +70,16 @@ router.post("/users/:id/can-organize", adminLimiter, requireInternalKey, protect
 
 // ---------------------------------------------------------------------------
 // Import massivo (CSV) – solo Admin
-// ---------------------------------------------------------------------------
-// PATCH: usa uploadCsvSafe (multer memory + MIME/size CSV) + adminLimiter
+// Nota: per questa rotta NON usiamo requireInternalKey perché l'admin è già autenticato via JWT
 router.post(
   "/import/events",
-  adminLimiter,
-  requireInternalKey,
   protect,
   authorize("admin"),
+  adminLimiter,
   uploadCsvSafe,
   importEventsCsv
 );
+
 // ---------------------------------------------------------------------------
 // Monitoraggio errori client (Admin FE → Backend → Sentry)
 // Protetta da: requireInternalKey + monitorLimiter
