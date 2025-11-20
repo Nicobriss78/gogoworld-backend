@@ -16,12 +16,15 @@ const {
   unbanUser,
   setUserRole,
   setUserCanOrganize,
-  importEventsCsv,
   exportUsersCsv,
 } = require("../controllers/adminController");
 
+// Nuovo controller dedicato all'import CSV eventi
+const { importCsv } = require("../controllers/importController");
+
 // PATCH: upload CSV coerente con middleware/upload.js (memoryStorage + controlli CSV)
 const { uploadCsvSafe } = require("../middleware/upload");
+
 
 // PATCH (5): rate limiting per azioni admin
 const { adminLimiter, monitorLimiter } = require("../middleware/rateLimit");
@@ -77,7 +80,7 @@ router.post(
   authorize("admin"),
   adminLimiter,
   uploadCsvSafe,
-  importEventsCsv
+  importCsv
 );
 
 // ---------------------------------------------------------------------------
