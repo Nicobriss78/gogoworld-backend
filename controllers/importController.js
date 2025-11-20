@@ -87,7 +87,8 @@ const importCsv = async (req, res, next) => {
         .json({ ok: false, error: `Formato CSV non valido: ${err.message || "parse error"}` });
     }
 
-    const dryRun = String(req.query.dryRun || "").toLowerCase() === "true";
+const dryRun =
+  String(req.query.dryRun || (req.body && req.body.simulate) || "").toLowerCase() === "true";
 
     let results = [];
     let created = 0;
