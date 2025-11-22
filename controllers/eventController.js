@@ -196,6 +196,40 @@ const getEventById = asyncHandler(async (req, res) => {
   const payload = attachStatusToOne(event, now);
   res.json({ ok: true, event: payload });
 });
+// @desc Accesso evento privato tramite codice invito
+// @route POST /api/events/access-code
+// @access Private (utente loggato)
+const accessPrivateEventByCode = asyncHandler(async (req, res) => {
+  const code = (req.body && req.body.code ? String(req.body.code) : "").trim();
+
+  if (!code) {
+    res.status(400);
+    throw new Error("Codice invito mancante");
+  }
+
+  // Evento privato, approvato, con quel codice
+  const event = await Event.findOne({
+    accessCode: code,
+    visibility: "private",
+    approvalStatus: "approved",
+  }).populate("organizer", "name email");
+
+  if (!event) {
+    res.status(404);
+    throw new Error("Evento privato non trovato o non più disponibile");
+  }
+
+  const now = new Date();
+  const payload = attachStatusToOne(event, now);
+
+  // Se ormai è passato del tutto, non ha senso “sbloccarlo” come privato
+  if (payload.status === "past") {
+    res.status(410);
+    throw new Error("Questo evento privato è già concluso");
+  }
+
+  res.json({ ok: true, event: payload });
+});
 
 // @desc Crea un nuovo evento
 // @route POST /api/events
@@ -535,6 +569,7 @@ module.exports = {
   listEvents,
   listMyEvents,
   getEventById,
+  accessPrivateEventByCode, // ← NEW
   createEvent,
   updateEvent,
   deleteEvent,
