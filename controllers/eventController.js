@@ -148,28 +148,52 @@ function validateEventInput(body) {
 // @access Public
 const listEvents = asyncHandler(async (req, res) => {
   const filters = buildFilters(req.query);
+  const userId = req.user?._id;
+
+  // Visibilità di default:
+  // - se NON loggato: solo "public"
+  // - se loggato: tutti i "public" + i "private" dove l'utente è tra i partecipanti
   if (!req.query.visibility) {
-    filters.visibility = "public";
+    if (userId) {
+      // niente filtro diretto su visibility: usiamo un $or
+      delete filters.visibility;
+      filters.$or = [
+        { visibility: "public" },
+        { visibility: "private", participants: userId }
+      ];
+    } else {
+      filters.visibility = "public";
+    }
   }
-  // default pubblico: solo approvati, salvo override esplicito
+
+  // default: solo eventi approvati, salvo override esplicito
   if (!req.query.approvalStatus) {
     filters.approvalStatus = "approved";
   }
-// #CACHE-ADAPTER
+
+  // Cache: solo per utenti NON loggati (così non mischiamo i risultati per utente)
+  const useCache = !userId;
   const cacheKey = "events:list:" + JSON.stringify(req.query || {});
-  const cached = cache.get(cacheKey);
-  if (cached) {
-    logger.debug("[cache] HIT listEvents", cacheKey);
-    return res.json({ ok: true, events: cached });
+  if (useCache) {
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      logger.debug("[cache] HIT listEvents", cacheKey);
+      return res.json({ ok: true, events: cached });
+    }
   }
 
   const events = await Event.find(filters).sort({ dateStart: 1 });
   const now = new Date();
   const payload = attachStatusToArray(events, now);
-  cache.set(cacheKey, payload, 60000); // TTL 60s
-  logger.debug("[cache] MISS listEvents", cacheKey);
+
+  if (useCache) {
+    cache.set(cacheKey, payload, 60000); // TTL 60s
+    logger.debug("[cache] MISS listEvents", cacheKey);
+  }
+
   res.json({ ok: true, events: payload });
-  });
+});
+
 
 // @desc Ottiene eventi creati dall’organizzatore corrente
 // @route GET /api/events/mine/list
@@ -578,6 +602,7 @@ module.exports = {
   getParticipation, // ← PATCH S6 export
   closeEventAndAward, // ← NEW export
 };
+
 
 
 
