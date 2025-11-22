@@ -10,6 +10,7 @@ const {
   listEvents,
   createEvent,
   getEventById,
+  accessPrivateEventByCode, // ← NEW
   updateEvent,
   deleteEvent,
   joinEvent,
@@ -43,6 +44,11 @@ router.delete("/:id", writeLimiter, protect, authorize("organizer"), deleteEvent
 router.put("/:id/close", adminLimiter, protect, authorize("admin"), closeEventAndAward);
 
 // --------------------------------------------------------
+// Eventi privati (accesso tramite codice invito)
+// --------------------------------------------------------
+router.post("/access-code", protect, accessPrivateEventByCode);
+
+// --------------------------------------------------------
 // Partecipazione eventi
 // --------------------------------------------------------
 router.post("/:id/join", participationLimiter, protect, joinEvent);
@@ -52,6 +58,7 @@ router.post("/:id/leave", participationLimiter, protect, leaveEvent);
 router.get("/:id/participation", protect, getParticipation);
 
 module.exports = router;
+
 
 
 
