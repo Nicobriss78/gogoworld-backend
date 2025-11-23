@@ -27,25 +27,28 @@ exports.openOrJoinEvent = async (req, res, next) => {
     const { eventId } = req.params;
     if (!isValidObjectId(eventId)) return res.status(400).json({ ok: false, error: "INVALID_EVENT_ID" });
     const eventIdObj = new mongoose.Types.ObjectId(eventId);
-    // Carica evento per titolo e finestra
+// Carica evento per titolo e finestra
     const ev = await Event.findById(eventId).lean();
     if (!ev) return res.status(404).json({ ok: false, error: "EVENT_NOT_FOUND" });
-    // Evento privato: se manca o non coincide il codice, non creare/ritornare la room
-    if (ev.isPrivate) {
-      const provided = (req.body && typeof req.body.code === "string") ? req.body.code.trim() : "";
-      const expected = (ev.accessCode || "").trim();
-      if (!provided || !expected || provided !== expected) {
-        // locked finché non viene fornito il codice corretto
-        return res.json({
-          ok: true,
-          data: {
-            locked: true,
-        // opzionale: puoi mostrare titolo/durata senza roomId
-        title: ev.title || "Evento privato",
-      }
-    });
-  }
-}
+
+    // Evento privato: accesso consentito solo a organizzatore o partecipanti
+    const isOrganizer =
+      ev.organizer && String(ev.organizer) === String(meId);
+    const isParticipant =
+      Array.isArray(ev.participants) &&
+      ev.participants.some(p => String(p) === String(meId));
+
+    if (ev.isPrivate && !isOrganizer && !isParticipant) {
+      // locked finché l'utente non ha aderito all'evento
+      return res.json({
+        ok: true,
+        data: {
+          locked: true,
+          title: ev.title || "Evento privato",
+        },
+      });
+    }
+
     // Calcola finestra chat (default: -48h / +24h)
    const startAt = new Date(ev.dateStart);
    const endAt = new Date(ev.dateEnd || ev.dateStart);
