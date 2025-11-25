@@ -535,6 +535,70 @@ const getParticipation = asyncHandler(async (req, res) => {
     && event.participants.some((p) => p.toString() === req.user._id.toString());
   res.json({ ok: true, in: inList });
 });
+// ---------------------------------------------------------------------
+// Admin: recupera codice evento privato
+// ---------------------------------------------------------------------
+async function getPrivateAccessCodeAdmin(req, res) {
+  try {
+    const eventId = req.params.id;
+    const event = await Event.findById(eventId);
+
+    if (!event) {
+      return res.status(404).json({ ok: false, error: "EVENT_NOT_FOUND" });
+    }
+
+    if (event.visibility !== "private") {
+      return res.status(400).json({
+        ok: false,
+        error: "EVENT_NOT_PRIVATE",
+      });
+    }
+
+    return res.json({
+      ok: true,
+      eventId: event._id,
+      accessCode: event.accessCode || null,
+    });
+  } catch (err) {
+    console.error("getPrivateAccessCodeAdmin error", err);
+    return res.status(500).json({ ok: false, error: "SERVER_ERROR" });
+  }
+}
+
+// ---------------------------------------------------------------------
+// Admin: rigenera codice evento privato
+// ---------------------------------------------------------------------
+async function rotatePrivateAccessCodeAdmin(req, res) {
+  try {
+    const eventId = req.params.id;
+    const event = await Event.findById(eventId);
+
+    if (!event) {
+      return res.status(404).json({ ok: false, error: "EVENT_NOT_FOUND" });
+    }
+
+    if (event.visibility !== "private") {
+      return res.status(400).json({
+        ok: false,
+        error: "EVENT_NOT_PRIVATE",
+      });
+    }
+
+    const newCode = generatePrivateCode();
+    event.accessCode = newCode;
+    await event.save();
+
+    return res.json({
+      ok: true,
+      eventId: event._id,
+      newCode,
+    });
+  } catch (err) {
+    console.error("rotatePrivateAccessCodeAdmin error", err);
+    return res.status(500).json({ ok: false, error: "SERVER_ERROR" });
+  }
+}
+
 // @desc Chiude evento e assegna punti ai partecipanti
 // @route PUT /api/events/:id/close
 // @access Private (admin)
@@ -588,6 +652,21 @@ logger.error("[closeEventAndAward] error:", err);
     throw new Error("Errore nella chiusura evento");
   }
 });
+// ---------------------------------------------------------------------
+// Utility interna: genera codice privato sicuro (admin rotation)
+// ---------------------------------------------------------------------
+function generatePrivateCode() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const length = 8;
+  let out = "";
+  const crypto = require("crypto");
+  const buf = crypto.randomBytes(length);
+
+  for (let i = 0; i < length; i++) {
+    out += alphabet[buf[i] % alphabet.length];
+  }
+  return out;
+}
 
 module.exports = {
   listEvents,
@@ -601,7 +680,10 @@ module.exports = {
   leaveEvent,
   getParticipation, // ← PATCH S6 export
   closeEventAndAward, // ← NEW export
+  getPrivateAccessCodeAdmin,
+  rotatePrivateAccessCodeAdmin,
 };
+
 
 
 
