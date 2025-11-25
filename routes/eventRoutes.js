@@ -17,6 +17,9 @@ const {
   leaveEvent,
   listMyEvents,
   getParticipation, // PATCH S6: aggiunto export
+  // Gestione codice evento privato (admin)
+  getPrivateAccessCodeAdmin,
+  rotatePrivateAccessCodeAdmin,
 } = require("../controllers/eventController");
 
 const { protect, authorize } = require("../middleware/auth");
@@ -47,6 +50,22 @@ router.put("/:id/close", adminLimiter, protect, authorize("admin"), closeEventAn
 // Eventi privati (accesso tramite codice invito)
 // --------------------------------------------------------
 router.post("/access-code", protect, accessPrivateEventByCode);
+// Gestione codice evento privato (admin)
+router.get(
+  "/:id/access-code",
+  adminLimiter,
+  protect,
+  authorize("admin"),
+  getPrivateAccessCodeAdmin
+);
+
+router.post(
+  "/:id/access-code/rotate",
+  adminLimiter,
+  protect,
+  authorize("admin"),
+  rotatePrivateAccessCodeAdmin
+);
 
 // --------------------------------------------------------
 // Partecipazione eventi
@@ -58,6 +77,7 @@ router.post("/:id/leave", participationLimiter, protect, leaveEvent);
 router.get("/:id/participation", protect, getParticipation);
 
 module.exports = router;
+
 
 
 
