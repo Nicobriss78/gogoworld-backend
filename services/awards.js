@@ -2,8 +2,23 @@
 const mongoose = require("mongoose");
 const User = require("../models/userModel");
 const Event = require("../models/eventModel");
+const Activity = require("../models/activityModel"); // A2.3 – Activity log
 const { logger } = require("../core/logger");
 const cache = require("../adapters/cache");
+
+// A2.3 – helper per creare Activity senza bloccare i flussi principali
+async function safeCreateActivity(payload) {
+  try {
+    await Activity.create(payload);
+  } catch (err) {
+    try {
+      logger.warn("[Activity] create failed", { error: err && err.message });
+    } catch {
+      // fallback minimale se il logger non è disponibile
+      console.warn("[Activity] create failed", err);
+    }
+  }
+}
 
 // Soglie status per score
 function statusFromScore(score = 0) {
@@ -16,14 +31,33 @@ function statusFromScore(score = 0) {
 // Ricalcola e salva status in base allo score corrente
 async function recalcStatus(user) {
   const newStatus = statusFromScore(user.score || 0);
-  if (user.status !== newStatus) {
+  const oldStatus = user.status;
+
+  const changed = oldStatus !== newStatus;
+  if (changed) {
     user.status = newStatus;
   }
+
   user.stats = user.stats || {};
   user.stats.lastScoreUpdateAt = new Date();
   await user.save({ validateModifiedOnly: true });
+
+  // A2.3 – log Activity: level up effettivo
+  if (changed) {
+    safeCreateActivity({
+      user: user._id,
+      type: "level_up",
+      event: null,
+      payload: {
+        from: oldStatus || null,
+        to: newStatus
+      }
+    });
+  }
+
   return user.status;
 }
+
 
 // Award per recensione APPROVATA
 // di default: +2 punti e +1 reviewsApproved
