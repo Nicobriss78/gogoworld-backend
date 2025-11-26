@@ -323,12 +323,12 @@ const event = new Event({
     organizerId: req.user?._id?.toString?.() || String(req.user?._id || ""),
   });
 
-  // A2.3 – log Activity: evento creato
+// A2.3 – log Activity: evento creato
   safeCreateActivity({
     user: req.user._id,
     type: "created_event",
     event: created._id,
-    metadata: {
+    payload: {
       title: created.title,
       city: created.city,
       region: created.region,
@@ -336,7 +336,6 @@ const event = new Event({
       dateStart: created.dateStart,
       dateEnd: created.dateEnd,
     },
-    visibility: "followers",
   });
 
   cache.delByPrefix("events:list:");
@@ -530,12 +529,12 @@ if (!event.participants.some((p) => p.toString() === req.user._id.toString())) {
       participantId: req.user?._id?.toString?.() || String(req.user?._id || ""),
     });
 
-    // A2.3 – log Activity: partecipazione ad evento
+// A2.3 – log Activity: partecipazione ad evento
     safeCreateActivity({
       user: req.user._id,
       type: "joined_event",
       event: event._id,
-      metadata: {
+      payload: {
         title: event.title,
         city: event.city,
         region: event.region,
@@ -543,8 +542,8 @@ if (!event.participants.some((p) => p.toString() === req.user._id.toString())) {
         dateStart: event.dateStart,
         dateEnd: event.dateEnd,
       },
-      visibility: "followers",
     });
+
   }
 
   res.json({ ok: true, event });
@@ -697,14 +696,14 @@ try {
     event.awardedClosedAt = new Date();
     await event.save({ validateModifiedOnly: true });
 
-    // A2.3 – log Activity: evento effettivamente “frequentato”
+// A2.3 – log Activity: evento effettivamente “frequentato”
     // Una Activity per ogni partecipante
     participants.forEach((userId) => {
       safeCreateActivity({
         user: userId,
         type: "attended_event",
         event: event._id,
-        metadata: {
+        payload: {
           title: event.title,
           city: event.city,
           region: event.region,
@@ -712,7 +711,6 @@ try {
           dateStart: event.dateStart,
           dateEnd: event.dateEnd,
         },
-        visibility: "followers",
       });
     });
 
@@ -755,6 +753,7 @@ module.exports = {
   getPrivateAccessCodeAdmin,
   rotatePrivateAccessCodeAdmin,
 };
+
 
 
 
