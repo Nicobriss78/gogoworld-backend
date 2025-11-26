@@ -7,12 +7,26 @@ const User = require("../models/userModel");
 const { awardForApprovedReview } = require("../services/awards");
 const { logger } = require("../core/logger"); // #CORE-LOGGER C1
 const { notify } = require("../services/notifications"); // #NOTIFY-ADAPTER
+const Activity = require("../models/activityModel"); // A2.3 – Activity log
+
 
 /**
  * Helpers
  */
 const nowUtc = () => new Date();
 const isObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
+// A2.3 – helper per creare Activity senza bloccare il flusso
+async function safeCreateActivity(payload) {
+  try {
+    await Activity.create(payload);
+  } catch (err) {
+    if (logger && typeof logger.warn === "function") {
+      logger.warn("[Activity] create failed", err);
+    } else {
+      console.warn("[Activity] create failed", err);
+    }
+  }
+}
 
 /**
  * GET /api/reviews
@@ -272,17 +286,30 @@ exports.adminApprove = async (req, res) => {
     );
 
     if (!doc) return res.status(404).json({ ok: false, error: "Review not found" });
-    // PATCH awards: assegna punti al partecipante della recensione approvata
-try {
-  await awardForApprovedReview(doc.participant);
-} catch (e) {
-  logger.warn("[awards] adminApprove failed award:", e?.message || e);
-}
+// PATCH awards: assegna punti al partecipante della recensione approvata
+    try {
+      await awardForApprovedReview(doc.participant);
+    } catch (e) {
+      logger.warn("[awards] adminApprove failed award:", e?.message || e);
+    }
+
+    // A2.3 – log Activity: recensione approvata/pubblicata
+    safeCreateActivity({
+      user: doc.participant,
+      type: "review_event",
+      event: doc.event,
+      payload: {
+        rating: doc.rating,
+        organizer: doc.organizer,
+        snippet: doc.comment ? String(doc.comment).slice(0, 80) : ""
+      }
+    });
+
     await notify("review_approved", {
-  reviewId: doc?._id?.toString?.() || String(doc?._id || ""),
-  eventId: doc?.event?.toString?.() || String(doc?.event || ""),
-  participantId: doc?.participant?.toString?.() || String(doc?.participant || ""),
-});
+      reviewId: doc?._id?.toString?.() || String(doc?._id || ""),
+      eventId: doc?.event?.toString?.() || String(doc?.event || ""),
+      participantId: doc?.participant?.toString?.() || String(doc?.participant || ""),
+    });
 
     return res.json({ ok: true, review: { _id: doc._id, status: doc.status } });
   } catch (err) {
