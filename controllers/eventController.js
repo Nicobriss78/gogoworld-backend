@@ -1,4 +1,5 @@
 const Event = require("../models/eventModel");
+const Activity = require("../models/activityModel"); // A2.3 – Activity log
 const { awardForAttendance } = require("../services/awards");
 const asyncHandler = require("express-async-handler");
 const { config } = require("../config");
@@ -56,6 +57,20 @@ function attachStatusToOne(doc, now = new Date()) {
   if (!doc) return doc;
   const obj = typeof doc.toObject === "function" ? doc.toObject() : doc;
   return { ...obj, status: computeEventStatus(obj, now) };
+}
+
+// A2.3 – helper per creare Activity senza bloccare il flusso principale
+async function safeCreateActivity(payload) {
+  try {
+    await Activity.create(payload);
+  } catch (err) {
+    if (logger && typeof logger.warn === "function") {
+      logger.warn("[Activity] create failed", err);
+    } else {
+      // fallback minimale se il logger non è disponibile
+      console.warn("[Activity] create failed", err);
+    }
+  }
 }
 
 // Costruisce filtri dinamici dalle query string
@@ -293,7 +308,7 @@ const createEvent = asyncHandler(async (req, res) => {
   if (body.lon != null && !isNaN(Number(String(body.lon).replace(",", ".")))) {
     body.lon = Number(String(body.lon).replace(",", "."));
   }
-  const event = new Event({
+const event = new Event({
     ...body,
     isFree,
     price,
@@ -302,13 +317,32 @@ const createEvent = asyncHandler(async (req, res) => {
   });
 
   const created = await event.save();
+
   await notify("event_created", {
-  eventId: created?._id?.toString?.() || String(created?._id || ""),
-  organizerId: req.user?._id?.toString?.() || String(req.user?._id || ""),
+    eventId: created?._id?.toString?.() || String(created?._id || ""),
+    organizerId: req.user?._id?.toString?.() || String(req.user?._id || ""),
+  });
+
+  // A2.3 – log Activity: evento creato
+  safeCreateActivity({
+    user: req.user._id,
+    type: "created_event",
+    event: created._id,
+    metadata: {
+      title: created.title,
+      city: created.city,
+      region: created.region,
+      country: created.country,
+      dateStart: created.dateStart,
+      dateEnd: created.dateEnd,
+    },
+    visibility: "followers",
+  });
+
+  cache.delByPrefix("events:list:");
+  res.status(201).json({ ok: true, event: created });
 });
-cache.delByPrefix("events:list:");
-res.status(201).json({ ok: true, event: created });
-});
+
 
 // @desc Aggiorna un evento
 // @route PUT /api/events/:id
@@ -487,15 +521,32 @@ return false;
     throw new Error("Non puoi partecipare a un evento già concluso");
   }
 
-  if (!event.participants.some((p) => p.toString() === req.user._id.toString())) {
+if (!event.participants.some((p) => p.toString() === req.user._id.toString())) {
     event.participants.push(req.user._id);
     await event.save();
-    await notify("event_joined", {
-  eventId: event?._id?.toString?.() || String(event?._id || ""),
-  participantId: req.user?._id?.toString?.() || String(req.user?._id || ""),
-});
 
+    await notify("event_joined", {
+      eventId: event?._id?.toString?.() || String(event?._id || ""),
+      participantId: req.user?._id?.toString?.() || String(req.user?._id || ""),
+    });
+
+    // A2.3 – log Activity: partecipazione ad evento
+    safeCreateActivity({
+      user: req.user._id,
+      type: "joined_event",
+      event: event._id,
+      metadata: {
+        title: event.title,
+        city: event.city,
+        region: event.region,
+        country: event.country,
+        dateStart: event.dateStart,
+        dateEnd: event.dateEnd,
+      },
+      visibility: "followers",
+    });
   }
+
   res.json({ ok: true, event });
 });
 
@@ -638,20 +689,41 @@ if (!hasEnded) {
     return res.json({ ok: true, message: "Nessun partecipante da premiare", awarded: 0 });
   }
 
-  try {
-const count = await awardForAttendance(participants);
+try {
+    const count = await awardForAttendance(participants);
+
     // Flag idempotenza su evento
     event.awardedClosed = true;
     event.awardedClosedAt = new Date();
     await event.save({ validateModifiedOnly: true });
 
+    // A2.3 – log Activity: evento effettivamente “frequentato”
+    // Una Activity per ogni partecipante
+    participants.forEach((userId) => {
+      safeCreateActivity({
+        user: userId,
+        type: "attended_event",
+        event: event._id,
+        metadata: {
+          title: event.title,
+          city: event.city,
+          region: event.region,
+          country: event.country,
+          dateStart: event.dateStart,
+          dateEnd: event.dateEnd,
+        },
+        visibility: "followers",
+      });
+    });
+
     return res.json({ ok: true, message: "Premi assegnati", awarded: count, eventId: id });
   } catch (err) {
-logger.error("[closeEventAndAward] error:", err);
+    logger.error("[closeEventAndAward] error:", err);
     res.status(500);
     throw new Error("Errore nella chiusura evento");
   }
 });
+
 // ---------------------------------------------------------------------
 // Utility interna: genera codice privato sicuro (admin rotation)
 // ---------------------------------------------------------------------
@@ -683,6 +755,7 @@ module.exports = {
   getPrivateAccessCodeAdmin,
   rotatePrivateAccessCodeAdmin,
 };
+
 
 
 
