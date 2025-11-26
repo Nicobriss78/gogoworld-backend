@@ -5,8 +5,8 @@
 const asyncHandler = require("express-async-handler");
 const Event = require("../models/eventModel");
 const User = require("../models/userModel");
+const Activity = require("../models/activityModel");
 const { notify } = require("../services/notifications");
-
 // -----------------------------
 // Utils
 // -----------------------------
@@ -38,6 +38,21 @@ function logAdmin(action, data) {
     console.log(JSON.stringify(payload));
   } catch (_) {
     // non bloccare il flusso in caso di errori di log
+  }
+}
+
+// Activity helper: non blocca mai il flusso admin
+async function safeCreateActivity(payload) {
+  try {
+    const doc = new Activity(payload);
+    await doc.save();
+    return doc;
+  } catch (err) {
+    console.error(
+      "[activity] failed to create Activity from adminController:",
+      err?.message || err
+    );
+    return null;
   }
 }
 
@@ -110,7 +125,11 @@ async function setModeration(ev, status, { reason, notes }, adminUserId) {
 // POST /api/admin/events/:id/approve
 const approveEvent = asyncHandler(async (req, res) => {
   const ev = await Event.findById(req.params.id);
-  if (!ev) { res.status(404); throw new Error("Evento non trovato"); }
+  if (!ev) {
+    res.status(404);
+    throw new Error("Evento non trovato");
+  }
+
   // PATCH BE: quando approvo, azzero eventuale motivo/nota precedente
   ev.approvalStatus = "approved";
   ev.moderation = {
@@ -119,23 +138,45 @@ const approveEvent = asyncHandler(async (req, res) => {
     updatedBy: req.user._id,
     updatedAt: now(),
   };
-  // Imposta approvedAt alla prima approvazione
-  if (!ev.approvedAt) {
+
+  // Prima approvazione? (usiamo approvedAt come flag di idempotenza)
+  const isFirstApproval = !ev.approvedAt;
+  if (isFirstApproval) {
     ev.approvedAt = now();
   }
+
   await ev.save();
+
+  // BACHECA ATTIVITÀ — created_event: solo alla prima approvazione
+  if (isFirstApproval && ev.organizer) {
+    await safeCreateActivity({
+      type: "created_event",
+      user: ev.organizer,
+      event: ev._id,
+      meta: {
+        title: ev.title || "",
+        dateStart: ev.dateStart || null,
+        city: ev.city || "",
+        region: ev.region || "",
+        country: ev.country || "",
+      },
+    });
+  }
+
   await notify("event_approved", {
     eventId: ev?._id?.toString?.() || String(ev?._id || ""),
     organizerId: ev?.organizer?.toString?.() || String(ev?.organizer || ""),
     adminId: req?.user?._id?.toString?.() || String(req?.user?._id || ""),
   });
-logAdmin("event_approved", {
+
+  logAdmin("event_approved", {
     eventId: String(ev?._id || ""),
-    adminId: String(req?.user?._id || "")
+    adminId: String(req?.user?._id || ""),
   });
 
   res.json({ ok: true, event: ev });
 });
+
 // POST /api/admin/events/:id/unapprove
 const unapproveEvent = asyncHandler(async (req, res) => {
   const ev = await Event.findById(req.params.id);
