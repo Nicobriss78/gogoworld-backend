@@ -35,21 +35,40 @@ resetTokenExpires: { type: Date },
       interests: [{ type: String, trim: true }],
       languages: [{ type: String, trim: true }],
 
-      // Privacy messaggi diretti (C4, enforcement in /api/dm/*)
+// Privacy messaggi diretti (C4, enforcement in /api/dm/*)
       privacy: {
         optInDM: { type: Boolean, default: false }, // consenso esplicito ai DM
-        dmsFrom: { type: String, enum: ["everyone","followers","nobody"], default: "everyone" }
+        dmsFrom: {
+          type: String,
+          enum: ["everyone", "followers", "nobody"],
+          default: "everyone"
+        }
+      },
+
+      // ★ NEW (A1): visibilità attività / bacheca
+      // "followers-only" (default): solo i follower vedono la bacheca eventi
+      // "public": in futuro, visibile a tutti gli utenti
+      // "private": in futuro, nascosta a chiunque (anche follower)
+      activityVisibility: {
+        type: String,
+        enum: ["followers-only", "public", "private"],
+        default: "followers-only"
       }
     },
-    
+
     // Blocchi utente (31.1) — elenco degli utenti che questo utente ha bloccato
+
     // Usato per:
     // - vietare DM se A ha bloccato B o B ha bloccato A
     // - in futuro, nascondere contenuti di utenti bloccati (recensioni / chat, ecc.)
-    blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
 
-    // ★ NEW: Gamification / Reputation
-    score: { type: Number, default: 0 },
+    // ★ NEW (A1): sistema di follow asimmetrico
+    // followers: utenti che seguono QUESTO utente
+    // following: utenti che QUESTO utente segue
+    followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+
     // ★ NEW: Gamification / Reputation
     score: { type: Number, default: 0 },
     status: {
@@ -63,6 +82,7 @@ resetTokenExpires: { type: Date },
       reviewsApproved: { type: Number, default: 0 },
       lastScoreUpdateAt: { type: Date }
     }
+
   },
   { timestamps: true }
 );
@@ -92,6 +112,7 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
 
 const User = mongoose.model("User", userSchema);
 module.exports = User;
+
 
 
 
