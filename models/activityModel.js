@@ -16,11 +16,12 @@ const activitySchema = new mongoose.Schema(
     // will_join_event → l'utente parteciperà a un evento (prenotazione futura, se distinta)
     // review_event → l'utente ha lasciato una recensione
     // level_up → l'utente ha cambiato livello (novizio → esploratore, ecc.)
-    type: {
+type: {
       type: String,
       enum: [
         "created_event",
         "joined_event",
+        "attended_event",
         "will_join_event",
         "review_event",
         "level_up"
