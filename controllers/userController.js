@@ -446,6 +446,48 @@ const getPublicProfile = asyncHandler(async (req, res) => {
     },
   });
 });
+// -----------------------------------------------------------------------------
+// BACHECA ATTIVITÀ — A3.3
+// -----------------------------------------------------------------------------
+
+// GET /api/users/:userId/activity
+const getUserActivityFeed = asyncHandler(async (req, res) => {
+  const targetId = req.params.userId;
+  const viewerId = req.user ? String(req.user._id) : null;
+
+  const user = await User.findById(targetId)
+    .select("activityVisibility followers")
+    .lean();
+
+  if (!user) {
+    return res.status(404).json({ ok: false, error: "user_not_found" });
+  }
+
+  // PRIVACY
+  const visibility = user.activityVisibility || "followers-only";
+
+  if (visibility === "followers-only") {
+    // se il viewer N O N è un follower → accesso negato
+    const isFollower =
+      viewerId &&
+      user.followers &&
+      user.followers.some((id) => String(id) === viewerId);
+
+    if (!isFollower) {
+      return res.status(403).json({ ok: false, error: "activity_private" });
+    }
+  }
+
+  // RECUPERO ATTIVITÀ (max 30)
+  const Activity = require("../models/activityModel");
+
+  const feed = await Activity.find({ user: targetId })
+    .sort({ createdAt: -1 })
+    .limit(30)
+    .lean();
+
+  return res.json({ ok: true, data: feed });
+});
 
 // -----------------------------------------------------------------------------
 // 31.2 - Blocchi utente (block/unblock)
@@ -542,8 +584,10 @@ module.exports = {
   unfollowUser,
   getFollowers,
   getFollowing,
-  getPublicProfile, // A3.2
+  getPublicProfile,
+  getUserActivityFeed, // A3.3
 };
+
 
 
 
