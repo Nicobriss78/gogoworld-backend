@@ -18,8 +18,11 @@ const {
   searchUsers,
   blockUser,
   unblockUser,
+  followUser, // A3.1
+  unfollowUser, // A3.1
+  getFollowers, // A3.1
+  getFollowing, // A3.1
 } = require("../controllers/userController");
-
 const { protect } = require("../middleware/auth");
 const { loginLimiter, registerLimiter, writeLimiter } = require("../middleware/rateLimit");
 
@@ -65,6 +68,7 @@ router.post("/reset", writeLimiter, resetPassword);
 
 
 module.exports = router;
+
 
 
 
