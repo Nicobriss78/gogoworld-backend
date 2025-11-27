@@ -400,6 +400,54 @@ const getFollowing = asyncHandler(async (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
+// PROFILO PUBBLICO — A3.2
+// -----------------------------------------------------------------------------
+
+// GET /api/users/:userId/public
+const getPublicProfile = asyncHandler(async (req, res) => {
+  const targetId = req.params.userId;
+
+  const viewerId = req.user ? String(req.user._id) : null;
+
+  const user = await User.findById(targetId)
+    .select("name role profile followers following activityVisibility")
+    .lean();
+
+  if (!user) {
+    return res.status(404).json({ ok: false, error: "user_not_found" });
+  }
+
+  // Conteggi follow
+  const followersCount = user.followers ? user.followers.length : 0;
+  const followingCount = user.following ? user.following.length : 0;
+
+  // Se chi guarda è loggato → determinare se lo segue
+  let isFollowing = false;
+  if (viewerId && user.followers) {
+    isFollowing = user.followers.some((id) => String(id) === viewerId);
+  }
+
+  return res.json({
+    ok: true,
+    data: {
+      _id: targetId,
+      name: user.name || "",
+      role: user.role || "user",
+      profile: {
+        avatarUrl: user.profile?.avatarUrl || null,
+        city: user.profile?.city || "",
+        region: user.profile?.region || "",
+        bio: user.profile?.bio || "",
+      },
+      followersCount,
+      followingCount,
+      isFollowing,
+      activityVisibility: user.activityVisibility || "followers-only",
+    },
+  });
+});
+
+// -----------------------------------------------------------------------------
 // 31.2 - Blocchi utente (block/unblock)
 // -----------------------------------------------------------------------------
 
@@ -490,11 +538,13 @@ module.exports = {
   searchUsers,
   blockUser,
   unblockUser,
-  followUser, // A3.1
-  unfollowUser, // A3.1
-  getFollowers, // A3.1
-  getFollowing, // A3.1
+  followUser,
+  unfollowUser,
+  getFollowers,
+  getFollowing,
+  getPublicProfile, // A3.2
 };
+
 
 
 
