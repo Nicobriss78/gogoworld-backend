@@ -50,6 +50,8 @@ router.post("/session-role", protect, (req, res) => {
 router.post("/me/enable-organizer", protect, enableOrganizer);
 // Private: ricerca utenti
 router.get("/search", protect, searchUsers);
+// PROFILO PUBBLICO
+router.get("/:userId/public", protect, getPublicProfile);
 // Private: block / unblock utente (DM / abuso)
 router.post("/:userId/block", protect, blockUser);
 router.post("/:userId/unblock", protect, unblockUser);
@@ -68,6 +70,7 @@ router.post("/reset", writeLimiter, resetPassword);
 
 
 module.exports = router;
+
 
 
 
