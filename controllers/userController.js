@@ -293,6 +293,111 @@ const searchUsers = asyncHandler(async (req, res) => {
 
   return res.json({ ok: true, data });
 });
+// -----------------------------------------------------------------------------
+// FOLLOW / UNFOLLOW — Follow asimmetrico (A3.1)
+// -----------------------------------------------------------------------------
+
+// POST /api/users/:userId/follow
+const followUser = asyncHandler(async (req, res) => {
+  const meId = req.user && req.user._id;
+  const targetId = req.params.userId;
+
+  if (!meId || !targetId) {
+    return res.status(400).json({ ok: false, error: "missing_data" });
+  }
+
+  // Auto-follow bloccato
+  if (String(meId) === String(targetId)) {
+    return res.status(400).json({ ok: false, error: "cannot_follow_yourself" });
+  }
+
+  // Recupero utenti
+  const me = await User.findById(meId).select("following blockedUsers");
+  const target = await User.findById(targetId).select("followers blockedUsers");
+
+  if (!me || !target) {
+    return res.status(404).json({ ok: false, error: "user_not_found" });
+  }
+
+  // Se l'altro mi ha bloccato → non posso seguirlo
+  if (target.blockedUsers?.some((id) => String(id) === String(meId))) {
+    return res.status(403).json({ ok: false, error: "blocked_by_target" });
+  }
+
+  // Se l'ho bloccato io → non posso seguirlo
+  if (me.blockedUsers?.some((id) => String(id) === String(targetId))) {
+    return res.status(403).json({ ok: false, error: "you_blocked_target" });
+  }
+
+  // Evita doppio follow
+  const already = me.following.some((id) => String(id) === String(targetId));
+  if (!already) {
+    me.following.push(targetId);
+    target.followers.push(meId);
+
+    await me.save({ validateModifiedOnly: true });
+    await target.save({ validateModifiedOnly: true });
+  }
+
+  return res.json({ ok: true, following: true });
+});
+
+// DELETE /api/users/:userId/follow
+const unfollowUser = asyncHandler(async (req, res) => {
+  const meId = req.user && req.user._id;
+  const targetId = req.params.userId;
+
+  if (!meId || !targetId) {
+    return res.status(400).json({ ok: false, error: "missing_data" });
+  }
+
+  const me = await User.findById(meId).select("following");
+  const target = await User.findById(targetId).select("followers");
+
+  if (!me || !target) {
+    return res.status(404).json({ ok: false, error: "user_not_found" });
+  }
+
+  me.following = me.following.filter((id) => String(id) !== String(targetId));
+  target.followers = target.followers.filter((id) => String(id) !== String(meId));
+
+  await me.save({ validateModifiedOnly: true });
+  await target.save({ validateModifiedOnly: true });
+
+  return res.json({ ok: true, following: false });
+});
+
+// GET /api/users/:userId/followers
+const getFollowers = asyncHandler(async (req, res) => {
+  const userId = req.params.userId;
+
+  const user = await User.findById(userId).select("followers").populate({
+    path: "followers",
+    select: "name profile.avatarUrl profile.city profile.region role",
+  });
+
+  if (!user) {
+    return res.status(404).json({ ok: false, error: "user_not_found" });
+  }
+
+  return res.json({ ok: true, data: user.followers || [] });
+});
+
+// GET /api/users/:userId/following
+const getFollowing = asyncHandler(async (req, res) => {
+  const userId = req.params.userId;
+
+  const user = await User.findById(userId).select("following").populate({
+    path: "following",
+    select: "name profile.avatarUrl profile.city profile.region role",
+  });
+
+  if (!user) {
+    return res.status(404).json({ ok: false, error: "user_not_found" });
+  }
+
+  return res.json({ ok: true, data: user.following || [] });
+});
 
 // -----------------------------------------------------------------------------
 // 31.2 - Blocchi utente (block/unblock)
@@ -385,7 +490,13 @@ module.exports = {
   searchUsers,
   blockUser,
   unblockUser,
+  followUser, // A3.1
+  unfollowUser, // A3.1
+  getFollowers, // A3.1
+  getFollowing, // A3.1
 };
+
+
 
 
 
