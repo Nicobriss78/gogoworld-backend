@@ -50,6 +50,14 @@ router.get("/search", protect, searchUsers);
 // Private: block / unblock utente (DM / abuso)
 router.post("/:userId/block", protect, blockUser);
 router.post("/:userId/unblock", protect, unblockUser);
+// FOLLOW / UNFOLLOW
+router.post("/:userId/follow", protect, followUser);
+router.delete("/:userId/follow", protect, unfollowUser);
+
+// LISTE FOLLOWERS / FOLLOWING
+router.get("/:userId/followers", protect, getFollowers);
+router.get("/:userId/following", protect, getFollowing);
+
 // Public: email verify / forgot / reset
 router.get("/verify", verifyEmail);
 router.post("/forgot", loginLimiter, forgotPassword);
@@ -57,6 +65,7 @@ router.post("/reset", writeLimiter, resetPassword);
 
 
 module.exports = router;
+
 
 
 
