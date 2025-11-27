@@ -53,6 +53,8 @@ router.post("/me/enable-organizer", protect, enableOrganizer);
 router.get("/search", protect, searchUsers);
 // PROFILO PUBBLICO
 router.get("/:userId/public", protect, getPublicProfile);
+// BACHECA ATTIVITÀ
+router.get("/:userId/activity", protect, getUserActivityFeed);
 // Private: block / unblock utente (DM / abuso)
 router.post("/:userId/block", protect, blockUser);
 router.post("/:userId/unblock", protect, unblockUser);
@@ -71,6 +73,7 @@ router.post("/reset", writeLimiter, resetPassword);
 
 
 module.exports = router;
+
 
 
 
