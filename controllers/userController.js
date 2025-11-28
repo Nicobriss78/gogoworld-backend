@@ -463,23 +463,12 @@ const getUserActivityFeed = asyncHandler(async (req, res) => {
     return res.status(404).json({ ok: false, error: "user_not_found" });
   }
 
-// PRIVACY
+  // PRIVACY
   const visibility = user.activityVisibility || "followers-only";
   const isSelf = viewerId && String(viewerId) === String(targetId);
 
   if (visibility === "followers-only" && !isSelf) {
     // se il viewer NON è il proprietario e NON è un follower → accesso negato
-    const isFollower =
-      viewerId &&
-      user.followers &&
-      user.followers.some((id) => String(id) === viewerId);
-
-    if (!isFollower) {
-      return res.status(403).json({ ok: false, error: "activity_private" });
-    }
-  }
-
-    // se il viewer N O N è un follower → accesso negato
     const isFollower =
       viewerId &&
       user.followers &&
@@ -599,6 +588,7 @@ module.exports = {
   getPublicProfile,
   getUserActivityFeed, // A3.3
 };
+
 
 
 
