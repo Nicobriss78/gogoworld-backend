@@ -1,5 +1,6 @@
 const Event = require("../models/eventModel");
 const Activity = require("../models/activityModel"); // A2.3 – Activity log
+const User = require("../models/userModel");
 const { awardForAttendance } = require("../services/awards");
 const asyncHandler = require("express-async-handler");
 const { config } = require("../config");
@@ -217,6 +218,55 @@ const listMyEvents = asyncHandler(async (req, res) => {
   const filters = buildFilters(req.query);
   filters.organizer = req.user._id;
   const events = await Event.find(filters).sort({ dateStart: 1 }); // PATCH: ordinamento su dateStart
+  const now = new Date();
+  const payload = attachStatusToArray(events, now);
+  res.json({ ok: true, events: payload });
+});
+// @desc Eventi creati dagli utenti che seguo
+// @route GET /api/events/following
+// @access Private (partecipante loggato)
+const listFollowingEvents = asyncHandler(async (req, res) => {
+  const userId = req.user?._id;
+  if (!userId) {
+    res.status(401);
+    throw new Error("Non autenticato");
+  }
+
+  // recupera la lista dei following
+  const me = await User.findById(userId).select("following").lean();
+  if (!me) {
+    res.status(404);
+    throw new Error("Utente non trovato");
+  }
+
+  const following = Array.isArray(me.following) ? me.following : [];
+
+  // se non seguo nessuno → nessun evento
+  if (!following.length) {
+    return res.json({ ok: true, events: [] });
+  }
+
+  // filtri base (riuso dei filtri generali)
+  const filters = buildFilters(req.query || {});
+  filters.organizer = { $in: following };
+
+  // Visibilità di default:
+  // - includo sempre i public
+  // - includo i private solo se partecipo
+  if (!req.query.visibility) {
+    delete filters.visibility;
+    filters.$or = [
+      { visibility: "public" },
+      { visibility: "private", participants: userId }
+    ];
+  }
+
+  // Solo eventi approvati, salvo override esplicito
+  if (!req.query.approvalStatus) {
+    filters.approvalStatus = "approved";
+  }
+
+  const events = await Event.find(filters).sort({ dateStart: 1 });
   const now = new Date();
   const payload = attachStatusToArray(events, now);
   res.json({ ok: true, events: payload });
@@ -741,6 +791,7 @@ function generatePrivateCode() {
 module.exports = {
   listEvents,
   listMyEvents,
+  listFollowingEvents,
   getEventById,
   accessPrivateEventByCode, // ← NEW
   createEvent,
@@ -753,6 +804,8 @@ module.exports = {
   getPrivateAccessCodeAdmin,
   rotatePrivateAccessCodeAdmin,
 };
+
+
 
 
 
