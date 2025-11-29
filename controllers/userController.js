@@ -410,8 +410,9 @@ const getPublicProfile = asyncHandler(async (req, res) => {
   const viewerId = req.user ? String(req.user._id) : null;
 
   const user = await User.findById(targetId)
-    .select("name role profile followers following activityVisibility")
+    .select("name role profile followers following")
     .lean();
+
 
   if (!user) {
     return res.status(404).json({ ok: false, error: "user_not_found" });
@@ -442,7 +443,7 @@ const getPublicProfile = asyncHandler(async (req, res) => {
       followersCount,
       followingCount,
       isFollowing,
-      activityVisibility: user.activityVisibility || "followers-only",
+      activityVisibility: user.profile?.activityVisibility || "followers-only",
     },
   });
 });
@@ -456,15 +457,17 @@ const getUserActivityFeed = asyncHandler(async (req, res) => {
   const viewerId = req.user ? String(req.user._id) : null;
 
   const user = await User.findById(targetId)
-    .select("activityVisibility followers")
+    .select("profile followers")
     .lean();
+
 
   if (!user) {
     return res.status(404).json({ ok: false, error: "user_not_found" });
   }
 
-  // PRIVACY
-  const visibility = user.activityVisibility || "followers-only";
+// PRIVACY
+  const visibility = user.profile?.activityVisibility || "followers-only";
+
   const isSelf = viewerId && String(viewerId) === String(targetId);
 
   if (visibility === "followers-only" && !isSelf) {
@@ -588,6 +591,7 @@ module.exports = {
   getPublicProfile,
   getUserActivityFeed, // A3.3
 };
+
 
 
 
