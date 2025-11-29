@@ -16,6 +16,7 @@ const {
   joinEvent,
   leaveEvent,
   listMyEvents,
+  listFollowingEvents,
   getParticipation, // PATCH S6: aggiunto export
   // Gestione codice evento privato (admin)
   getPrivateAccessCodeAdmin,
@@ -29,7 +30,8 @@ const { writeLimiter, participationLimiter, adminLimiter } = require("../middlew
 // Eventi pubblici / query
 // --------------------------------------------------------
 router.get("/", listEvents);
-
+// Eventi creati dalle persone che seguo (partecipante)
+router.get("/following/list", protect, listFollowingEvents);
 // --------------------------------------------------------
 // Creazione / gestione eventi (organizer only)
 // --------------------------------------------------------
@@ -77,6 +79,7 @@ router.post("/:id/leave", participationLimiter, protect, leaveEvent);
 router.get("/:id/participation", protect, getParticipation);
 
 module.exports = router;
+
 
 
 
