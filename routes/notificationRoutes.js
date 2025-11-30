@@ -10,7 +10,7 @@ const {
   markAllNotificationsRead,
 } = require("../controllers/notificationController");
 
-const { protect } = require("../middleware/authMiddleware");
+const { protect } = require("../middleware/auth");
 
 // Lista notifiche dell’utente loggato
 router.get("/mine", protect, listMyNotifications);
