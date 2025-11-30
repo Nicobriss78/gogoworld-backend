@@ -7,6 +7,7 @@ const { config } = require("../config");
 const { logger } = require("../core/logger"); // #CORE-LOGGER D1
 const cache = require("../adapters/cache"); // #CACHE-ADAPTER
 const { notify } = require("../services/notifications"); // #NOTIFY-ADAPTER
+const { createNotification } = require("./notificationController"); // A9.2 – notifiche in-app eventi
 
 // ---- Stato evento derivato dal tempo corrente ----
 // Status possibili: "ongoing" (in corso), "imminent" (imminente... "concluded" (appena concluso), "past" (oltre finestra concluso)
@@ -366,12 +367,44 @@ const event = new Event({
     organizer: req.user._id,
   });
 
-  const created = await event.save();
+const created = await event.save();
+
+  // A9.2 – Notifiche in-app ai follower dell'organizzatore
+  try {
+    const organizerId = req.user._id;
+
+    // Recupera l'organizzatore con nome e follower
+    const organizer = await User.findById(organizerId).select("name followers");
+
+    if (organizer && Array.isArray(organizer.followers) && organizer.followers.length > 0) {
+      const title = "Nuovo evento da un utente che segui";
+      const messageBase =
+        `${organizer.name || "Un organizzatore che segui"} ha creato un nuovo evento: ${created.title}`;
+
+      // Crea una notifica per ogni follower
+      for (const followerId of organizer.followers) {
+        await createNotification({
+          user: followerId, // destinatario (chi segue l'organizzatore)
+          actor: organizerId, // chi ha creato l'evento
+          event: created._id, // riferimento all'evento
+          type: "event_created",
+          title,
+          message: messageBase,
+          data: {
+            eventId: created._id.toString(),
+          },
+        });
+      }
+    }
+  } catch (err) {
+    console.error("[notifications][event_created] errore:", err.message);
+  }
 
   await notify("event_created", {
     eventId: created?._id?.toString?.() || String(created?._id || ""),
     organizerId: req.user?._id?.toString?.() || String(req.user?._id || ""),
   });
+
 
 // A2.3 – log Activity: evento creato
   safeCreateActivity({
@@ -804,6 +837,7 @@ module.exports = {
   getPrivateAccessCodeAdmin,
   rotatePrivateAccessCodeAdmin,
 };
+
 
 
 
