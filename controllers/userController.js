@@ -9,6 +9,8 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/userModel");
 const crypto = require("crypto");
 const { logger } = require("../core/logger");
+const { createNotification } = require("./notificationController"); // A9.1 notifiche follow
+
 // -----------------------------------------------------------------------------
 // Generate JWT
 // -----------------------------------------------------------------------------
@@ -312,8 +314,9 @@ const followUser = asyncHandler(async (req, res) => {
   }
 
   // Recupero utenti
-  const me = await User.findById(meId).select("following blockedUsers");
+const me = await User.findById(meId).select("following blockedUsers name");
   const target = await User.findById(targetId).select("followers blockedUsers");
+
 
   if (!me || !target) {
     return res.status(404).json({ ok: false, error: "user_not_found" });
@@ -329,7 +332,7 @@ const followUser = asyncHandler(async (req, res) => {
     return res.status(403).json({ ok: false, error: "you_blocked_target" });
   }
 
-  // Evita doppio follow
+// Evita doppio follow
   const already = me.following.some((id) => String(id) === String(targetId));
   if (!already) {
     me.following.push(targetId);
@@ -337,6 +340,20 @@ const followUser = asyncHandler(async (req, res) => {
 
     await me.save({ validateModifiedOnly: true });
     await target.save({ validateModifiedOnly: true });
+
+    // A9.1 — Notifica "nuovo follower"
+    try {
+      await createNotification({
+        user: targetId, // chi riceve la notifica
+        actor: meId, // chi ha iniziato a seguire
+        type: "follow",
+        title: "Hai un nuovo follower!",
+        message: `${me.name || "Un utente"} ha iniziato a seguirti`,
+      });
+    } catch (err) {
+      console.error("[notifications][follow] errore:", err.message);
+      // non blocchiamo la risposta se la notifica fallisce
+    }
   }
 
   return res.json({ ok: true, following: true });
@@ -591,6 +608,7 @@ module.exports = {
   getPublicProfile,
   getUserActivityFeed, // A3.3
 };
+
 
 
 
