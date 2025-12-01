@@ -20,5 +20,7 @@ router.patch("/:id/read", protect, markNotificationRead);
 
 // Segna tutte come lette
 router.patch("/read-all", protect, markAllNotificationsRead);
+// Alias POST per compatibilità frontend (apiPost)
+router.post("/read-all", protect, markAllNotificationsRead);
 
 module.exports = router;
