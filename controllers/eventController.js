@@ -374,22 +374,6 @@ const created = await event.save();
     organizerId: req.user?._id?.toString?.() || String(req.user?._id || ""),
   });
 
-
-// A2.3 – log Activity: evento creato
-  safeCreateActivity({
-    user: req.user._id,
-    type: "created_event",
-    event: created._id,
-    payload: {
-      title: created.title,
-      city: created.city,
-      region: created.region,
-      country: created.country,
-      dateStart: created.dateStart,
-      dateEnd: created.dateEnd,
-    },
-  });
-
   cache.delByPrefix("events:list:");
   res.status(201).json({ ok: true, event: created });
 });
@@ -423,8 +407,6 @@ const updateEvent = asyncHandler(async (req, res) => {
   if (vErr.length) {
     return res.status(400).json({ ok: false, code: "VALIDATION_ERROR", errors: vErr });
   }
-// A9.2 — rileva stato precedente
-  const prevApproval = String(event.approvalStatus || "").toLowerCase();
 
   const body = { ...req.body };
 
@@ -518,36 +500,6 @@ const updateEvent = asyncHandler(async (req, res) => {
   }
 const updated = await event.save();
 
-  // A9.2 — NOTIFICA SOLO SE transizione pending → approved
-  try {
-    const newApproval = String(updated.approvalStatus || "").toLowerCase();
-
-    if (prevApproval === "pending" && newApproval === "approved") {
-      const organizer = await User.findById(updated.organizer).select("name followers");
-
-      if (organizer && Array.isArray(organizer.followers) && organizer.followers.length > 0) {
-        const title = "Nuovo evento da un utente che segui";
-        const messageBase =
-          `${organizer.name || "Un organizzatore che segui"} ha un evento approvato: ${updated.title}`;
-
-        for (const followerId of organizer.followers) {
-          await createNotification({
-            user: followerId,
-            actor: organizer._id,
-            event: updated._id,
-            type: "event_approved",
-            title,
-            message: messageBase,
-            data: {
-              eventId: updated._id.toString(),
-            },
-          });
-        }
-      }
-    }
-  } catch (err) {
-    console.error("[notifications][event_approved] errore:", err.message);
-  }
 
   cache.delByPrefix("events:list:");
   res.json({ ok: true, event: updated });
@@ -840,6 +792,7 @@ module.exports = {
   getPrivateAccessCodeAdmin,
   rotatePrivateAccessCodeAdmin,
 };
+
 
 
 
