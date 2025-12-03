@@ -7,6 +7,7 @@ const Event = require("../models/eventModel");
 const User = require("../models/userModel");
 const Activity = require("../models/activityModel");
 const { notify } = require("../services/notifications");
+const { createNotification } = require("./notificationController");
 // -----------------------------
 // Utils
 // -----------------------------
@@ -161,6 +162,34 @@ const approveEvent = asyncHandler(async (req, res) => {
         country: ev.country || "",
       },
     });
+  }
+// A9.2 – Notifiche in-app ai follower dell'organizzatore (solo alla prima approvazione)
+  if (isFirstApproval && ev.organizer) {
+    try {
+      const organizer = await User.findById(ev.organizer).select("name followers");
+
+      if (organizer && Array.isArray(organizer.followers) && organizer.followers.length > 0) {
+        const title = "Nuovo evento approvato da un utente che segui";
+        const baseMsg =
+          `${organizer.name || "Un organizzatore che segui"} ha un nuovo evento approvato: ${ev.title || ""}`;
+
+        for (const followerId of organizer.followers) {
+          await createNotification({
+            user: followerId, // destinatario
+            actor: organizer._id, // chi ha l'evento approvato
+            event: ev._id, // riferimento all'evento
+            type: "event_approved",
+            title,
+            message: baseMsg,
+            data: {
+              eventId: ev._id.toString(),
+            },
+          });
+        }
+      }
+    } catch (err) {
+      console.error("[notifications][event_approved] errore:", err?.message || err);
+    }
   }
 
   await notify("event_approved", {
