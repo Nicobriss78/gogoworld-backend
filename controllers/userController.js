@@ -105,6 +105,13 @@ const getUserProfile = asyncHandler(async (req, res) => {
     },
     // Opzione B (già presente)
     canOrganize: !!user.canOrganize,
+   // A8.x — elenco ID dei profili che seguo
+      // usato dall’area Partecipante per filtrare gli "Eventi delle persone che segui"
+      following: Array.isArray(user.following)
+        ? user.following.map((id) => String(id))
+        : [],
+      // (facoltativo ma utile in futuro)
+      followersCount: Array.isArray(user.followers) ? user.followers.length : 0,
   });
   } else {
     res.status(404);
@@ -608,6 +615,7 @@ module.exports = {
   getPublicProfile,
   getUserActivityFeed, // A3.3
 };
+
 
 
 
