@@ -31,7 +31,7 @@ const { loginLimiter, registerLimiter, writeLimiter } = require("../middleware/r
 // PATCH: rate limiting (login)
 
 // Public
-router.post("/", registerUser);
+router.post("/", registerLimiter, registerUser);
 router.post("/login", loginLimiter, authUser); // ⬅️ PATCH: applica limiter al login
 
 // Private
@@ -74,6 +74,7 @@ router.post("/reset", writeLimiter, resetPassword);
 
 
 module.exports = router;
+
 
 
 
