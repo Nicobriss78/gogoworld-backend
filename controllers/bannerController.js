@@ -6,7 +6,13 @@ const { Banner, BannerStatsDaily } = require("../models/bannerModel");
 // Cache semplice in RAM con TTL per lista attiva e indice round-robin per chiave
 const activeCache = new Map(); // key -> { expiresAt, items: [banner], rr: 0 }
 const TTL_MS = 60 * 1000; // 60s: abbastanza breve per B1/1
-
+function requireRole(req, res, roles) {
+  if (!req.user || !roles.includes(req.user.role)) {
+    res.status(403).json({ ok: false, error: "forbidden" });
+    return false;
+  }
+  return true;
+}
 function cacheKey({ placement, country, region }) {
   const c = (country || "").toUpperCase();
   const r = region || "";
@@ -213,8 +219,9 @@ function pick(obj, keys) {
   return out;
 }
 
-// Lista admin con filtri base
 exports.listBannersAdmin = async (req, res) => {
+  if (!requireRole(req, res, ["admin"])) return;
+
   try {
     const q = req.query || {};
     const filter = {};
@@ -231,12 +238,15 @@ exports.listBannersAdmin = async (req, res) => {
     return res.status(500).json({ ok: false, error: "internal_error" });
   }
 };
+
 // Lista MIEI banner (organizer)
 exports.listBannersMine = async (req, res) => {
+  if (!requireRole(req, res, ["organizer", "admin"])) return;
+
   try {
     const q = req.query || {};
     const me = req.user && req.user._id ? req.user._id : null;
-    if (!me) return res.status(401).json({ ok:false, error:"not_authorized" });
+    if (!me) return res.status(401).json({ ok: false, error: "not_authorized" });
 
     const filter = { createdBy: me };
     if (q.status) filter.status = String(q.status);
@@ -249,6 +259,7 @@ exports.listBannersMine = async (req, res) => {
     return res.status(500).json({ ok: false, error: "internal_error" });
   }
 };
+
 // Organizer: lista MIEI banner con filtri opzionali
 exports.listBannersMine = async (req, res) => {
 try {
@@ -299,6 +310,8 @@ return res.status(500).json({ ok:false, error:"internal_error" });
 };
 
 exports.createBanner = async (req, res) => {
+  if (!requireRole(req, res, ["admin"])) return;
+
   try {
     const body = req.body || {};
     // campi obbligatori minimi
@@ -337,7 +350,9 @@ exports.createBanner = async (req, res) => {
   }
 };
 
-exports.updateBanner = async (req,res) => {
+exports.updateBanner = async (req, res) => {
+  if (!requireRole(req, res, ["admin"])) return;
+
   try {
     const id = req.params.id;
     if (!id) return res.status(400).json({ ok:false, error:"id is required" });
@@ -362,7 +377,9 @@ exports.updateBanner = async (req,res) => {
   }
 };
 
-exports.deleteBanner = async (req,res) => {
+exports.deleteBanner = async (req, res) => {
+  if (!requireRole(req, res, ["admin"])) return;
+
   try {
     const id = req.params.id;
     if (!id) return res.status(400).json({ ok:false, error:"id is required" });
@@ -376,7 +393,9 @@ exports.deleteBanner = async (req,res) => {
 };
 
 // Moderazione (solo admin)
-exports.approveBanner = async (req,res) => {
+exports.approveBanner = async (req, res) => {
+  if (!requireRole(req, res, ["admin"])) return;
+
   try {
     const id = req.params.id;
     if (!id) return res.status(400).json({ ok:false, error:"id is required" });
@@ -403,8 +422,11 @@ if (!updated) {
   }
 };
 
-exports.rejectBanner = async (req,res) => {
+exports.rejectBanner = async (req, res) => {
+  if (!requireRole(req, res, ["admin"])) return;
+
   try {
+    
     const id = req.params.id;
     if (!id) return res.status(400).json({ ok:false, error:"id is required" });
     await Banner.updateOne({ _id:id }, { $set: { status:"REJECTED", isActive:false }});
@@ -415,7 +437,9 @@ exports.rejectBanner = async (req,res) => {
   }
 };
 
-exports.pauseBanner = async (req,res) => {
+exports.pauseBanner = async (req, res) => {
+  if (!requireRole(req, res, ["admin"])) return;
+
   try {
     const id = req.params.id;
     if (!id) return res.status(400).json({ ok:false, error:"id is required" });
@@ -427,7 +451,9 @@ exports.pauseBanner = async (req,res) => {
   }
 };
 
-exports.resumeBanner = async (req,res) => {
+exports.resumeBanner = async (req, res) => {
+  if (!requireRole(req, res, ["admin"])) return;
+
   try {
     const id = req.params.id;
     if (!id) return res.status(400).json({ ok:false, error:"id is required" });
@@ -448,6 +474,8 @@ exports.resumeBanner = async (req,res) => {
 };
 // Organizer — submit banner request
 exports.submitBannerRequest = async (req, res) => {
+  if (!requireRole(req, res, ["organizer", "admin"])) return;
+
   try {
     const body = req.body || {};
     const required = ["title", "imageUrl", "targetUrl", "placement"];
