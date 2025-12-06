@@ -31,23 +31,28 @@ exports.openOrJoinEvent = async (req, res, next) => {
     const ev = await Event.findById(eventId).lean();
     if (!ev) return res.status(404).json({ ok: false, error: "EVENT_NOT_FOUND" });
 
-    // Evento privato: accesso consentito solo a organizzatore o partecipanti
-    const isOrganizer =
-      ev.organizer && String(ev.organizer) === String(meId);
-    const isParticipant =
-      Array.isArray(ev.participants) &&
-      ev.participants.some(p => String(p) === String(meId));
+// Evento privato: accesso consentito solo a organizzatore o partecipanti
+const isOrganizer =
+  ev.organizer && String(ev.organizer) === String(meId);
+const isParticipant =
+  Array.isArray(ev.participants) &&
+  ev.participants.some(p => String(p) === String(meId));
 
-    if (ev.isPrivate && !isOrganizer && !isParticipant) {
-      // locked finché l'utente non ha aderito all'evento
-      return res.json({
-        ok: true,
-        data: {
-          locked: true,
-          title: ev.title || "Evento privato",
-        },
-      });
-    }
+// Trattiamo come privato se visibility === "private"
+const isPrivateEvent =
+  String(ev.visibility || "").toLowerCase() === "private";
+
+if (isPrivateEvent && !isOrganizer && !isParticipant) {
+  // locked finché l'utente non ha aderito all'evento
+  return res.json({
+    ok: true,
+    data: {
+      locked: true,
+      title: ev.title || "Evento privato",
+    },
+  });
+}
+
 
     // Calcola finestra chat (default: -48h / +24h)
    const startAt = new Date(ev.dateStart);
@@ -170,22 +175,31 @@ exports.getEventRoomMeta = async (req, res, next) => {
     const room = await Room.findOne({ type: "event", eventId: eventIdObj }).lean();
     if (!room) return res.status(404).json({ ok: false, error: "ROOM_NOT_FOUND" });
 // Carica evento per capire se è privato
-    const ev = await Event.findById(eventIdObj).lean();
-    // Se l'evento è privato e l'utente non è membro della room → locked, niente roomId
-if (ev?.isPrivate) {
+const ev = await Event.findById(eventIdObj).lean();
+
+// Se l'evento è privato e l'utente non è membro della room → locked, niente roomId
+const isPrivateEvent =
+  ev && String(ev.visibility || "").toLowerCase() === "private";
+
+if (isPrivateEvent) {
   const meId = req.user && req.user.id;
-  if (!meId) return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
-  const meMember = await RoomMember.findOne({ roomId: room._id, userId: meId }).lean();
-  if (!meMember) {
+  const isOrganizer =
+    ev.organizer && String(ev.organizer) === String(meId);
+  const isParticipant =
+    Array.isArray(ev.participants) &&
+    ev.participants.some(p => String(p) === String(meId));
+
+  if (!isOrganizer && !isParticipant) {
     return res.json({
       ok: true,
       data: {
         locked: true,
-        title: room.title
-      }
+        title: ev.title || "Evento privato",
+      },
     });
   }
 }
+
 
     const now = new Date();
     const canSend = (!room.activeUntil || now <= new Date(room.activeUntil)) && !room.isArchived;
@@ -250,28 +264,48 @@ exports.postMessage = async (req, res, next) => {
     if (!meId) return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
 
     const { roomId } = req.params;
-    if (!isValidObjectId(roomId)) return res.status(400).json({ ok: false, error: "INVALID_ROOM_ID" });
+    if (!isValidObjectId(roomId)) {
+      return res.status(400).json({ ok: false, error: "INVALID_ROOM_ID" });
+    }
 
     const room = await Room.findById(roomId).lean();
-    if (!room || room.isArchived) return res.status(403).json({ ok: false, error: "ROOM_CLOSED" });
+    if (!room || room.isArchived) {
+      return res.status(403).json({ ok: false, error: "ROOM_CLOSED" });
+    }
+
+    // 🔒 Patch 1.2 – Blindare postMessage sulle room DM:
+    // questa route deve gestire SOLO le room di tipo "event".
+    // Le DM usano il controller dedicato /api/dm/...
+    if (room.type !== "event") {
+      return res.status(403).json({ ok: false, error: "ROOM_TYPE_NOT_ALLOWED" });
+    }
 
     const now = new Date();
     if (room.activeUntil && now > new Date(room.activeUntil)) {
-    return res.status(403).json({ ok: false, error: "SEND_WINDOW_CLOSED" });
+      return res.status(403).json({ ok: false, error: "SEND_WINDOW_CLOSED" });
     }
 
     const t = sanitizeText(req.body?.text || "");
-    if (!t || t.length === 0 || t.length > 2000) return res.status(400).json({ ok: false, error: "INVALID_TEXT" });
+    if (!t || t.length === 0 || t.length > 2000) {
+      return res.status(400).json({ ok: false, error: "INVALID_TEXT" });
+    }
+
     // Garantisci membership (serve per coerenza con lastReadAt/unread)
     await RoomMember.updateOne(
-     { roomId: room._id, userId: meId },
-     { $setOnInsert: { joinedAt: new Date() } },
-     { upsert: true }
+      { roomId: room._id, userId: meId },
+      { $setOnInsert: { joinedAt: new Date() } },
+      { upsert: true }
     );
+
     const doc = await RoomMessage.create({ roomId, sender: meId, text: t });
+
     return res.status(201).json({
       ok: true,
-      data: { id: String(doc._id), createdAt: doc.createdAt, text: doc.text },
+      data: {
+        id: String(doc._id),
+        createdAt: doc.createdAt,
+        text: doc.text,
+      },
     });
   } catch (err) {
     next(err);
@@ -624,10 +658,17 @@ exports.unlockEvent = async (req, res, next) => {
     const ev = await Event.findById(eventIdObj).lean();
     if (!ev) return res.status(404).json({ ok: false, error: "EVENT_NOT_FOUND" });
 
-    // Evento pubblico: nessun codice richiesto (idempotente)
-    if (!ev.isPrivate) {
-      return res.json({ ok: true, data: { unlocked: true, reason: "PUBLIC_EVENT" } });
-    }
+const isPrivateEvent =
+  String(ev.visibility || "").toLowerCase() === "private";
+
+// Evento pubblico: nessun codice richiesto (idempotente)
+if (!isPrivateEvent) {
+  return res.json({
+    ok: true,
+    data: { unlocked: true, reason: "PUBLIC_EVENT" },
+  });
+}
+
 
     // Verifica codice
     const provided = (req.body && typeof req.body.code === "string") ? req.body.code.trim() : "";
