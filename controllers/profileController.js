@@ -37,7 +37,7 @@ exports.uploadAvatarMiddleware = upload.single("avatar");
  */
 function pickProfileUpdate(body = {}) {
   const out = {};
-  const allowRoot = ["nickname", "birthYear", "region", "city", "avatarUrl", "bio"];
+const allowRoot = ["nickname", "birthYear", "country", "region", "city", "avatarUrl", "bio"];
   const allowArrays = ["socials", "interests", "languages"];
   const allowPrivacy = { optInDM: "boolean", dmsFrom: ["everyone", "followers", "nobody"] };
 
@@ -76,6 +76,7 @@ function toPublicProfile(userDoc) {
   return {
     id: String(u._id),
     nickname: p.nickname || null,
+    country: p.country || null,
     region: p.region || null,
     city: p.city || null,
     avatarUrl: p.avatarUrl || null,
