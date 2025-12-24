@@ -22,6 +22,18 @@ router.get(
   bannerFetchLimiter,
   bannerController.getActiveBanners
 );
+// Ritorna UNA LISTA di banner attivi (batch) per placement/area
+// (Fallback: finché non esiste getActiveBannersBatch, usa getActiveBanners)
+router.get(
+  "/active-batch",
+  bannerFetchLimiter,
+  (req, res, next) => {
+    if (typeof bannerController.getActiveBannersBatch === "function") {
+      return bannerController.getActiveBannersBatch(req, res, next);
+    }
+    return bannerController.getActiveBanners(req, res, next);
+  }
+);
 
 // Registra click su un banner
 router.post(
