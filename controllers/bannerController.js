@@ -86,6 +86,20 @@ function pickNext(cacheEntry) {
   cacheEntry.rr = (cacheEntry.rr + 1) % cacheEntry.items.length;
   return picked;
 }
+// Seleziona i prossimi N banner (round-robin) dalla lista in cache, senza duplicati nel batch
+function pickNextBatch(cacheEntry, n) {
+  if (!cacheEntry || !cacheEntry.items || cacheEntry.items.length === 0) return [];
+  const total = cacheEntry.items.length;
+  const take = Math.max(1, Math.min(Number(n) || 1, total));
+
+  const out = [];
+  for (let i = 0; i < take; i++) {
+    const idx = cacheEntry.rr % total;
+    out.push(cacheEntry.items[idx]);
+    cacheEntry.rr = (cacheEntry.rr + 1) % total;
+  }
+  return out;
+}
 
 /**
  * GET /api/banners/active?placement=home_top&country=IT&region=Basilicata
@@ -163,6 +177,81 @@ exports.getActiveBanners = async (req, res) => {
     });
   } catch (err) {
     console.error("[Banner] getActiveBanners error:", err);
+    return res.status(500).json({ ok: false, error: "internal_error" });
+  }
+};
+/**
+ * GET /api/banners/active-batch?placement=events_list_inline&country=IT&region=Basilicata&limit=8
+ * Ritorna una LISTA di banner (batch) per placement/area, con round-robin equo.
+ * Nota: NON incrementiamo impression qui per evitare overcount (rotazione lato FE).
+ */
+exports.getActiveBannersBatch = async (req, res) => {
+  try {
+    const { placement, country, region } = normalizeArea(req.query);
+    const limitRaw = req.query.limit;
+    const limit = Math.max(1, Math.min(parseInt(limitRaw, 10) || 8, 20));
+
+    if (!placement) {
+      return res.status(400).json({ ok: false, error: "placement is required" });
+    }
+
+    const key = cacheKey({ placement, country, region });
+    let entry = activeCache.get(key);
+
+    // Se cache scaduta o assente: ricarica (stessa logica di getActiveBanners)
+    if (!isAlive(entry)) {
+      const filter = {
+        placement,
+        isActive: true,
+        status: "ACTIVE",
+        ...timeActiveFilter(),
+      };
+
+      const area = areaFilter(country, region);
+      if (Object.keys(area).length) {
+        Object.assign(filter, area);
+        // Enforce finestra temporale anche se il model helper cambia naming/logica
+        const nowDt = new Date();
+        const _and = Array.isArray(filter.$and) ? filter.$and.slice() : [];
+        _and.push({ $or: [{ activeFrom: null }, { activeFrom: { $lte: nowDt } }] });
+        _and.push({ $or: [{ activeTo: null }, { activeTo: { $gte: nowDt } }] });
+        filter.$and = _and;
+      }
+
+      // Ordinamento: priority ASC (più piccolo => più rilevante), poi update più recente
+      const fresh = await Banner.find(filter)
+        .sort({ priority: 1, updatedAt: -1, _id: 1 })
+        .lean();
+
+      entry = {
+        expiresAt: now() + TTL_MS,
+        items: fresh,
+        rr: 0,
+      };
+      activeCache.set(key, entry);
+    }
+
+    const pickedList = pickNextBatch(entry, limit);
+    if (!pickedList || pickedList.length === 0) {
+      return res.status(204).send();
+    }
+
+    // Payload compatto per FE (array)
+    const data = pickedList.map((b) => ({
+      id: String(b._id),
+      type: b.type,
+      title: b.title,
+      imageUrl: b.imageUrl,
+      targetUrl: b.targetUrl,
+      placement: b.placement,
+      country: b.country || null,
+      region: b.region || null,
+      priority: b.priority,
+    }));
+
+    return res.json({ ok: true, data });
+  } catch (err) {
+    console.error("[Banner] getActiveBannersBatch error:", err);
     return res.status(500).json({ ok: false, error: "internal_error" });
   }
 };
