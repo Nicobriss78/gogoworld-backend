@@ -267,10 +267,18 @@ const listFollowingEvents = asyncHandler(async (req, res) => {
     filters.approvalStatus = "approved";
   }
 
-  const events = await Event.find(filters).sort({ dateStart: 1 });
+const events = await Event.find(filters)
+    .populate("organizer", "name")
+    .sort({ dateStart: 1 });
+
   const now = new Date();
   const payload = attachStatusToArray(events, now);
-  res.json({ ok: true, events: payload });
+
+  // Escludi subito i "past" (richiesta per scheda Eventi seguiti)
+  const filtered = Array.isArray(payload) ? payload.filter(e => e?.status !== "past") : [];
+
+  res.json({ ok: true, events: filtered });
+
 });
 
 // @desc Evento singolo
@@ -792,6 +800,7 @@ module.exports = {
   getPrivateAccessCodeAdmin,
   rotatePrivateAccessCodeAdmin,
 };
+
 
 
 
