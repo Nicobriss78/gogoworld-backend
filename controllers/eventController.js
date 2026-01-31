@@ -341,6 +341,28 @@ const accessPrivateEventByCode = asyncHandler(async (req, res) => {
 
   res.json({ ok: true, event: payload });
 });
+// @desc Lista eventi privati a cui ho accesso (sbloccati / invitati)
+// @route GET /api/events/private
+// @access Private (utente loggato)
+const listPrivateEvents = asyncHandler(async (req, res) => {
+  const userId = req.user?._id;
+
+  const events = await Event.find({
+    visibility: "private",
+    approvalStatus: "approved",
+    participants: userId,
+  })
+    .populate("organizer", "name")
+    .sort({ dateStart: 1 });
+
+  const now = new Date();
+  const payload = attachStatusToArray(events, now);
+
+  // (coerenza con altre schede: non mostrare i "past")
+  const filtered = Array.isArray(payload) ? payload.filter((e) => e?.status !== "past") : [];
+
+  res.json({ ok: true, events: filtered });
+});
 
 // @desc Crea un nuovo evento
 // @route POST /api/events
@@ -803,6 +825,8 @@ module.exports = {
   listFollowingEvents,
   getEventById,
   accessPrivateEventByCode, // ← NEW
+  accessPrivateEventByCode,
+  listPrivateEvents,
   createEvent,
   updateEvent,
   deleteEvent,
@@ -813,6 +837,7 @@ module.exports = {
   getPrivateAccessCodeAdmin,
   rotatePrivateAccessCodeAdmin,
 };
+
 
 
 
