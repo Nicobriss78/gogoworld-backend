@@ -825,7 +825,6 @@ module.exports = {
   listFollowingEvents,
   getEventById,
   accessPrivateEventByCode, // ← NEW
-  accessPrivateEventByCode,
   listPrivateEvents,
   createEvent,
   updateEvent,
@@ -837,6 +836,7 @@ module.exports = {
   getPrivateAccessCodeAdmin,
   rotatePrivateAccessCodeAdmin,
 };
+
 
 
 
