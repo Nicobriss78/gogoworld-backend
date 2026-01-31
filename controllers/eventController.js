@@ -316,6 +316,19 @@ const accessPrivateEventByCode = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("Evento privato non trovato o non più disponibile");
   }
+// ✅ Persistenza accesso: aggiungi l'utente tra i partecipanti (idempotente)
+  const userId = req.user?._id;
+  if (userId) {
+    const already = Array.isArray(event.participants)
+      ? event.participants.some((p) => String(p) === String(userId))
+      : false;
+
+    if (!already) {
+      event.participants = Array.isArray(event.participants) ? event.participants : [];
+      event.participants.push(userId);
+      await event.save();
+    }
+  }
 
   const now = new Date();
   const payload = attachStatusToOne(event, now);
@@ -800,6 +813,7 @@ module.exports = {
   getPrivateAccessCodeAdmin,
   rotatePrivateAccessCodeAdmin,
 };
+
 
 
 
