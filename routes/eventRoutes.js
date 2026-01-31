@@ -11,6 +11,8 @@ const {
   createEvent,
   getEventById,
   accessPrivateEventByCode, // ← NEW
+  accessPrivateEventByCode,
+  listPrivateEvents,
   updateEvent,
   deleteEvent,
   joinEvent,
@@ -30,6 +32,13 @@ const { writeLimiter, participationLimiter, adminLimiter } = require("../middlew
 // Eventi pubblici / query
 // --------------------------------------------------------
 router.get("/", listEvents);
+// --------------------------------------------------------
+// Eventi privati (lista + sblocco)
+// --------------------------------------------------------
+router.get("/private", protect, listPrivateEvents);
+
+// Alias "nuovo" per il frontend (POST /api/events/private/unlock)
+router.post("/private/unlock", protect, accessPrivateEventByCode);
 // Eventi creati dalle persone che seguo (partecipante)
 router.get("/following/list", protect, listFollowingEvents);
 // --------------------------------------------------------
@@ -79,6 +88,7 @@ router.post("/:id/leave", participationLimiter, protect, leaveEvent);
 router.get("/:id/participation", protect, getParticipation);
 
 module.exports = router;
+
 
 
 
