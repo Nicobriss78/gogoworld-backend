@@ -11,7 +11,6 @@ const {
   createEvent,
   getEventById,
   accessPrivateEventByCode, // ← NEW
-  accessPrivateEventByCode,
   listPrivateEvents,
   updateEvent,
   deleteEvent,
@@ -88,6 +87,7 @@ router.post("/:id/leave", participationLimiter, protect, leaveEvent);
 router.get("/:id/participation", protect, getParticipation);
 
 module.exports = router;
+
 
 
 
