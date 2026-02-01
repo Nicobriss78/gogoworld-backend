@@ -63,7 +63,7 @@ router.post("/:id/unban", protect, authorize("organizer"), unbanToPrivateEvent);
 // Banner = coverImage
 router.patch("/:id/banner", protect, authorize("organizer"), updateEventBanner);
 
-router.get("/:id", getEventById);
+router.get("/:id", protect, getEventById);
 
 router.put("/:id", writeLimiter, protect, authorize("organizer"), updateEvent);
 
@@ -103,6 +103,7 @@ router.post("/:id/leave", participationLimiter, protect, leaveEvent);
 router.get("/:id/participation", protect, getParticipation);
 
 module.exports = router;
+
 
 
 
