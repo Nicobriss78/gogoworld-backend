@@ -190,6 +190,15 @@ const isPrivateEvent =
 
 if (isPrivateEvent) {
   const meId = req.user && req.user.id;
+  // ✅ BAN hard
+  const isRevoked =
+    Array.isArray(ev.revokedUsers) &&
+    ev.revokedUsers.some(u => String(u) === String(meId));
+
+  if (isRevoked) {
+    return res.status(403).json({ ok: false, error: "ACCESS_REVOKED" });
+  }
+
   const isOrganizer =
     ev.organizer && String(ev.organizer) === String(meId);
   const isParticipant =
