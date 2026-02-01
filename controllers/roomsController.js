@@ -673,7 +673,14 @@ exports.unlockEvent = async (req, res, next) => {
 
     const ev = await Event.findById(eventIdObj).lean();
     if (!ev) return res.status(404).json({ ok: false, error: "EVENT_NOT_FOUND" });
+// ✅ BAN hard
+const isRevoked =
+  Array.isArray(ev.revokedUsers) &&
+  ev.revokedUsers.some(u => String(u) === String(meId));
 
+if (String(ev.visibility || "").toLowerCase() === "private" && isRevoked) {
+  return res.status(403).json({ ok: false, error: "ACCESS_REVOKED" });
+}
 const isPrivateEvent =
   String(ev.visibility || "").toLowerCase() === "private";
 
