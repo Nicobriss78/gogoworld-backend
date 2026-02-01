@@ -86,6 +86,7 @@ coordinates: { type: [Number] } // [lon, lat]
     // Relazioni
     organizer: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    revokedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // ban per evento privato (persistente)
     // Idempotenza award su chiusura evento
     awardedClosed: { type: Boolean, default: false },
     awardedClosedAt: { type: Date },
@@ -105,6 +106,7 @@ eventSchema.index({ location: '2dsphere' });
 eventSchema.index({ approvalStatus: 1, visibility: 1, dateStart: 1 });
 eventSchema.index({ organizer: 1, approvalStatus: 1, createdAt: -1 });
 eventSchema.index({ participants: 1 });
+eventSchema.index({ revokedUsers: 1 });
 // Nuovi indici per eventi privati
 eventSchema.index({ isPrivate: 1 });
 eventSchema.index({ accessCode: 1 });
@@ -113,6 +115,7 @@ eventSchema.index({ approvedAt: 1 });
 // eventSchema.index({ title: "text", city: "text", category: "text" });
 
 module.exports = mongoose.model("Event", eventSchema);
+
 
 
 
