@@ -290,6 +290,40 @@ const getEventById = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("Evento non trovato");
   }
+  // ✅ Protezione eventi privati: solo organizer/admin/participants
+  if (event.visibility === "private") {
+    const userId = req.user?._id;
+
+    // se non loggato → no
+    if (!userId) {
+      res.status(401);
+      throw new Error("Non autorizzato");
+    }
+
+    // ban hard (vale sempre)
+    if (Array.isArray(event.revokedUsers)) {
+      const isRevoked = event.revokedUsers.some((u) => String(u) === String(userId));
+      if (isRevoked) {
+        res.status(403);
+        throw new Error("Accesso revocato dall’organizzatore");
+      }
+    }
+
+    const isOrganizer = event.organizer && String(event.organizer) === String(userId);
+    const isParticipant = Array.isArray(event.participants)
+      ? event.participants.some((p) => String(p) === String(userId))
+      : false;
+
+    // Admin: in questo controller lo deduciamo dal role nel token (se lo avete)
+    const role = req.user?.role;
+    const isAdmin = role === "admin";
+
+    if (!isAdmin && !isOrganizer && !isParticipant) {
+      res.status(403);
+      throw new Error("Evento privato: accesso negato");
+    }
+  }
+
   const now = new Date();
   const payload = attachStatusToOne(event, now);
   res.json({ ok: true, event: payload });
@@ -316,6 +350,16 @@ const accessPrivateEventByCode = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("Evento privato non trovato o non più disponibile");
   }
+  // ✅ BAN: se l'utente è in revokedUsers non può più sbloccare con il codice
+  const userId = req.user?._id;
+  if (userId && Array.isArray(event.revokedUsers)) {
+    const isRevoked = event.revokedUsers.some((u) => String(u) === String(userId));
+    if (isRevoked) {
+      res.status(403);
+      throw new Error("Accesso revocato dall’organizzatore");
+    }
+  }
+
 // ✅ Persistenza accesso: aggiungi l'utente tra i partecipanti (idempotente)
   const userId = req.user?._id;
   if (userId) {
@@ -836,6 +880,7 @@ module.exports = {
   getPrivateAccessCodeAdmin,
   rotatePrivateAccessCodeAdmin,
 };
+
 
 
 
