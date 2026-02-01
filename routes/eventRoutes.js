@@ -22,6 +22,11 @@ const {
   // Gestione codice evento privato (admin)
   getPrivateAccessCodeAdmin,
   rotatePrivateAccessCodeAdmin,
+  getEventAccess,
+  inviteToPrivateEvent,
+  banFromPrivateEvent,
+  unbanToPrivateEvent,
+  updateEventBanner,
 } = require("../controllers/eventController");
 
 const { protect, authorize } = require("../middleware/auth");
@@ -46,6 +51,17 @@ router.get("/following/list", protect, listFollowingEvents);
 router.post("/", writeLimiter, protect, authorize("organizer"), createEvent);
 
 router.get("/mine/list", protect, authorize("organizer"), listMyEvents);
+
+// --------------------------------------------------------
+// Private Event Access Management + Banner (organizer owner OR admin)
+// --------------------------------------------------------
+router.get("/:id/access", protect, authorize("organizer"), getEventAccess);
+router.post("/:id/invite", protect, authorize("organizer"), inviteToPrivateEvent);
+router.post("/:id/ban", protect, authorize("organizer"), banFromPrivateEvent);
+router.post("/:id/unban", protect, authorize("organizer"), unbanToPrivateEvent);
+
+// Banner = coverImage
+router.patch("/:id/banner", protect, authorize("organizer"), updateEventBanner);
 
 router.get("/:id", getEventById);
 
@@ -87,6 +103,7 @@ router.post("/:id/leave", participationLimiter, protect, leaveEvent);
 router.get("/:id/participation", protect, getParticipation);
 
 module.exports = router;
+
 
 
 
