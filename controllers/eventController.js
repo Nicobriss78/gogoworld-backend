@@ -407,6 +407,219 @@ const listPrivateEvents = asyncHandler(async (req, res) => {
 
   res.json({ ok: true, events: filtered });
 });
+// --------------------------------------------------------
+// Private Event Access Management + Banner (owner OR admin)
+// --------------------------------------------------------
+const canManageEventAsOwnerOrAdmin = (req, ev) => {
+  const meId = req.user?._id;
+  const role = req.user?.role;
+  const isAdmin = role === "admin";
+  const isOrganizerOwner = ev?.organizer && String(ev.organizer) === String(meId);
+  return !!(isAdmin || isOrganizerOwner);
+};
+
+const normalizeEmail = (s) => String(s || "").trim().toLowerCase();
+
+// @desc Access management: lista autorizzati + bannati (solo organizer owner o admin)
+// @route GET /api/events/:id/access
+// @access Private (organizer/admin)
+const getEventAccess = asyncHandler(async (req, res) => {
+  const ev = await Event.findById(req.params.id)
+    .select("title visibility organizer participants revokedUsers")
+    .populate("participants", "name email")
+    .populate("revokedUsers", "name email");
+
+  if (!ev) {
+    res.status(404);
+    throw new Error("Evento non trovato");
+  }
+
+  if (!canManageEventAsOwnerOrAdmin(req, ev)) {
+    res.status(403);
+    throw new Error("Non autorizzato");
+  }
+
+  // per coerenza: access management ha senso solo sui privati
+  if (ev.visibility !== "private") {
+    return res.json({ ok: true, participants: [], revokedUsers: [], note: "EVENT_NOT_PRIVATE" });
+  }
+
+  res.json({
+    ok: true,
+    participants: Array.isArray(ev.participants) ? ev.participants : [],
+    revokedUsers: Array.isArray(ev.revokedUsers) ? ev.revokedUsers : [],
+  });
+});
+
+// @desc Invita utente via email (aggiunge a participants se non bannato)
+// @route POST /api/events/:id/invite
+// @access Private (organizer/admin)
+const inviteToPrivateEvent = asyncHandler(async (req, res) => {
+  const email = normalizeEmail(req.body?.email);
+
+  if (!email) {
+    res.status(400);
+    throw new Error("Email mancante");
+  }
+
+  const ev = await Event.findById(req.params.id).select("visibility organizer participants revokedUsers");
+  if (!ev) {
+    res.status(404);
+    throw new Error("Evento non trovato");
+  }
+
+  if (!canManageEventAsOwnerOrAdmin(req, ev)) {
+    res.status(403);
+    throw new Error("Non autorizzato");
+  }
+
+  if (ev.visibility !== "private") {
+    res.status(400);
+    throw new Error("Evento non privato");
+  }
+
+  const user = await User.findOne({ email }).select("_id name email");
+  if (!user) {
+    res.status(404);
+    throw new Error("Utente non trovato");
+  }
+
+  // non ha senso invitare l'organizer
+  if (ev.organizer && String(ev.organizer) === String(user._id)) {
+    return res.json({ ok: true, already: true });
+  }
+
+  // se bannato: non invitiamo (reinserimento esplicito via /unban)
+  const isRevoked =
+    Array.isArray(ev.revokedUsers) &&
+    ev.revokedUsers.some((u) => String(u) === String(user._id));
+
+  if (isRevoked) {
+    res.status(409);
+    throw new Error("Utente bannato: usa Reinserisci (unban)");
+  }
+
+  ev.participants = Array.isArray(ev.participants) ? ev.participants : [];
+  const already = ev.participants.some((p) => String(p) === String(user._id));
+  if (!already) {
+    ev.participants.push(user._id);
+    await ev.save();
+  }
+
+  res.json({ ok: true });
+});
+
+// @desc Ban (revoca) utente (pull da participants + add in revokedUsers)
+// @route POST /api/events/:id/ban
+// @access Private (organizer/admin)
+const banFromPrivateEvent = asyncHandler(async (req, res) => {
+  const targetUserId = req.body?.userId;
+
+  if (!targetUserId) {
+    res.status(400);
+    throw new Error("userId mancante");
+  }
+
+  const ev = await Event.findById(req.params.id).select("visibility organizer participants revokedUsers");
+  if (!ev) {
+    res.status(404);
+    throw new Error("Evento non trovato");
+  }
+
+  if (!canManageEventAsOwnerOrAdmin(req, ev)) {
+    res.status(403);
+    throw new Error("Non autorizzato");
+  }
+
+  if (ev.visibility !== "private") {
+    res.status(400);
+    throw new Error("Evento non privato");
+  }
+
+  // non bannare l'organizer
+  if (ev.organizer && String(ev.organizer) === String(targetUserId)) {
+    res.status(400);
+    throw new Error("Non puoi escludere l’organizzatore");
+  }
+
+  ev.participants = Array.isArray(ev.participants) ? ev.participants : [];
+  ev.revokedUsers = Array.isArray(ev.revokedUsers) ? ev.revokedUsers : [];
+
+  ev.participants = ev.participants.filter((p) => String(p) !== String(targetUserId));
+
+  const alreadyRevoked = ev.revokedUsers.some((u) => String(u) === String(targetUserId));
+  if (!alreadyRevoked) ev.revokedUsers.push(targetUserId);
+
+  await ev.save();
+  res.json({ ok: true });
+});
+
+// @desc Unban + reinserimento (pull da revokedUsers + add a participants)
+// @route POST /api/events/:id/unban
+// @access Private (organizer/admin)
+const unbanToPrivateEvent = asyncHandler(async (req, res) => {
+  const targetUserId = req.body?.userId;
+
+  if (!targetUserId) {
+    res.status(400);
+    throw new Error("userId mancante");
+  }
+
+  const ev = await Event.findById(req.params.id).select("visibility organizer participants revokedUsers");
+  if (!ev) {
+    res.status(404);
+    throw new Error("Evento non trovato");
+  }
+
+  if (!canManageEventAsOwnerOrAdmin(req, ev)) {
+    res.status(403);
+    throw new Error("Non autorizzato");
+  }
+
+  if (ev.visibility !== "private") {
+    res.status(400);
+    throw new Error("Evento non privato");
+  }
+
+  ev.participants = Array.isArray(ev.participants) ? ev.participants : [];
+  ev.revokedUsers = Array.isArray(ev.revokedUsers) ? ev.revokedUsers : [];
+
+  ev.revokedUsers = ev.revokedUsers.filter((u) => String(u) !== String(targetUserId));
+
+  const alreadyParticipant = ev.participants.some((p) => String(p) === String(targetUserId));
+  if (!alreadyParticipant) ev.participants.push(targetUserId);
+
+  await ev.save();
+  res.json({ ok: true });
+});
+
+// @desc Aggiorna banner (coverImage) - organizer owner o admin
+// @route PATCH /api/events/:id/banner
+// @access Private (organizer/admin)
+const updateEventBanner = asyncHandler(async (req, res) => {
+  const bannerUrl = String(req.body?.bannerUrl || "").trim();
+
+  if (!bannerUrl) {
+    res.status(400);
+    throw new Error("bannerUrl mancante");
+  }
+
+  const ev = await Event.findById(req.params.id).select("organizer coverImage");
+  if (!ev) {
+    res.status(404);
+    throw new Error("Evento non trovato");
+  }
+
+  if (!canManageEventAsOwnerOrAdmin(req, ev)) {
+    res.status(403);
+    throw new Error("Non autorizzato");
+  }
+
+  ev.coverImage = bannerUrl;
+  await ev.save();
+
+  res.json({ ok: true, coverImage: ev.coverImage });
+});
 
 // @desc Crea un nuovo evento
 // @route POST /api/events
@@ -879,7 +1092,13 @@ module.exports = {
   closeEventAndAward, // ← NEW export
   getPrivateAccessCodeAdmin,
   rotatePrivateAccessCodeAdmin,
+  getEventAccess,
+  inviteToPrivateEvent,
+  banFromPrivateEvent,
+  unbanToPrivateEvent,
+  updateEventBanner,
 };
+
 
 
 
