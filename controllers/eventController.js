@@ -309,7 +309,8 @@ const getEventById = asyncHandler(async (req, res) => {
       }
     }
 
-    const isOrganizer = event.organizer && String(event.organizer) === String(userId);
+    const organizerId = event.organizer?._id || event.organizer;
+    const isOrganizer = organizerId && String(organizerId) === String(userId);
     const isParticipant = Array.isArray(event.participants)
       ? event.participants.some((p) => String(p) === String(userId))
       : false;
@@ -1098,6 +1099,7 @@ module.exports = {
   unbanToPrivateEvent,
   updateEventBanner,
 };
+
 
 
 
