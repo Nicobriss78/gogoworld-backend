@@ -361,7 +361,7 @@ const accessPrivateEventByCode = asyncHandler(async (req, res) => {
   }
 
 // ✅ Persistenza accesso: aggiungi l'utente tra i partecipanti (idempotente)
-  const userId = req.user?._id;
+
   if (userId) {
     const already = Array.isArray(event.participants)
       ? event.participants.some((p) => String(p) === String(userId))
@@ -880,6 +880,7 @@ module.exports = {
   getPrivateAccessCodeAdmin,
   rotatePrivateAccessCodeAdmin,
 };
+
 
 
 
