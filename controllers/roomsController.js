@@ -41,7 +41,14 @@ const isParticipant =
 // Trattiamo come privato se visibility === "private"
 const isPrivateEvent =
   String(ev.visibility || "").toLowerCase() === "private";
+// ✅ BAN hard: se l'utente è revocato non può accedere (no locked, proprio 403)
+const isRevoked =
+  Array.isArray(ev.revokedUsers) &&
+  ev.revokedUsers.some(u => String(u) === String(meId));
 
+if (isPrivateEvent && isRevoked) {
+  return res.status(403).json({ ok: false, error: "ACCESS_REVOKED" });
+}
 if (isPrivateEvent && !isOrganizer && !isParticipant) {
   // locked finché l'utente non ha aderito all'evento
   return res.json({
