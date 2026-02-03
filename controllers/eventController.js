@@ -327,6 +327,51 @@ const getEventById = asyncHandler(async (req, res) => {
 
   const now = new Date();
   const payload = attachStatusToOne(event, now);
+  // ============================
+  // SECURITY: private access + field sanitization
+  // ============================
+  const userId = req.user?._id;
+  const role = String(req.user?.role || "").toLowerCase();
+  const isAdmin = role === "admin";
+
+  const organizerId = event.organizer?._id || event.organizer;
+  const isOwner = organizerId && userId && String(organizerId) === String(userId);
+
+  const isPrivateEvent =
+    event?.isPrivate === true ||
+    (event?.visibility && String(event.visibility).toLowerCase() === "private");
+
+  // 🔒 Private enforcement (autorizzati: admin, owner, participants) + ban
+  if (isPrivateEvent) {
+    const revoked = Array.isArray(event.revokedUsers) ? event.revokedUsers.map(String) : [];
+    if (userId && revoked.includes(String(userId))) {
+      res.status(403);
+      throw new Error("Accesso revocato dall'organizzatore");
+    }
+
+    const participants = Array.isArray(event.participants) ? event.participants.map(String) : [];
+    const isParticipant = userId && participants.includes(String(userId));
+
+    if (!isAdmin && !isOwner && !isParticipant) {
+      res.status(403);
+      throw new Error("Evento privato: accesso non autorizzato");
+    }
+  }
+
+  // 🧼 Sanitizzazione: i partecipanti NON devono vedere campi sensibili
+  if (!isAdmin && !isOwner) {
+    if (payload && typeof payload === "object") {
+      delete payload.accessCode;
+      delete payload.participants;
+      delete payload.revokedUsers;
+      delete payload.flaggedBy;
+      delete payload.moderation;
+    }
+    if (payload?.organizer && typeof payload.organizer === "object") {
+      delete payload.organizer.email;
+    }
+  }
+
   res.json({ ok: true, event: payload });
 });
 // @desc Accesso evento privato tramite codice invito
@@ -353,6 +398,12 @@ const accessPrivateEventByCode = asyncHandler(async (req, res) => {
   }
   // ✅ BAN: se l'utente è in revokedUsers non può più sbloccare con il codice
   const userId = req.user?._id;
+  // 🔒 Se l'utente è bannato/revocato non può rientrare nemmeno col codice
+  const revoked = Array.isArray(event.revokedUsers) ? event.revokedUsers.map(String) : [];
+  if (userId && revoked.includes(String(userId))) {
+    res.status(403);
+    throw new Error("Accesso revocato dall'organizzatore");
+  }
   if (userId && Array.isArray(event.revokedUsers)) {
     const isRevoked = event.revokedUsers.some((u) => String(u) === String(userId));
     if (isRevoked) {
@@ -377,6 +428,24 @@ const accessPrivateEventByCode = asyncHandler(async (req, res) => {
 
   const now = new Date();
   const payload = attachStatusToOne(event, now);
+// 🧼 Sanitizzazione: chi sblocca come partecipante NON deve ricevere accessCode / liste utenti
+  const role = String(req.user?.role || "").toLowerCase();
+  const isAdmin = role === "admin";
+  const organizerId = event.organizer?._id || event.organizer;
+  const isOwner = organizerId && userId && String(organizerId) === String(userId);
+
+  if (!isAdmin && !isOwner) {
+    if (payload && typeof payload === "object") {
+      delete payload.accessCode;
+      delete payload.participants;
+      delete payload.revokedUsers;
+      delete payload.flaggedBy;
+      delete payload.moderation;
+    }
+    if (payload?.organizer && typeof payload.organizer === "object") {
+      delete payload.organizer.email;
+    }
+  }
 
   // Se ormai è passato del tutto, non ha senso “sbloccarlo” come privato
   if (payload.status === "past") {
@@ -405,8 +474,22 @@ const listPrivateEvents = asyncHandler(async (req, res) => {
 
   // (coerenza con altre schede: non mostrare i "past")
   const filtered = Array.isArray(payload) ? payload.filter((e) => e?.status !== "past") : [];
+// 🧼 Sanitizzazione lista privati (partecipanti): niente accessCode/liste interne
+  const sanitized = Array.isArray(filtered)
+    ? filtered.map((e) => {
+        if (e && typeof e === "object") {
+          delete e.accessCode;
+          delete e.participants;
+          delete e.revokedUsers;
+          delete e.flaggedBy;
+          delete e.moderation;
+          if (e.organizer && typeof e.organizer === "object") delete e.organizer.email;
+        }
+        return e;
+      })
+    : [];
 
-  res.json({ ok: true, events: filtered });
+  res.json({ ok: true, events: sanitized });
 });
 // --------------------------------------------------------
 // Private Event Access Management + Banner (owner OR admin)
@@ -1099,6 +1182,7 @@ module.exports = {
   unbanToPrivateEvent,
   updateEventBanner,
 };
+
 
 
 
