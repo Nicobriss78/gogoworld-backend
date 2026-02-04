@@ -17,6 +17,38 @@ function withinWindow(now, from, until) {
   if (until && now > new Date(until)) return false;
   return true;
 }
+async function requireMembership(roomIdObj, meId) {
+  const m = await RoomMember.findOne({ roomId: roomIdObj, userId: meId })
+    .select({ _id: 1, lastReadAt: 1 })
+    .lean();
+  return m; // null => non membro
+}
+
+async function requireEventAccessIfPrivate(room, meId) {
+  // Applica solo a room evento
+  if (!room || room.type !== "event" || !room.eventId) return { ok: true };
+
+  const ev = await Event.findById(room.eventId).lean();
+  if (!ev) return { ok: false, status: 404, error: "EVENT_NOT_FOUND" };
+
+  const isPrivateEvent = String(ev.visibility || "").toLowerCase() === "private";
+  if (!isPrivateEvent) return { ok: true };
+
+  const isRevoked =
+    Array.isArray(ev.revokedUsers) &&
+    ev.revokedUsers.some(u => String(u) === String(meId));
+  if (isRevoked) return { ok: false, status: 403, error: "ACCESS_REVOKED" };
+
+  const isOrganizer = ev.organizer && String(ev.organizer) === String(meId);
+  const isParticipant =
+    Array.isArray(ev.participants) &&
+    ev.participants.some(p => String(p) === String(meId));
+
+  if (!isOrganizer && !isParticipant) {
+    return { ok: false, status: 403, error: "ROOM_ACCESS_DENIED" };
+  }
+  return { ok: true };
+}
 
 // --- POST /api/rooms/event/:eventId/open-or-join ---
 exports.openOrJoinEvent = async (req, res, next) => {
@@ -250,14 +282,24 @@ exports.listMessages = async (req, res, next) => {
     const find = { roomId: roomIdObj };
     if (before) find.createdAt = { $lt: before };
 
-    const list = await RoomMessage.find(find).sort({ createdAt: -1 }).limit(limit).lean();
+// ✅ membership hard-check (deny by default)
+const member = await requireMembership(roomIdObj, meId);
+if (!member) return res.status(403).json({ ok: false, error: "ROOM_ACCESS_DENIED" });
 
-    // mark read (lastReadAt)
-    await RoomMember.updateOne(
-      { roomId: roomIdObj, userId: meId },
-      { $set: { lastReadAt: new Date() } },
-      { upsert: true }
-    );
+// Carica room per applicare regole evento privato/revoked anche se qualcuno prova bypass via roomId
+const room = await Room.findById(roomIdObj).select({ _id: 1, type: 1, eventId: 1 }).lean();
+if (!room) return res.status(404).json({ ok: false, error: "ROOM_NOT_FOUND" });
+
+const evAccess = await requireEventAccessIfPrivate(room, meId);
+if (!evAccess.ok) return res.status(evAccess.status).json({ ok: false, error: evAccess.error });
+
+const list = await RoomMessage.find(find).sort({ createdAt: -1 }).limit(limit).lean();
+
+// mark read (lastReadAt) — NO UPSERT
+await RoomMember.updateOne(
+  { roomId: roomIdObj, userId: meId },
+  { $set: { lastReadAt: new Date() } }
+);
 
     const data = list.map(m => ({
       id: String(m._id),
@@ -306,12 +348,14 @@ exports.postMessage = async (req, res, next) => {
       return res.status(400).json({ ok: false, error: "INVALID_TEXT" });
     }
 
-    // Garantisci membership (serve per coerenza con lastReadAt/unread)
-    await RoomMember.updateOne(
-      { roomId: room._id, userId: meId },
-      { $setOnInsert: { joinedAt: new Date() } },
-      { upsert: true }
-    );
+// ✅ membership hard-check (deny by default)
+const member = await requireMembership(room._id, meId);
+if (!member) return res.status(403).json({ ok: false, error: "ROOM_ACCESS_DENIED" });
+
+// ✅ anche qui applichiamo regole evento privato/revoked
+const evAccess = await requireEventAccessIfPrivate(room, meId);
+if (!evAccess.ok) return res.status(evAccess.status).json({ ok: false, error: evAccess.error });
+
 
     const doc = await RoomMessage.create({ roomId, sender: meId, text: t });
 
@@ -337,12 +381,24 @@ exports.markRead = async (req, res, next) => {
     if (!isValidObjectId(roomId)) return res.status(400).json({ ok: false, error: "INVALID_ROOM_ID" });
     const roomIdObj = new mongoose.Types.ObjectId(roomId);
     const upTo = req.body?.upTo ? new Date(req.body.upTo) : new Date();
-    await RoomMember.updateOne(
-      { roomId: roomIdObj, userId: meId },
-      { $set: { lastReadAt: upTo } },
-      { upsert: true }
-    );
-    return res.json({ ok: true });
+// ✅ membership hard-check (deny by default)
+const member = await requireMembership(roomIdObj, meId);
+if (!member) return res.status(403).json({ ok: false, error: "ROOM_ACCESS_DENIED" });
+
+// Se è una room evento, applichiamo anche revoca/privacy
+const room = await Room.findById(roomIdObj).select({ _id: 1, type: 1, eventId: 1 }).lean();
+if (!room) return res.status(404).json({ ok: false, error: "ROOM_NOT_FOUND" });
+
+const evAccess = await requireEventAccessIfPrivate(room, meId);
+if (!evAccess.ok) return res.status(evAccess.status).json({ ok: false, error: evAccess.error });
+
+// update — NO UPSERT
+await RoomMember.updateOne(
+  { roomId: roomIdObj, userId: meId },
+  { $set: { lastReadAt: upTo } }
+);
+return res.json({ ok: true });
+
   } catch (err) {
     next(err);
   }
