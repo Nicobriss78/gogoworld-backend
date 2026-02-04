@@ -20,13 +20,8 @@ const {
 } = require("../controllers/roomsController");
 
 
-// Auth middleware
-let { protect } = { protect: null };
-try {
-  ({ protect } = require("../middleware/auth"));
-} catch {
-  protect = (req, _res, next) => { if (!req.user) req.user = {}; next(); };
-}
+// Auth middleware (R1: deny-by-default, fail-closed)
+const { protect } = require("../middleware/auth");
 
 // Rate-limit semplice per invio messaggi room (robusto, in-memory)
 const buckets = new Map();
