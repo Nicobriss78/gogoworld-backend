@@ -86,10 +86,13 @@ const privateUnlockLimiter = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => {
-    const uid = req.user?.id || req.user?._id || "anon";
-    return `${req.ip}|${uid}`;
-  },
+keyGenerator: (req) => {
+  const uid = req.user?.id || req.user?._id;
+  // deny-by-default: senza user non deve mai arrivare qui (c’è protect prima),
+  // ma per sicurezza mettiamo un fallback esplicito
+  return uid ? String(uid) : "anon";
+},
+
   handler: (req, res) => {
     const reset = req.rateLimit?.resetTime instanceof Date
       ? req.rateLimit.resetTime
