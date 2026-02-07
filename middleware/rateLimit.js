@@ -80,4 +80,28 @@ const bannerClickLimiter = rateLimit({
   legacyHeaders: false,
   handler: rateLimitJsonHandler,
 });
-module.exports = { loginLimiter, registerLimiter, adminLimiter, writeLimiter, participationLimiter, monitorLimiter, bannerFetchLimiter, bannerClickLimiter };
+// Limite unlock eventi privati (anti brute-force): 5 tentativi / 10 min per IP+utente
+const privateUnlockLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const uid = req.user?.id || req.user?._id || "anon";
+    return `${req.ip}|${uid}`;
+  },
+  handler: (req, res) => {
+    const reset = req.rateLimit?.resetTime instanceof Date
+      ? req.rateLimit.resetTime
+      : new Date(Date.now() + 10 * 60 * 1000);
+    const retryAfterSec = Math.max(1, Math.ceil((reset - new Date()) / 1000));
+    res.set("Retry-After", retryAfterSec.toString());
+    return res.status(429).json({
+      ok: false,
+      error: "TOO_MANY_UNLOCK_ATTEMPTS",
+      retryAfter: retryAfterSec,
+    });
+  },
+});
+
+module.exports = { loginLimiter, registerLimiter, adminLimiter, writeLimiter, participationLimiter, monitorLimiter, bannerFetchLimiter, bannerClickLimiter, privateUnlockLimiter };
