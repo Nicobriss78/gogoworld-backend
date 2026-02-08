@@ -88,7 +88,9 @@ function unlockLimiter(req, res, next) {
 
 // Routes (evento pubblico)
 router.post("/event/:eventId/open-or-join", protect, openOrJoinEvent);
-router.post("/event/:eventId/unlock", protect, unlockLimiter, unlockEvent);
+router.post("/event/:eventId/unlock", protect, (req, res) => {
+  return res.status(404).json({ ok: false, error: "NOT_FOUND" });
+});
 router.get("/event/:eventId", protect, getEventRoomMeta);
 router.get("/:roomId/messages", protect, listMessages);
 router.post("/:roomId/messages", protect, roomLimiter, postMessage);
