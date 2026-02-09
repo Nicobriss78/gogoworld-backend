@@ -93,3 +93,4 @@ function securityRateLimit({ scope, windowMs, max }) {
 }
 
 module.exports = { securityRateLimit };
+
