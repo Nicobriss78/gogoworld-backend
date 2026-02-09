@@ -30,7 +30,17 @@ const {
 } = require("../controllers/eventController");
 
 const { protect, authorize } = require("../middleware/auth");
+const { securityRateLimit } = require("../middleware/securityRateLimit");
 const { writeLimiter, participationLimiter, adminLimiter, privateUnlockLimiter } = require("../middleware/rateLimit");
+// SECURITY (Redis shared) — Step 1.4
+// Applicato SOLO a route protette (req.user presente)
+const RL = {
+  create: securityRateLimit({ scope: "event_create", windowMs: 60_000, max: 10 }),
+  update: securityRateLimit({ scope: "event_update", windowMs: 60_000, max: 20 }),
+  publish: securityRateLimit({ scope: "event_publish", windowMs: 60_000, max: 10 }),
+  delete: securityRateLimit({ scope: "event_delete", windowMs: 60_000, max: 10 }),
+  unlock: securityRateLimit({ scope: "event_unlock", windowMs: 60_000, max: 30 }),
+};
 
 // --------------------------------------------------------
 // Eventi pubblici / query
@@ -48,8 +58,7 @@ router.get("/following/list", protect, listFollowingEvents);
 // --------------------------------------------------------
 // Creazione / gestione eventi (organizer only)
 // --------------------------------------------------------
-router.post("/", writeLimiter, protect, authorize("organizer"), createEvent);
-
+router.post("/", writeLimiter, protect, RL.create, authorize("organizer"), createEvent);
 router.get("/mine/list", protect, authorize("organizer"), listMyEvents);
 
 // --------------------------------------------------------
@@ -65,9 +74,9 @@ router.patch("/:id/banner", protect, authorize("organizer"), updateEventBanner);
 
 router.get("/:id", protect, getEventById);
 
-router.put("/:id", writeLimiter, protect, authorize("organizer"), updateEvent);
+router.put("/:id", writeLimiter, protect, RL.update, authorize("organizer"), updateEvent);
 
-router.delete("/:id", writeLimiter, protect, authorize("organizer"), deleteEvent);
+router.delete("/:id", writeLimiter, protect, RL.delete, authorize("organizer"), deleteEvent);
 
 // Chiusura evento + award (admin)
 router.put("/:id/close", adminLimiter, protect, authorize("admin"), closeEventAndAward);
@@ -75,7 +84,7 @@ router.put("/:id/close", adminLimiter, protect, authorize("admin"), closeEventAn
 // --------------------------------------------------------
 // Eventi privati (accesso tramite codice invito)
 // --------------------------------------------------------
-router.post("/access-code", protect, privateUnlockLimiter, accessPrivateEventByCode);
+router.post("/access-code", protect, RL.unlock, privateUnlockLimiter, accessPrivateEventByCode);
 // Gestione codice evento privato (admin)
 router.get(
   "/:id/access-code",
@@ -103,6 +112,7 @@ router.post("/:id/leave", participationLimiter, protect, leaveEvent);
 router.get("/:id/participation", protect, getParticipation);
 
 module.exports = router;
+
 
 
 
