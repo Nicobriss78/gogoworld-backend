@@ -27,6 +27,17 @@ const {
 } = require("../controllers/userController");
 const { protect } = require("../middleware/auth");
 const { loginLimiter, registerLimiter, writeLimiter } = require("../middleware/rateLimit");
+const { securityRateLimit } = require("../middleware/securityRateLimit");
+
+// SECURITY (Redis shared) — Step 1.4
+// Nota: qui lo applichiamo solo alle route PROTETTE (req.user presente).
+const RL = {
+  search: securityRateLimit({ scope: "user_search", windowMs: 60_000, max: 60 }),
+  sessionRole: securityRateLimit({ scope: "session_role", windowMs: 60_000, max: 20 }),
+  enableOrganizer: securityRateLimit({ scope: "enable_organizer", windowMs: 60_000, max: 10 }),
+  block: securityRateLimit({ scope: "user_block", windowMs: 60_000, max: 20 }),
+  follow: securityRateLimit({ scope: "user_follow", windowMs: 60_000, max: 40 }),
+};
 
 // PATCH: rate limiting (login)
 
@@ -43,25 +54,26 @@ router.get("/whoami", protect, (req, res) => {
 });
 
 // Private: switch role (ora NO-OP, non modifica più user.role nel DB)
-router.post("/session-role", protect, (req, res) => {
+router.post("/session-role", protect, RL.sessionRole, (req, res) => {
   const desired = String(req.body.role || "");
   res.json({ ok: true, preferred: desired });
 });
 
 // Private: abilita modalità organizzatore (Opzione B)
-router.post("/me/enable-organizer", protect, enableOrganizer);
+router.post("/me/enable-organizer", protect, RL.enableOrganizer, enableOrganizer);
 // Private: ricerca utenti
-router.get("/search", protect, searchUsers);
+router.get("/search", protect, RL.search, searchUsers);
 // PROFILO PUBBLICO
 router.get("/:userId/public", protect, getPublicProfile);
 // BACHECA ATTIVITÀ
 router.get("/:userId/activity", protect, getUserActivityFeed);
 // Private: block / unblock utente (DM / abuso)
-router.post("/:userId/block", protect, blockUser);
-router.post("/:userId/unblock", protect, unblockUser);
+router.post("/:userId/block", protect, RL.block, blockUser);
+router.post("/:userId/unblock", protect, RL.block, unblockUser);
+
 // FOLLOW / UNFOLLOW
-router.post("/:userId/follow", protect, followUser);
-router.delete("/:userId/follow", protect, unfollowUser);
+router.post("/:userId/follow", protect, RL.follow, followUser);
+router.delete("/:userId/follow", protect, RL.follow, unfollowUser);
 
 // LISTE FOLLOWERS / FOLLOWING
 router.get("/:userId/followers", protect, getFollowers);
@@ -74,6 +86,7 @@ router.post("/reset", writeLimiter, resetPassword);
 
 
 module.exports = router;
+
 
 
 
