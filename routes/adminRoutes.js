@@ -28,6 +28,17 @@ const { uploadCsvSafe } = require("../middleware/upload");
 
 // PATCH (5): rate limiting per azioni admin
 const { adminLimiter, monitorLimiter } = require("../middleware/rateLimit");
+const { securityRateLimit } = require("../middleware/securityRateLimit");
+// SECURITY (Redis shared) — Step 1.4 (Admin)
+// Applicato solo a route protette (admin + userId presenti via router.use)
+const RL = {
+  modEvent: securityRateLimit({ scope: "admin_event_moderate", windowMs: 60_000, max: 60 }),
+  userOps: securityRateLimit({ scope: "admin_user_ops", windowMs: 60_000, max: 60 }),
+  forceDelete: securityRateLimit({ scope: "admin_event_force_delete", windowMs: 60_000, max: 20 }),
+  importCsv: securityRateLimit({ scope: "admin_import_csv", windowMs: 60_000, max: 10 }),
+  monitor: securityRateLimit({ scope: "admin_monitor_client_error", windowMs: 60_000, max: 120 }),
+};
+
 // Guard opzionale con chiave interna: se INTERNAL_API_KEY non è settata, non blocca
 function requireInternalKey(req, res, next) {
   const needed = config.INTERNAL_API_KEY;
@@ -54,22 +65,22 @@ router.use(protect, authorize("admin"));
 // Eventi (moderazione)
 // ---------------------------------------------------------------------------
 router.get("/events", protect, authorize("admin"), listModerationEvents);
-router.post("/events/:id/approve", adminLimiter, requireInternalKey, protect, authorize("admin"), approveEvent);
-router.post("/events/:id/unapprove", adminLimiter, requireInternalKey, protect, authorize("admin"), unapproveEvent);
-router.post("/events/:id/reject", adminLimiter, requireInternalKey, protect, authorize("admin"), rejectEvent);
-router.post("/events/:id/block", adminLimiter, requireInternalKey, protect, authorize("admin"), blockEvent);
-router.post("/events/:id/unblock", adminLimiter, requireInternalKey, protect, authorize("admin"), unblockEvent);
-router.delete("/events/:id/force", adminLimiter, requireInternalKey, protect, authorize("admin"), forceDeleteEvent);
+router.post("/events/:id/approve", adminLimiter, RL.modEvent, requireInternalKey, protect, authorize("admin"), approveEvent);
+router.post("/events/:id/unapprove", adminLimiter, RL.modEvent, requireInternalKey, protect, authorize("admin"), unapproveEvent);
+router.post("/events/:id/reject", adminLimiter, RL.modEvent, requireInternalKey, protect, authorize("admin"), rejectEvent);
+router.post("/events/:id/block", adminLimiter, RL.modEvent, requireInternalKey, protect, authorize("admin"), blockEvent);
+router.post("/events/:id/unblock", adminLimiter, RL.modEvent, requireInternalKey, protect, authorize("admin"), unblockEvent);
+router.delete("/events/:id/force", adminLimiter, RL.forceDelete, requireInternalKey, protect, authorize("admin"), forceDeleteEvent);
 
 // ---------------------------------------------------------------------------
 // Utenti (moderazione ruoli/ban)
 // ---------------------------------------------------------------------------
 router.get("/users", protect, authorize("admin"), listUsers);
 router.get("/users/export.csv", protect, authorize("admin"), exportUsersCsv);
-router.post("/users/:id/ban", adminLimiter, requireInternalKey, protect, authorize("admin"), banUser);
-router.post("/users/:id/unban", adminLimiter, requireInternalKey, protect, authorize("admin"), unbanUser);
-router.post("/users/:id/role", adminLimiter, requireInternalKey, protect, authorize("admin"), setUserRole);
-router.post("/users/:id/can-organize", adminLimiter, requireInternalKey, protect, authorize("admin"), setUserCanOrganize);
+router.post("/users/:id/ban", adminLimiter, RL.userOps, requireInternalKey, protect, authorize("admin"), banUser);
+router.post("/users/:id/unban", adminLimiter, RL.userOps, requireInternalKey, protect, authorize("admin"), unbanUser);
+router.post("/users/:id/role", adminLimiter, RL.userOps, requireInternalKey, protect, authorize("admin"), setUserRole);
+router.post("/users/:id/can-organize", adminLimiter, RL.userOps, requireInternalKey, protect, authorize("admin"), setUserCanOrganize);
 
 // ---------------------------------------------------------------------------
 // Import massivo (CSV) – solo Admin
@@ -79,9 +90,11 @@ router.post(
   protect,
   authorize("admin"),
   adminLimiter,
+  RL.importCsv,
   uploadCsvSafe,
   importCsv
 );
+
 
 // ---------------------------------------------------------------------------
 // Monitoraggio errori client (Admin FE → Backend → Sentry)
@@ -91,8 +104,10 @@ router.post(
   "/monitor/client-error",
   requireInternalKey,
   monitorLimiter,
+  RL.monitor,
   express.json({ limit: "10kb" }),
   async (req, res) => {
+
     try {
       const { message, stack, href, ua, ts } = req.body || {};
       if (!message || typeof message !== "string") {
