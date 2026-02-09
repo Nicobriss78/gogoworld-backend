@@ -21,6 +21,15 @@ const {
 
 // Auth middleware (R1: deny-by-default, fail-closed)
 const { protect } = require("../middleware/auth");
+const { securityRateLimit } = require("../middleware/securityRateLimit");
+// SECURITY (Redis shared) — Step 1.4
+// Applicato solo a route protette (req.user presente)
+const RL = {
+  eventOpenOrJoin: securityRateLimit({ scope: "room_event_open_or_join", windowMs: 60_000, max: 30 }),
+  dmOpenOrJoin: securityRateLimit({ scope: "room_dm_open_or_join", windowMs: 60_000, max: 30 }),
+  markRead: securityRateLimit({ scope: "room_mark_read", windowMs: 60_000, max: 120 }),
+};
+
 
 // Rate-limit semplice per invio messaggi room (robusto, in-memory)
 const buckets = new Map();
@@ -49,16 +58,16 @@ function roomLimiter(req, res, next) {
 }
 
 // Routes (evento pubblico)
-router.post("/event/:eventId/open-or-join", protect, openOrJoinEvent);
+router.post("/event/:eventId/open-or-join", protect, RL.eventOpenOrJoin, openOrJoinEvent);
 router.post("/event/:eventId/unlock", protect, (req, res) => {
   return res.status(404).json({ ok: false, error: "NOT_FOUND" });
 });
 router.get("/event/:eventId", protect, getEventRoomMeta);
 router.get("/:roomId/messages", protect, listMessages);
 router.post("/:roomId/messages", protect, roomLimiter, postMessage);
-router.post("/:roomId/read", protect, markRead);
+router.post("/:roomId/read", protect, RL.markRead, markRead);
 // Routes (DM)
-router.post("/dm/open-or-join", protect, openOrJoinDM);
+router.post("/dm/open-or-join", protect, RL.dmOpenOrJoin, openOrJoinDM);
 // Le mie stanze (dove l'utente è membro o ha interagito)
 router.get("/unread-count", protect, getRoomsUnreadCount);
 router.get("/unread-summary", protect, getUnreadSummary);
