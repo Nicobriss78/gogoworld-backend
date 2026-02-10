@@ -19,6 +19,11 @@ const User = require("../models/userModel");
 // -----------------------------------------------------------------------------
 const protect = asyncHandler(async (req, res, next) => {
   let token;
+// Fail-closed: se JWT_SECRET non è configurato, non possiamo validare token.
+  // Evita risposte ambigue (401) su un errore di configurazione server.
+  if (!process.env.JWT_SECRET) {
+    return res.status(500).json({ ok: false, error: "internal_error" });
+  }
 
   // Header Authorization: Bearer <token> (case-insensitive, spazi tollerati)
   const auth = typeof req.headers.authorization === "string" ? req.headers.authorization.trim() : "";
@@ -83,38 +88,40 @@ const authorize = (...roles) => {
   // normalizza i ruoli richiesti in lowercase
   const allowed = new Set((roles || []).map((r) => String(r).toLowerCase()));
   return (req, res, next) => {
-    try {
-      if (!req.user || !req.user.role) {
-        res.status(403);
-        throw new Error("Forbidden");
-      }
-
-      // Estensione Opzione B: se serve "organizer", accetta anche canOrganize === true e gli admin
-      if (allowed.has("organizer")) {
-        const role = String(req.user.role || "").toLowerCase();
-        if (
-          role === "organizer" ||
-          role === "admin" ||
-          req.user.canOrganize === true
-        ) {
-          return next();
-        }
-        res.status(403);
-        throw new Error("Forbidden");
-      }
-
-      // Per "admin" (o altri ruoli), match diretto in lowercase
-      const role = String(req.user.role || "").toLowerCase();
-      if (!allowed.has(role)) {
-        res.status(403);
-        throw new Error("Forbidden");
-      }
-      return next();
-    } catch (err) {
-      return next(err);
+    // Fail-closed: niente throw/try/catch, risposte intenzionali e coerenti.
+    // Se manca req.user, vuol dire che protect non è stato applicato (o ha fallito).
+    if (!req.user) {
+      return res.status(401).json({ ok: false, error: "not_authorized" });
     }
+
+    // Ruolo mancante → deny esplicito
+    const role = String(req.user.role || "").toLowerCase();
+    if (!role) {
+      return res.status(403).json({ ok: false, error: "forbidden" });
+    }
+
+    // authorize chiamato senza ruoli → deny-by-default
+    if (!allowed.size) {
+      return res.status(403).json({ ok: false, error: "forbidden" });
+    }
+
+    // Estensione Opzione B: se serve "organizer", accetta anche canOrganize === true e gli admin
+    if (allowed.has("organizer")) {
+      if (role === "organizer" || role === "admin" || req.user.canOrganize === true) {
+        return next();
+      }
+      return res.status(403).json({ ok: false, error: "forbidden" });
+    }
+
+    // Per "admin" (o altri ruoli), match diretto in lowercase
+    if (!allowed.has(role)) {
+      return res.status(403).json({ ok: false, error: "forbidden" });
+    }
+
+    return next();
   };
 };
+
 
 module.exports = {
   protect,
