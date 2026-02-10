@@ -2,6 +2,7 @@
 // Controller Banner — B1/1: fetch attivi con rotazione + tracking impression/click
 
 const { Banner, BannerStatsDaily } = require("../models/bannerModel");
+const { logger } = require("../core/logger");
 
 // Cache semplice in RAM con TTL per lista attiva e indice round-robin per chiave
 const activeCache = new Map(); // key -> { expiresAt, items: [banner], rr: 0 }
@@ -62,10 +63,9 @@ async function touchDailyStat(bannerId, field /* 'impressions' | 'clicks' */) {
       { $setOnInsert: key, $inc: inc },
       { upsert: true }
     );
-  } catch (err) {
-    // Non bloccare il flusso per errori statistici
-    console.error("[BannerStatsDaily] update error:", err && err.message);
-  }
+} catch (err) {
+  logger.warn("[BannerStatsDaily] update failed", err);
+}
 }
 
 // Incremento veloce sui totali
@@ -73,9 +73,9 @@ async function incTotals(bannerId, field /* 'impressions' | 'clicks' */) {
   try {
     const inc = field === "clicks" ? { clicksTotal: 1 } : { impressionsTotal: 1 };
     await Banner.updateOne({ _id: bannerId }, { $inc: inc }).lean();
-  } catch (err) {
-    console.error("[Banner] totals update error:", err && err.message);
-  }
+} catch (err) {
+  logger.warn("[Banner] totals update failed", err);
+}
 }
 
 // Seleziona prossimo banner (round-robin) dalla lista in cache
