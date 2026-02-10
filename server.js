@@ -145,10 +145,17 @@ process.on("uncaughtException", (err) => {
 });
 
 // Avvio
+// FAIL-FAST (prod): se INTERNAL_API_KEY manca, non avviamo il server.
+// Evita situazioni misconfigurate in cui endpoint interni risultano inutilizzabili o incoerenti.
+if ((config.NODE_ENV || process.env.NODE_ENV) === "production" && !config.INTERNAL_API_KEY) {
+  logger.error("❌ INTERNAL_API_KEY missing in production. Refusing to start.");
+  process.exit(1);
+}
 const PORT = config.PORT || 3000;
 app.listen(PORT, () => {
   logger.info(`🚀 GoGo.World API in ascolto sulla porta ${PORT}`);
 });
+
 
 
 
