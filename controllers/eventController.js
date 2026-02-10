@@ -1031,10 +1031,11 @@ async function getPrivateAccessCodeAdmin(req, res) {
       eventId: event._id,
       accessCode: event.accessCode || null,
     });
-  } catch (err) {
-    console.error("getPrivateAccessCodeAdmin error", err);
-    return res.status(500).json({ ok: false, error: "SERVER_ERROR" });
-  }
+} catch (err) {
+  logger.error("getPrivateAccessCodeAdmin error", err);
+  return res.status(500).json({ ok: false, error: "internal_error" });
+}
+
 }
 
 // ---------------------------------------------------------------------
@@ -1065,10 +1066,11 @@ async function rotatePrivateAccessCodeAdmin(req, res) {
       eventId: event._id,
       newCode,
     });
-  } catch (err) {
-    console.error("rotatePrivateAccessCodeAdmin error", err);
-    return res.status(500).json({ ok: false, error: "SERVER_ERROR" });
-  }
+} catch (err) {
+  logger.error("rotatePrivateAccessCodeAdmin error", err);
+  return res.status(500).json({ ok: false, error: "internal_error" });
+}
+
 }
 
 // @desc Chiude evento e assegna punti ai partecipanti
@@ -1182,6 +1184,7 @@ module.exports = {
   unbanToPrivateEvent,
   updateEventBanner,
 };
+
 
 
 
