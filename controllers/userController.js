@@ -357,10 +357,11 @@ const me = await User.findById(meId).select("following blockedUsers name");
         title: "Hai un nuovo follower!",
         message: `${me.name || "Un utente"} ha iniziato a seguirti`,
       });
-    } catch (err) {
-      console.error("[notifications][follow] errore:", err.message);
-      // non blocchiamo la risposta se la notifica fallisce
-    }
+} catch (err) {
+  logger.warn("[notifications][follow] notify failed", err);
+  // non blocchiamo la risposta se la notifica fallisce
+}
+
   }
 
   return res.json({ ok: true, following: true });
@@ -615,6 +616,7 @@ module.exports = {
   getPublicProfile,
   getUserActivityFeed, // A3.3
 };
+
 
 
 
