@@ -3,6 +3,7 @@
 
 const asyncHandler = require("express-async-handler");
 const Notification = require("../models/notificationModel");
+const { logger } = require("../core/logger");
 
 // @desc Restituisce le notifiche dell'utente loggato
 // @route GET /api/notifications/mine
@@ -114,11 +115,11 @@ async function createNotification({ user, actor, event, type, title, message, da
   try {
     const notification = await Notification.create(payload);
     return notification;
-  } catch (err) {
-    // non bloccare mai il flusso principale per errore di notifica
-    console.error("[notification] errore creazione notifica:", err.message);
-    return null;
-  }
+} catch (err) {
+  logger.error("[notification] create failed", err);
+  return null;
+}
+
 }
 
 module.exports = {
