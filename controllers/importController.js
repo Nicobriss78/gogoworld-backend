@@ -81,11 +81,11 @@ const importCsv = async (req, res, next) => {
         skip_empty_lines: true,
         trim: true,
       });
-    } catch (err) {
-      return res
-        .status(400)
-        .json({ ok: false, error: `Formato CSV non valido: ${err.message || "parse error"}` });
-    }
+} catch (err) {
+  // no-leak: non esporre dettagli parser al client
+  return res.status(400).json({ ok: false, error: "Formato CSV non valido" });
+}
+
 
 const dryRun =
   String(req.query.dryRun || (req.body && req.body.simulate) || "").toLowerCase() === "true";
@@ -252,10 +252,12 @@ const dryRun =
         await ev.save();
         created++;
         results.push({ line: i + 2, status: "ok", id: ev._id });
-      } catch (err) {
-        results.push({ line: i + 2, status: "error", errors: [err.message] });
-        skipped++;
-      }
+} catch (err) {
+  // no-leak: non esporre errori mongo/node nel report righe
+  results.push({ line: i + 2, status: "error", errors: ["internal_error"] });
+  skipped++;
+}
+
     }
 
     if (dryRun) {
@@ -274,12 +276,11 @@ const dryRun =
         rows: results,
       });
     }
-  } catch (err) {
-    // fallback: se arriva qui, segnala 500 evitando HTML default
-    return res.status(res.statusCode && res.statusCode !== 200 ? res.statusCode : 500).json({
-      ok: false,
-      error: err.message || "Errore interno",
-    });
+} catch (err) {
+  return res.status(res.statusCode && res.statusCode !== 200 ? res.statusCode : 500).json({
+    ok: false,
+    error: "internal_error",
+  });
 }
 };
 
