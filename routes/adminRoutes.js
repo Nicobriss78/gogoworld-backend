@@ -39,14 +39,33 @@ const RL = {
   monitor: securityRateLimit({ scope: "admin_monitor_client_error", windowMs: 60_000, max: 120 }),
 };
 
-// Guard opzionale con chiave interna: se INTERNAL_API_KEY non è settata, non blocca
+// Guard con chiave interna (FAIL-CLOSED):
+// - se INTERNAL_API_KEY non è configurata → nega sempre + log chiaro
+// - se header mancante o errato → 403 con errore uniforme
 function requireInternalKey(req, res, next) {
   const needed = config.INTERNAL_API_KEY;
-  if (!needed) return next(); // chiave non configurata → passa
-  const provided = req.get("x-internal-key") || req.get("x-internal-api-key") || "";
+
+  // FAIL-CLOSED: chiave non configurata = rotta non utilizzabile
+  if (!needed) {
+    // log esplicito (non leakka segreti)
+    try {
+      // logger potrebbe non essere importato qui: usiamo STDERR in modo minimale
+      console.error("INTERNAL KEY MISSING: INTERNAL_API_KEY is not configured");
+    } catch {}
+    return res.status(403).json({ ok: false, error: "unauthorized_internal_key" });
+  }
+
+  // Header canonical: X-Internal-Api-Key (accettiamo anche varianti legacy)
+  const provided =
+    req.get("x-internal-api-key") ||
+    req.get("x-internal-key") ||
+    req.get("x-internal-api_key") ||
+    "";
+
   if (provided && provided === needed) return next();
-  return res.status(403).json({ ok: false, error: "FORBIDDEN_INTERNAL" });
+  return res.status(403).json({ ok: false, error: "unauthorized_internal_key" });
 }
+
 
 // ---------------------------------------------------------------------------
 // DEBUG TEMP: chi sono io lato BE? (rimuovere a test finiti)
