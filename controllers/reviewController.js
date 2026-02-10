@@ -19,13 +19,10 @@ const isObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 async function safeCreateActivity(payload) {
   try {
     await Activity.create(payload);
-  } catch (err) {
-    if (logger && typeof logger.warn === "function") {
-      logger.warn("[Activity] create failed", err);
-    } else {
-      console.warn("[Activity] create failed", err);
-    }
-  }
+} catch (err) {
+  logger.warn("[Activity] create failed", err);
+}
+
 }
 
 /**
@@ -83,7 +80,7 @@ exports.listReviews = async (req, res) => {
     return res.json({ ok: true, total, page: Number(page), limit: Number(limit), reviews: items });
   } catch (err) {
     logger.error("[reviews:list] error", err);
-    return res.status(500).json({ ok: false, error: "Server error" });
+return res.status(500).json({ ok: false, error: "internal_error" });
   }
 };
 
@@ -208,7 +205,7 @@ await notify("review_created_pending", {
     }
     
 logger.error("[reviews:create] error", err);
-    return res.status(500).json({ ok: false, error: "Server error" });
+return res.status(500).json({ ok: false, error: "internal_error" });
   }
 };
 
@@ -263,7 +260,7 @@ exports.updateMyReview = async (req, res) => {
   } catch (err) {
     
 logger.error("[reviews:update] error", err);
-    return res.status(500).json({ ok: false, error: "Server error" });
+return res.status(500).json({ ok: false, error: "internal_error" });
   }
 };
 
@@ -314,7 +311,7 @@ exports.adminApprove = async (req, res) => {
     return res.json({ ok: true, review: { _id: doc._id, status: doc.status } });
   } catch (err) {
 logger.error("[reviews:approve] error", err);
-    return res.status(500).json({ ok: false, error: "Server error" });
+return res.status(500).json({ ok: false, error: "internal_error" });
   }
 };
 
@@ -339,7 +336,7 @@ participantId: doc?.participant?.toString?.() || String(doc?.participant || ""),
     return res.json({ ok: true, review: { _id: doc._id, status: doc.status } });
   } catch (err) {
 logger.error("[reviews:reject] error", err);
-    return res.status(500).json({ ok: false, error: "Server error" });
+return res.status(500).json({ ok: false, error: "internal_error" });
   }
 };
 /**
@@ -367,6 +364,6 @@ exports.adminListPending = async (req, res) => {
   } catch (err) {
     
 logger.error("[reviews:adminListPending] error", err);
-    return res.status(500).json({ ok: false, error: "Server error" });
+return res.status(500).json({ ok: false, error: "internal_error" });
   }
 };
