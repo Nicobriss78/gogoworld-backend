@@ -442,7 +442,7 @@ const payload = {
         results.push({ line: lineNo, status: "ok", simulate: true });
       }
     } catch (err) {
-      results.push({ line: lineNo, status: "error", errors: [String(err.message || err)] });
+results.push({ line: lineNo, status: "error", errors: ["internal_error"] });
     }
   }
 
