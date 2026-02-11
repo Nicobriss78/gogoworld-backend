@@ -2,6 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const { config } = require("../config");
+const { logger } = require("../core/logger");
 const { protect, authorize } = require("../middleware/auth");
 const {
   listModerationEvents,
@@ -50,7 +51,7 @@ function requireInternalKey(req, res, next) {
     // log esplicito (non leakka segreti)
     try {
       // logger potrebbe non essere importato qui: usiamo STDERR in modo minimale
-      console.error("INTERNAL KEY MISSING: INTERNAL_API_KEY is not configured");
+      logger.error("INTERNAL KEY MISSING: INTERNAL_API_KEY is not configured");
     } catch {}
     return res.status(403).json({ ok: false, error: "unauthorized_internal_key" });
   }
@@ -140,12 +141,12 @@ router.post(
           extra: { stack, href, ua, ts, source: "client-admin" },
         });
       } else {
-        console.error("ClientError:", { message, stack, href, ua, ts });
+        logger.error("ClientError:", { message, stack, href, ua, ts });
       }
 
       return res.json({ ok: true });
     } catch (err) {
-      console.error("Monitor route error:", err);
+      logger.error("Monitor route error:", err);
       return res.status(500).json({ ok: false, error: "internal_error" });
     }
   }
