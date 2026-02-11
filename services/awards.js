@@ -10,14 +10,10 @@ const cache = require("../adapters/cache");
 async function safeCreateActivity(payload) {
   try {
     await Activity.create(payload);
-  } catch (err) {
-    try {
-      logger.warn("[Activity] create failed", { error: err && err.message });
-    } catch {
-      // fallback minimale se il logger non è disponibile
-      console.warn("[Activity] create failed", err);
-    }
+} catch (err) {
+    logger.warn("[Activity] create failed", err);
   }
+
 }
 
 // Soglie status per score
