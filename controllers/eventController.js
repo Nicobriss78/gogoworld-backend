@@ -65,13 +65,8 @@ function attachStatusToOne(doc, now = new Date()) {
 async function safeCreateActivity(payload) {
   try {
     await Activity.create(payload);
-  } catch (err) {
-    if (logger && typeof logger.warn === "function") {
-      logger.warn("[Activity] create failed", err);
-    } else {
-      // fallback minimale se il logger non è disponibile
-      console.warn("[Activity] create failed", err);
-    }
+} catch (err) {
+    logger.warn("[Activity] create failed", err);
   }
 }
 
@@ -1184,6 +1179,7 @@ module.exports = {
   unbanToPrivateEvent,
   updateEventBanner,
 };
+
 
 
 
