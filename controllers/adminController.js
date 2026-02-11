@@ -8,6 +8,7 @@ const User = require("../models/userModel");
 const Activity = require("../models/activityModel");
 const { notify } = require("../services/notifications");
 const { createNotification } = require("./notificationController");
+const { logger } = require("../core/logger");
 // -----------------------------
 // Utils
 // -----------------------------
@@ -36,7 +37,7 @@ function logAdmin(action, data) {
       ...data,
       ts: Date.now(),
     };
-    console.log(JSON.stringify(payload));
+    logger.info(JSON.stringify(payload));
   } catch (_) {
     // non bloccare il flusso in caso di errori di log
   }
@@ -49,10 +50,8 @@ async function safeCreateActivity(payload) {
     await doc.save();
     return doc;
   } catch (err) {
-    console.error(
-      "[activity] failed to create Activity from adminController:",
-      err?.message || err
-    );
+    logger.warn("[activity] create failed (adminController)", err);
+
     return null;
   }
 }
@@ -188,7 +187,7 @@ const approveEvent = asyncHandler(async (req, res) => {
         }
       }
     } catch (err) {
-      console.error("[notifications][event_approved] errore:", err?.message || err);
+      logger.warn("[notifications][event_approved] notify failed", err);
     }
   }
 
