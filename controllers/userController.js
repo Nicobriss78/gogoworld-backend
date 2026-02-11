@@ -25,19 +25,42 @@ const generateToken = (id) => {
 // -----------------------------------------------------------------------------
 const registerUser = asyncHandler(async (req, res) => {
   const { name, email, password, role } = req.body;
+  // ---- input validation minima (no deps) ----
+  const nameRaw = typeof name === "string" ? name.trim() : "";
+  const emailRaw = typeof email === "string" ? email.trim().toLowerCase() : "";
+  const passRaw = typeof password === "string" ? password : "";
+
+  if (!nameRaw || nameRaw.length < 2 || nameRaw.length > 50) {
+    return res.status(400).json({ ok: false, error: "INVALID_NAME" });
+  }
+  // email minimale (non perfetta RFC, ma sufficiente per evitare garbage)
+  if (!emailRaw || emailRaw.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw)) {
+    return res.status(400).json({ ok: false, error: "INVALID_EMAIL" });
+  }
+  // password: limiti ragionevoli, evita vuoti/mega-stringhe
+  if (!passRaw || passRaw.length < 8 || passRaw.length > 72) {
+    return res.status(400).json({ ok: false, error: "INVALID_PASSWORD" });
+  }
+
+  // role: non consentire registrazione "admin" (deny-by-default)
+  const roleNorm = role ? String(role).toLowerCase() : "participant";
+  if (roleNorm !== "participant" && roleNorm !== "organizer") {
+    return res.status(400).json({ ok: false, error: "INVALID_ROLE" });
+  }
+
 const nicknameFrom =
     (typeof name === "string" && name.trim()) ||
     (typeof email === "string" && email.includes("@") ? email.split("@")[0] : "");
-  const userExists = await User.findOne({ email });
+  const userExists = await User.findOne({ email: emailRaw });
   if (userExists) {
     res.status(400);
     throw new Error("User already exists");
   }
 
 const user = await User.create({
-    name,
-    email,
-    password,
+    name: nameRaw,
+    email: emailRaw,
+    password: passRaw,
     role: role || "participant",
     profile: {
       nickname: nicknameFrom || undefined,
@@ -65,8 +88,17 @@ const user = await User.create({
 // @access Public
 // -----------------------------------------------------------------------------
 const authUser = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
-  const user = await User.findOne({ email });
+const emailRaw = typeof email === "string" ? email.trim().toLowerCase() : "";
+  const passRaw = typeof password === "string" ? password : "";
+
+  if (!emailRaw || emailRaw.length > 254) {
+    return res.status(400).json({ ok: false, error: "INVALID_EMAIL" });
+  }
+  if (!passRaw || passRaw.length < 1 || passRaw.length > 72) {
+    return res.status(400).json({ ok: false, error: "INVALID_PASSWORD" });
+  }
+
+  const user = await User.findOne({ email: emailRaw });
 
   if (user && (await user.matchPassword(password))) {
     res.json({
@@ -209,12 +241,16 @@ const forgotPassword = asyncHandler(async (req, res) => {
 // RESET PASSWORD (POST /api/users/reset { token, password })
 // -----------------------------------------------------------------------------
 const resetPassword = asyncHandler(async (req, res) => {
-  const token = String(req.body.token || "");
+const token = String(req.body.token || "").trim();
   const newPassword = String(req.body.password || "");
-  if (!token || !newPassword) {
-    res.status(400);
-    throw new Error("Token e password richiesti");
+
+  if (!token || token.length < 10 || token.length > 200) {
+    return res.status(400).json({ ok: false, error: "INVALID_TOKEN" });
   }
+  if (!newPassword || newPassword.length < 8 || newPassword.length > 72) {
+    return res.status(400).json({ ok: false, error: "INVALID_PASSWORD" });
+  }
+
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
   const now = new Date();
   const user = await User.findOne({
@@ -616,6 +652,7 @@ module.exports = {
   getPublicProfile,
   getUserActivityFeed, // A3.3
 };
+
 
 
 
