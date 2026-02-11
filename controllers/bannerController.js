@@ -176,7 +176,7 @@ exports.getActiveBanners = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("[Banner] getActiveBanners error:", err);
+    logger.error("[Banner] getActiveBanners error:", err);
     return res.status(500).json({ ok: false, error: "internal_error" });
   }
 };
@@ -251,7 +251,7 @@ exports.getActiveBannersBatch = async (req, res) => {
 
     return res.json({ ok: true, data });
   } catch (err) {
-    console.error("[Banner] getActiveBannersBatch error:", err);
+    logger.error("[Banner] getActiveBannersBatch error:", err);
     return res.status(500).json({ ok: false, error: "internal_error" });
   }
 };
@@ -281,7 +281,7 @@ exports.clickBanner = async (req, res) => {
 
     return res.status(204).send(); // NO CONTENT; FE non ha bisogno di payload
   } catch (err) {
-    console.error("[Banner] clickBanner error:", err);
+    logger.error("[Banner] clickBanner error:", err);
     return res.status(500).json({ ok: false, error: "internal_error" });
   }
 };
@@ -323,7 +323,7 @@ exports.listBannersAdmin = async (req, res) => {
     const items = await Banner.find(filter).sort({ updatedAt: -1 }).lean();
     return res.json({ ok: true, data: items });
   } catch (err) {
-    console.error("[Banner] listBannersAdmin error:", err);
+    logger.error("[Banner] listBannersAdmin error:", err);
     return res.status(500).json({ ok: false, error: "internal_error" });
   }
 };
@@ -344,7 +344,7 @@ exports.listBannersMine = async (req, res) => {
     const items = await Banner.find(filter).sort({ updatedAt: -1 }).lean();
     return res.json({ ok: true, data: items });
   } catch (err) {
-    console.error("[Banner] listBannersMine error:", err);
+    logger.error("[Banner] listBannersMine error:", err);
     return res.status(500).json({ ok: false, error: "internal_error" });
   }
 };
@@ -393,7 +393,7 @@ return Object.assign(b, { isExpired: exp });
 });
 return res.json({ ok:true, data });
 } catch (err) {
-console.error("[Banner] listBannersMine error:", err);
+logger.error("[Banner] listBannersMine error:", err);
 return res.status(500).json({ ok:false, error:"internal_error" });
 }
 };
@@ -434,7 +434,7 @@ exports.createBanner = async (req, res) => {
     await doc.save();
     return res.status(201).json({ ok:true, data:{ id: String(doc._id) }});
   } catch (err) {
-    console.error("[Banner] create error:", err);
+    logger.error("[Banner] create error:", err);
     return res.status(500).json({ ok:false, error:"internal_error" });
   }
 };
@@ -461,7 +461,7 @@ exports.updateBanner = async (req, res) => {
     if (r.matchedCount === 0) return res.status(404).json({ ok:false, error:"not_found" });
     return res.status(204).send();
   } catch (err) {
-    console.error("[Banner] update error:", err);
+    logger.error("[Banner] update error:", err);
     return res.status(500).json({ ok:false, error:"internal_error" });
   }
 };
@@ -476,7 +476,7 @@ exports.deleteBanner = async (req, res) => {
     if (r.deletedCount === 0) return res.status(404).json({ ok:false, error:"not_found" });
     return res.status(204).send();
   } catch (err) {
-    console.error("[Banner] delete error:", err);
+    logger.error("[Banner] delete error:", err);
     return res.status(500).json({ ok:false, error:"internal_error" });
   }
 };
@@ -506,7 +506,7 @@ if (!updated) {
 }
     return res.status(204).send();
   } catch (err) {
-    console.error("[Banner] approve error:", err);
+    logger.error("[Banner] approve error:", err);
     return res.status(500).json({ ok:false, error:"internal_error" });
   }
 };
@@ -521,7 +521,7 @@ exports.rejectBanner = async (req, res) => {
     await Banner.updateOne({ _id:id }, { $set: { status:"REJECTED", isActive:false }});
     return res.status(204).send();
   } catch (err) {
-    console.error("[Banner] reject error:", err);
+    logger.error("[Banner] reject error:", err);
     return res.status(500).json({ ok:false, error:"internal_error" });
   }
 };
@@ -535,7 +535,7 @@ exports.pauseBanner = async (req, res) => {
     await Banner.updateOne({ _id:id }, { $set: { status:"PAUSED", isActive:false }});
     return res.status(204).send();
   } catch (err) {
-    console.error("[Banner] pause error:", err);
+    logger.error("[Banner] pause error:", err);
     return res.status(500).json({ ok:false, error:"internal_error" });
   }
 };
@@ -557,7 +557,7 @@ exports.resumeBanner = async (req, res) => {
     await Banner.updateOne({ _id:id }, { $set: { status: nextStatus, isActive:true }});
     return res.status(204).send();
   } catch (err) {
-    console.error("[Banner] resume error:", err);
+    logger.error("[Banner] resume error:", err);
     return res.status(500).json({ ok:false, error:"internal_error" });
   }
 };
@@ -600,7 +600,7 @@ exports.submitBannerRequest = async (req, res) => {
     await doc.save();
     return res.status(201).json({ ok:true, data:{ id: String(doc._id) }});
   } catch (err) {
-    console.error("[Banner] submitBannerRequest error:", err);
+    logger.error("[Banner] submitBannerRequest error:", err);
     return res.status(500).json({ ok:false, error:"internal_error" });
   }
 };
