@@ -34,12 +34,38 @@ try {
 
 // dedup
 allowedOrigins = Array.from(new Set(allowedOrigins));
+// Consente richieste senza Origin header o con Origin: null (configurabile).
+// Default: 1 (compatibilità). Impostare a 0 per massima chiusura.
+const allowNoOriginRaw =
+  config.ALLOW_NO_ORIGIN ?? process.env.ALLOW_NO_ORIGIN ?? "1";
+const allowNoOrigin = String(allowNoOriginRaw).trim() === "1";
 
 const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true); // richieste server-to-server o curl
+origin: function (origin, callback) {
+    // Caso 1: nessun Origin header (server-to-server, curl)
+    if (!origin) {
+      if (allowNoOrigin) return callback(null, true);
+      const e = new Error("Origin missing");
+      e.status = 403;
+      e.code = "CORS_NO_ORIGIN";
+      return callback(e);
+    }
+
+    // Caso 2: Origin esplicitamente "null" (es. iframe sandbox/file://)
+    if (origin === "null") {
+      if (allowNoOrigin) return callback(null, true);
+      const e = new Error("Origin null not allowed");
+      e.status = 403;
+      e.code = "CORS_NULL_ORIGIN";
+      return callback(e);
+    }
+
+    // Caso 3: allow-list vuota => allow (default attuale)
     if (allowedOrigins.length === 0) return callback(null, true);
+
+    // Caso 4: allow-list esplicita
     if (allowedOrigins.includes(origin)) return callback(null, true);
+
     const e = new Error("Not allowed by CORS");
     e.status = 403;
     e.code = "CORS_NOT_ALLOWED";
