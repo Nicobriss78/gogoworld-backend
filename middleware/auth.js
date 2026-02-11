@@ -10,6 +10,12 @@
 const jwt = require("jsonwebtoken");
 const asyncHandler = require("express-async-handler");
 const User = require("../models/userModel");
+const { logger } = require("../core/logger");
+function authWarn(req, code) {
+  try {
+    logger.warn("[auth] deny", { code, path: req.originalUrl, ip: req.ip });
+  } catch (_) {}
+}
 
 // -----------------------------------------------------------------------------
 // protect: richiede autenticazione Bearer JWT
@@ -29,12 +35,14 @@ const protect = asyncHandler(async (req, res, next) => {
   const auth = typeof req.headers.authorization === "string" ? req.headers.authorization.trim() : "";
   const match = auth.match(/^Bearer\s+(.+)$/i);
   if (!match || !match[1] || !match[1].trim()) {
+    authWarn(req, "token_invalid");
     return res.status(401).json({ ok: false, error: "not_authorized_no_token" });
   }
 
   try {
     token = match[1].trim();
     if (!token) {
+      authWarn(req, "token_invalid");
       return res.status(401).json({ ok: false, error: "not_authorized_empty_token" });
     }
 
@@ -46,6 +54,7 @@ const protect = asyncHandler(async (req, res, next) => {
     );
 
     if (!user) {
+      authWarn(req, "token_invalid");
       return res.status(401).json({ ok: false, error: "not_authorized_user_not_found" });
     }
 
@@ -71,11 +80,14 @@ const protect = asyncHandler(async (req, res, next) => {
     return next();
   } catch (err) {
     if (err?.name === "TokenExpiredError") {
+      authWarn(req, "token_invalid");
       return res.status(401).json({ ok: false, error: "token_expired" });
     }
     if (err?.name === "JsonWebTokenError") {
+      authWarn(req, "token_invalid");
       return res.status(401).json({ ok: false, error: "token_invalid" });
     }
+    authWarn(req, "token_invalid");
     return res.status(401).json({ ok: false, error: "token_failed" });
   }
 });
@@ -91,6 +103,7 @@ const authorize = (...roles) => {
     // Fail-closed: niente throw/try/catch, risposte intenzionali e coerenti.
     // Se manca req.user, vuol dire che protect non è stato applicato (o ha fallito).
     if (!req.user) {
+      authWarn(req, "token_invalid");
       return res.status(401).json({ ok: false, error: "not_authorized" });
     }
 
