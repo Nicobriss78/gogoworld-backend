@@ -88,8 +88,11 @@ const user = await User.create({
 // @access Public
 // -----------------------------------------------------------------------------
 const authUser = asyncHandler(async (req, res) => {
-const emailRaw = typeof email === "string" ? email.trim().toLowerCase() : "";
+  const { email, password } = req.body;
+
+  const emailRaw = typeof email === "string" ? email.trim().toLowerCase() : "";
   const passRaw = typeof password === "string" ? password : "";
+
 
   if (!emailRaw || emailRaw.length > 254) {
     return res.status(400).json({ ok: false, error: "INVALID_EMAIL" });
@@ -100,7 +103,7 @@ const emailRaw = typeof email === "string" ? email.trim().toLowerCase() : "";
 
   const user = await User.findOne({ email: emailRaw });
 
-  if (user && (await user.matchPassword(password))) {
+  if (user && (await user.matchPassword(passRaw))) {
     res.json({
       _id: user._id,
       name: user.name,
@@ -652,6 +655,7 @@ module.exports = {
   getPublicProfile,
   getUserActivityFeed, // A3.3
 };
+
 
 
 
