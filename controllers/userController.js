@@ -61,7 +61,7 @@ const user = await User.create({
     name: nameRaw,
     email: emailRaw,
     password: passRaw,
-    role: role || "participant",
+    role: roleNorm,
     profile: {
       nickname: nicknameFrom || undefined,
       privacy: { optInDM: false, dmsFrom: "everyone" }
@@ -655,6 +655,7 @@ module.exports = {
   getPublicProfile,
   getUserActivityFeed, // A3.3
 };
+
 
 
 
