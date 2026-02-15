@@ -87,12 +87,19 @@ if (user) {
 
     const verifyLink = `${base || ""}/pages/verify.html?token=${encodeURIComponent(rawVerify)}`;
 
-    // DEV: logghiamo link completo. PROD: non logghiamo token/link.
-    if (process.env.NODE_ENV !== "production") {
-      if (logger && logger.info) logger.info(`[mail][verify][register] to=${user.email} link=${verifyLink}`);
+// DEV: logghiamo link completo. PROD: non logghiamo token/link.
+    // Override controllato: se RETURN_VERIFY_LINK=1, logga anche in production (solo per test)
+    const allowVerifyLinkLog =
+      process.env.NODE_ENV !== "production" || process.env.RETURN_VERIFY_LINK === "1";
+
+    if (allowVerifyLinkLog) {
+      if (logger && logger.info)
+        logger.info(`[mail][verify][register] to=${user.email} link=${verifyLink}`);
     } else {
-      if (logger && logger.info) logger.info(`[mail][verify][register] queued to=${user.email}`);
+      if (logger && logger.info)
+        logger.info(`[mail][verify][register] queued to=${user.email}`);
     }
+
 
     res.status(201).json({
       _id: user._id,
@@ -277,12 +284,17 @@ const resendVerifyEmail = asyncHandler(async (req, res) => {
 
   const link = `${base}/pages/verify.html?token=${encodeURIComponent(raw)}`;
 
-  // DEV: logghiamo il link. PROD: no token nei log.
-  if (process.env.NODE_ENV !== "production") {
+// DEV: logghiamo il link. PROD: no token nei log.
+  // Override controllato: se RETURN_VERIFY_LINK=1, logga anche in production (solo per test)
+  const allowVerifyLinkLog =
+    process.env.NODE_ENV !== "production" || process.env.RETURN_VERIFY_LINK === "1";
+
+  if (allowVerifyLinkLog) {
     if (logger && logger.info) logger.info(`[mail][verify] to=${email} link=${link}`);
   } else {
     if (logger && logger.info) logger.info(`[mail][verify] queued to=${email}`);
   }
+
 
   return res.json({ ok: true });
 });
@@ -732,4 +744,5 @@ module.exports = {
   getPublicProfile,
   getUserActivityFeed, // A3.3
 };
+
 
