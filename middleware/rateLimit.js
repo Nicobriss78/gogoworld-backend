@@ -163,6 +163,16 @@ const registerLimiter = hybridLimiter({
   code: "RATE_LIMIT_REGISTER",
 });
 
+// Email verification resend (public ABUSE)
+// Protegge da spam/abuse senza rivelare nulla (anti-enumerazione gestita in controller)
+const verifyEmailLimiter = hybridLimiter({
+  scope: "verify_email",
+  windowMs: 10 * 60 * 1000, // 10 minuti
+  max: 3, // 3 tentativi / 10 min per IP
+  keyGenerator: ipKey,
+  code: "RATE_LIMIT_VERIFY_EMAIL",
+});
+
 // Admin generic limiter (ABUSE)
 const adminLimiter = hybridLimiter({
   scope: "admin",
@@ -248,6 +258,7 @@ const roomMessageLimiter = hybridLimiter({
 module.exports = {
   loginLimiter,
   registerLimiter,
+  verifyEmailLimiter,
   adminLimiter,
   writeLimiter,
   participationLimiter,
