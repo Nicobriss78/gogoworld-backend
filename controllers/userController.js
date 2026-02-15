@@ -68,7 +68,32 @@ const user = await User.create({
     }
   });
 
-  if (user) {
+if (user) {
+    // --- email verification token (DEV: log link; PROD: placeholder "queued") ---
+    // Genera token raw + hash e scadenza (24h)
+    const rawVerify = crypto.randomBytes(32).toString("hex");
+    user.verificationTokenHash = crypto
+      .createHash("sha256")
+      .update(rawVerify)
+      .digest("hex");
+    user.verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await user.save();
+
+    // Link pubblico: preferisci BASE_URL, poi FRONTEND_URL, poi API_PUBLIC_BASE
+    const base = (process.env.BASE_URL ||
+      process.env.FRONTEND_URL ||
+      process.env.API_PUBLIC_BASE ||
+      "").replace(/\/$/, "");
+
+    const verifyLink = `${base || ""}/pages/verify.html?token=${encodeURIComponent(rawVerify)}`;
+
+    // DEV: logghiamo link completo. PROD: non logghiamo token/link.
+    if (process.env.NODE_ENV !== "production") {
+      if (logger && logger.info) logger.info(`[mail][verify][register] to=${user.email} link=${verifyLink}`);
+    } else {
+      if (logger && logger.info) logger.info(`[mail][verify][register] queued to=${user.email}`);
+    }
+
     res.status(201).json({
       _id: user._id,
       name: user.name,
@@ -77,6 +102,7 @@ const user = await User.create({
       token: generateToken(user._id),
     });
   } else {
+
     res.status(400);
     throw new Error("Invalid user data");
   }
@@ -706,3 +732,4 @@ module.exports = {
   getPublicProfile,
   getUserActivityFeed, // A3.3
 };
+
