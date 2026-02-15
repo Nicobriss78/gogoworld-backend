@@ -130,6 +130,7 @@ const getUserProfile = asyncHandler(async (req, res) => {
     name: user.name,
     email: user.email,
     role: user.role,
+    verified: !!user.verified,
     // Nuovi campi per gamification / reputation
     score: user.score || 0,
     status: user.status || "novizio",
@@ -209,6 +210,55 @@ const verifyEmail = asyncHandler(async (req, res) => {
   user.verificationTokenExpires = undefined;
   await user.save();
   res.json({ ok: true, verified: true });
+});
+// -----------------------------------------------------------------------------
+// RESEND VERIFY EMAIL (POST /api/users/verify/resend { email })
+// - risposta neutra (anti-enumerazione)
+// - in DEV logga il link in console backend
+// - in PROD non logga il token/link
+// -----------------------------------------------------------------------------
+const resendVerifyEmail = asyncHandler(async (req, res) => {
+  const email = String(req.body.email || "").toLowerCase().trim();
+
+  // Validazione minima (neutra: non riveliamo nulla)
+  if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.json({ ok: true });
+  }
+
+  const user = await User.findOne({ email });
+  if (!user) {
+    // anti-enumerazione
+    return res.json({ ok: true });
+  }
+
+  if (user.verified) {
+    // già verificato (risposta neutra)
+    return res.json({ ok: true });
+  }
+
+  // Genera token raw + hash
+  const raw = crypto.randomBytes(32).toString("hex");
+  const tokenHash = crypto.createHash("sha256").update(raw).digest("hex");
+
+  // Salva hash + scadenza (24h)
+  user.verificationTokenHash = tokenHash;
+  user.verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  await user.save();
+
+  // Link pubblico: preferisci BASE_URL, poi FRONTEND_URL, poi API_PUBLIC_BASE
+  const base =
+    (process.env.BASE_URL || process.env.FRONTEND_URL || process.env.API_PUBLIC_BASE || "").replace(/\/$/, "");
+
+  const link = `${base}/pages/verify.html?token=${encodeURIComponent(raw)}`;
+
+  // DEV: logghiamo il link. PROD: no token nei log.
+  if (process.env.NODE_ENV !== "production") {
+    if (logger && logger.info) logger.info(`[mail][verify] to=${email} link=${link}`);
+  } else {
+    if (logger && logger.info) logger.info(`[mail][verify] queued to=${email}`);
+  }
+
+  return res.json({ ok: true });
 });
 
 // -----------------------------------------------------------------------------
@@ -643,6 +693,7 @@ module.exports = {
   getUserProfile,
   enableOrganizer,
   verifyEmail,
+  resendVerifyEmail,
   forgotPassword,
   resetPassword,
   searchUsers,
@@ -655,28 +706,3 @@ module.exports = {
   getPublicProfile,
   getUserActivityFeed, // A3.3
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
