@@ -13,6 +13,7 @@ const {
   getUserProfile,
   enableOrganizer,
   verifyEmail,
+  resendVerifyEmail,
   forgotPassword,
   resetPassword,
   searchUsers,
@@ -26,7 +27,7 @@ const {
   getUserActivityFeed, // A3.3
 } = require("../controllers/userController");
 const { protect } = require("../middleware/auth");
-const { loginLimiter, registerLimiter, writeLimiter } = require("../middleware/rateLimit");
+const { loginLimiter, registerLimiter, verifyEmailLimiter, writeLimiter } = require("../middleware/rateLimit");
 const { securityRateLimit } = require("../middleware/securityRateLimit");
 
 // SECURITY (Redis shared) — Step 1.4
@@ -81,11 +82,14 @@ router.get("/:userId/following", protect, getFollowing);
 
 // Public: email verify / forgot / reset
 router.get("/verify", verifyEmail);
+router.post("/verify/resend", verifyEmailLimiter, resendVerifyEmail);
 router.post("/forgot", loginLimiter, forgotPassword);
 router.post("/reset", writeLimiter, resetPassword);
 
 
+
 module.exports = router;
+
 
 
 
