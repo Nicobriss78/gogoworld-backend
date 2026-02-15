@@ -17,6 +17,47 @@ const { createNotification } = require("./notificationController"); // A9.1 noti
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "30d" });
 };
+// -----------------------------------------------------------------------------
+// L2 — calcolo server-side (source of truth)
+// Regole v1:
+// - Email verificata obbligatoria
+// - Profilo minimo: city + region
+// - Almeno uno tra: bio>=20, interests>=1, languages>=1
+// -----------------------------------------------------------------------------
+function computeL2_v1(user) {
+  const reasons = [];
+  const missing = [];
+
+  const verified = !!user?.verified;
+  if (!verified) reasons.push("EMAIL_NOT_VERIFIED");
+
+  const prof = user?.profile || {};
+  const city = typeof prof.city === "string" ? prof.city.trim() : "";
+  const region = typeof prof.region === "string" ? prof.region.trim() : "";
+
+  if (!city) { reasons.push("MISSING_CITY"); missing.push("city"); }
+  if (!region) { reasons.push("MISSING_REGION"); missing.push("region"); }
+
+  const bio = typeof prof.bio === "string" ? prof.bio.trim() : "";
+  const bioOk = bio.length >= 20;
+
+  const interestsOk = Array.isArray(prof.interests) && prof.interests.filter(Boolean).length >= 1;
+  const languagesOk = Array.isArray(prof.languages) && prof.languages.filter(Boolean).length >= 1;
+
+  if (!bioOk && !interestsOk && !languagesOk) {
+    reasons.push("MISSING_BIO_OR_INTERESTS_OR_LANGUAGES");
+    missing.push("bio_or_interests_or_languages");
+  }
+
+  const l2 = verified && !!city && !!region && (bioOk || interestsOk || languagesOk);
+
+  return {
+    l2,
+    reasons,
+    missing,
+    version: "L2_v1",
+  };
+}
 
 // -----------------------------------------------------------------------------
 // @desc Register new user
@@ -158,11 +199,14 @@ const authUser = asyncHandler(async (req, res) => {
 const getUserProfile = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id);
   if (user) {
- res.json({
+    const l2 = computeL2_v1(user);
+    res.json({
     _id: user._id,
     name: user.name,
     email: user.email,
     role: user.role,
+      verified: !!user.verified,
+      l2,
     verified: !!user.verified,
     // Nuovi campi per gamification / reputation
     score: user.score || 0,
@@ -744,5 +788,6 @@ module.exports = {
   getPublicProfile,
   getUserActivityFeed, // A3.3
 };
+
 
 
