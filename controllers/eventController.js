@@ -143,6 +143,14 @@ function validateEventInput(body) {
 
   if (body.dateStart && isNaN(new Date(body.dateStart).getTime())) errors.push("dateStart non valida");
   if (body.dateEnd && isNaN(new Date(body.dateEnd).getTime())) errors.push("dateEnd non valida");
+  // Guardrail: dateEnd non può essere precedente a dateStart
+  if (body.dateStart && body.dateEnd) {
+    const ds = new Date(body.dateStart);
+    const de = new Date(body.dateEnd);
+    if (!isNaN(ds.getTime()) && !isNaN(de.getTime()) && de.getTime() < ds.getTime()) {
+      errors.push("dateEnd non può essere precedente a dateStart");
+    }
+  }
 
   if (body.price != null && Number(body.price) < 0) errors.push("price non può essere negativo");
 
@@ -711,7 +719,11 @@ const createEvent = asyncHandler(async (req, res) => {
   }
 
   const body = { ...req.body };
-
+// Guardrail server-side: validazione input evento (incl. dateEnd >= dateStart)
+  const vErr = validateEventInput(body || {});
+  if (vErr.length) {
+    return res.status(400).json({ ok: false, code: "VALIDATION_ERROR", errors: vErr });
+  }
   // boolean robusto
   const isFree =
     body.isFree === true ||
@@ -1179,6 +1191,7 @@ module.exports = {
   unbanToPrivateEvent,
   updateEventBanner,
 };
+
 
 
 
