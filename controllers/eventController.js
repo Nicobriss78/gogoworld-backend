@@ -361,7 +361,7 @@ const getEventById = asyncHandler(async (req, res) => {
     }
   }
 
-  // 🧼 Sanitizzazione: i partecipanti NON devono vedere campi sensibili
+// 🧼 Sanitizzazione: i partecipanti NON devono vedere campi sensibili
   if (!isAdmin && !isOwner) {
     if (payload && typeof payload === "object") {
       delete payload.accessCode;
@@ -375,7 +375,8 @@ const getEventById = asyncHandler(async (req, res) => {
     }
   }
 
-  res.json({ ok: true, event: payload });
+  const normalized = normalizeEventForClient(payload);
+  res.json({ ok: true, event: normalized });
 });
 // @desc Accesso evento privato tramite codice invito
 // @route POST /api/events/access-code
@@ -1191,6 +1192,7 @@ module.exports = {
   unbanToPrivateEvent,
   updateEventBanner,
 };
+
 
 
 
