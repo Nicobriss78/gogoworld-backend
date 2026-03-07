@@ -16,6 +16,7 @@ const {
   getRoomsUnreadCount,
   getUnreadSummary, // <-- aggiungi questo
   listMine,
+  unlockEvent,
 } = require("../controllers/roomsController");
 
 
