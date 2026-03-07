@@ -8,7 +8,7 @@ const { logger } = require("../core/logger"); // #CORE-LOGGER D1
 const cache = require("../adapters/cache"); // #CACHE-ADAPTER
 const { notify } = require("../services/notifications"); // #NOTIFY-ADAPTER
 const { createNotification } = require("./notificationController"); // A9.2 – notifiche in-app eventi
-
+const { normalizeEventForClient } = require("../utils/eventNormalizer");
 // ---- Stato evento derivato dal tempo corrente ----
 // Status possibili: "ongoing" (in corso), "imminent" (imminente... "concluded" (appena concluso), "past" (oltre finestra concluso)
 // Usa ENV con default sicuri; timezone rimane un fallback concettuale (date salvate in UTC)
@@ -1191,6 +1191,7 @@ module.exports = {
   unbanToPrivateEvent,
   updateEventBanner,
 };
+
 
 
 
