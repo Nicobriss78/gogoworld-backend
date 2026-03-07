@@ -35,6 +35,7 @@ const RL = {
 
 // Routes (evento pubblico)
 router.post("/event/:eventId/open-or-join", protect, RL.eventOpenOrJoin, openOrJoinEvent);
+router.post("/event/:eventId/unlock", protect, RL.eventOpenOrJoin, unlockEvent);
 router.get("/event/:eventId", protect, getEventRoomMeta);
 router.get("/:roomId/messages", protect, listMessages);
 router.post("/:roomId/messages", protect, roomMessageLimiter, postMessage);
