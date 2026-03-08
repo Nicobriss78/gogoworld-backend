@@ -475,7 +475,7 @@ exports.getRoomsUnreadCount = async (req, res, next) => {
  },
  { $unwind: { path: "$last", preserveNullAndEmptyArrays: false } },
 
- { $project: { lastReadAt: "$me.lastReadAt", lastMsgAt: "$last.createdAt" } },
+ { $project: { _id: 1, lastReadAt: "$me.lastReadAt", lastMsgAt: "$last.createdAt" } },
 
  // Non letti: nessun lastReadAt o lastReadAt < lastMsgAt
  {
