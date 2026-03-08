@@ -564,8 +564,13 @@ exports.getUnreadSummary = async (req, res, next) => {
       { $project: { _id: 1, unread: { $size: "$unreadArr" } } }
     ];
 
-    const rows = await Room.aggregate(pipeline);
-    return res.json({ ok: true, data: rows });
+const rows = await Room.aggregate(pipeline);
+    const allowedRoomIds = await getAccessibleRoomIdSet(
+      rows.map(r => r._id),
+      meId
+    );
+    const filteredRows = rows.filter(r => allowedRoomIds.has(String(r._id)));
+    return res.json({ ok: true, data: filteredRows });
   } catch (err) {
     next(err);
   }
