@@ -736,8 +736,20 @@ exports.listMine = async (req, res, next) => {
       }
     }
 
-    const rows = await Room.aggregate(pipeline);
-    return res.json({ ok: true, data: rows });
+const rows = await Room.aggregate(pipeline);
+
+    const eventRoomIds = rows
+      .filter(r => r.type === "event")
+      .map(r => r._id);
+
+    const allowedEventRoomIds = await getAccessibleRoomIdSet(eventRoomIds, meId);
+
+    const filteredRows = rows.filter(r => {
+      if (r.type !== "event") return true;
+      return allowedEventRoomIds.has(String(r._id));
+    });
+
+    return res.json({ ok: true, data: filteredRows });
   } catch (err) {
     next(err);
   }
