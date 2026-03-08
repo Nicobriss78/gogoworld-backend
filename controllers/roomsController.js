@@ -776,11 +776,18 @@ if (!isPrivateEvent) {
       room = room.toObject();
     }
 
-    // Upsert membership per l'utente
+// Upsert membership per l'utente
     await RoomMember.updateOne(
       { roomId: room._id, userId: meId },
       { $setOnInsert: { joinedAt: new Date() } },
       { upsert: true }
+    );
+
+    // Allinea anche l'accesso evento (partecipanti)
+    // così openOrJoinEvent non tornerà più "locked"
+    await Event.updateOne(
+      { _id: eventIdObj },
+      { $addToSet: { participants: meId } }
     );
 
     return res.json({
