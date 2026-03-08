@@ -49,7 +49,28 @@ async function requireEventAccessIfPrivate(room, meId) {
   }
   return { ok: true };
 }
+async function getAccessibleRoomIdSet(roomIds, meId) {
+  const ids = Array.isArray(roomIds)
+    ? [...new Set(roomIds.map(id => String(id)).filter(Boolean))]
+    : [];
 
+  if (!ids.length) return new Set();
+
+  const rooms = await Room.find({ _id: { $in: ids } })
+    .select({ _id: 1, type: 1, eventId: 1 })
+    .lean();
+
+  const allowed = new Set();
+
+  for (const room of rooms) {
+    const evAccess = await requireEventAccessIfPrivate(room, meId);
+    if (evAccess.ok) {
+      allowed.add(String(room._id));
+    }
+  }
+
+  return allowed;
+}
 // --- POST /api/rooms/event/:eventId/open-or-join ---
 exports.openOrJoinEvent = async (req, res, next) => {
   try {
