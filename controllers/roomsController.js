@@ -492,8 +492,12 @@ exports.getRoomsUnreadCount = async (req, res, next) => {
  ];
 
 
-    const rows = await Room.aggregate(pipeline);
-    const unread = rows.length ? rows[0].unread : 0;
+const rows = await Room.aggregate(pipeline);
+    const allowedRoomIds = await getAccessibleRoomIdSet(
+      rows.map(r => r._id),
+      meId
+    );
+    const unread = rows.filter(r => allowedRoomIds.has(String(r._id))).length;
     return res.json({ ok: true, unread });
   } catch (err) {
     next(err);
