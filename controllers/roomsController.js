@@ -489,7 +489,6 @@ exports.getRoomsUnreadCount = async (req, res, next) => {
  }
  },
 
- { $count: "unread" }
  ];
 
 
