@@ -277,10 +277,7 @@ const events = await Event.find(filters)
   const now = new Date();
   const payload = attachStatusToArray(events, now);
 
-  // Escludi subito i "past" (richiesta per scheda Eventi seguiti)
-  const filtered = Array.isArray(payload) ? payload.filter(e => e?.status !== "past") : [];
-
-  res.json({ ok: true, events: filtered });
+  res.json({ ok: true, events: payload });
 
 });
 
