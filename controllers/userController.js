@@ -10,7 +10,7 @@ const User = require("../models/userModel");
 const crypto = require("crypto");
 const { logger } = require("../core/logger");
 const { createNotification } = require("./notificationController"); // A9.1 notifiche follow
-
+const { evaluateDmPermission } = require("../utils/dmPrivacy");
 // -----------------------------------------------------------------------------
 // Generate JWT
 // -----------------------------------------------------------------------------
