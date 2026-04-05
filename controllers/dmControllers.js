@@ -31,12 +31,20 @@ exports.sendMessage = async (req, res, next) => {
     }
 
     const recipient = await User.findById(recipientId).lean();
-    if (!recipient) return res.status(404).json({ ok: false, error: "USER_NOT_FOUND" });
-    if (recipient.isBanned) return res.status(403).json({ ok: false, error: "RECIPIENT_UNAVAILABLE" });
+    if (!recipient) {
+      return res.status(404).json({ ok: false, error: "USER_NOT_FOUND" });
+    }
 
-    // Privacy enforcement (MVP rules confermate)
-    const pErr = privacyBlocks(meId, recipient);
-    if (pErr) return res.status(403).json({ ok: false, error: pErr });
+    const dmPermission = evaluateDmPermission(meId, recipient);
+    if (!dmPermission.allowed) {
+      const status =
+        dmPermission.reason === "RECIPIENT_UNAVAILABLE" ? 403 : 403;
+
+      return res.status(status).json({
+        ok: false,
+        error: dmPermission.reason || "DM_NOT_ALLOWED",
+      });
+    }
 
     const t = sanitizeText(text);
     if (!t || t.length === 0 || t.length > 2000) {
