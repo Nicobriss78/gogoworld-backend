@@ -2,7 +2,7 @@
 const mongoose = require("mongoose");
 const Message = require("../models/messageModel");
 const User = require("../models/userModel");
-
+const { evaluateDmPermission } = require("../utils/dmPrivacy");
 // ---------- Utils ----------
 function threadKeyFor(a, b) {
   const A = String(a), B = String(b);
