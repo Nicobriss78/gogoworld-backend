@@ -15,51 +15,6 @@ function sanitizeText(s) {
   if (typeof s !== "string") return "";
   return s.replace(/\s+/g, " ").trim();
 }
-function privacyBlocks(sender, recipientUser) {
-  // Blocchi privacy del destinatario (MVP) + blocklist aggiornata
-  const prof = (recipientUser.profile || {});
-  const p = prof.privacy || {};
-  const senderId = String(sender);
-
-  // 1) Opt-in globale
-  if (!p.optInDM) return "DM_NOT_ALLOWED";
-
-  // 2) Sorgenti consentite
-  if (p.dmsFrom === "nobody") {
-    return "DM_NOT_ALLOWED";
-  }
-
-  if (p.dmsFrom === "followers") {
-    // Consenti DM solo se il mittente è tra i follower o tra i seguiti
-    const followers = Array.isArray(recipientUser.followers)
-      ? recipientUser.followers.map(String)
-      : [];
-    const following = Array.isArray(recipientUser.following)
-      ? recipientUser.following.map(String)
-      : [];
-
-    const allowed =
-      followers.includes(senderId) || following.includes(senderId);
-
-    if (!allowed) {
-      return "DM_NOT_ALLOWED";
-    }
-  }
-
-  // 3) Blocklist del destinatario (campo blockedUsers su User)
-  try {
-    const blocked = Array.isArray(recipientUser.blockedUsers)
-      ? recipientUser.blockedUsers.map(String)
-      : [];
-    if (blocked.includes(senderId)) {
-      return "BLOCKED_BY_USER";
-    }
-  } catch {}
-
-  return null;
-}
-
-
 
 // ---------- POST /api/dm/messages ----------
 exports.sendMessage = async (req, res, next) => {
