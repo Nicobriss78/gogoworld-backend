@@ -643,6 +643,7 @@ const dmPermission = viewerId
       followersCount,
       followingCount,
       isFollowing,
+      canReceiveMessages,
       activityVisibility: user.profile?.activityVisibility || "followers-only",
     },
   });
