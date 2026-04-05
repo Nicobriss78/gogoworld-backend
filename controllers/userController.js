@@ -606,7 +606,7 @@ const getPublicProfile = asyncHandler(async (req, res) => {
   const viewerId = req.user ? String(req.user._id) : null;
 
   const user = await User.findById(targetId)
-    .select("name role profile followers following")
+    .select("name role profile followers following blockedUsers isBanned")
     .lean();
 
 
