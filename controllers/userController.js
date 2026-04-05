@@ -623,7 +623,11 @@ const getPublicProfile = asyncHandler(async (req, res) => {
   if (viewerId && user.followers) {
     isFollowing = user.followers.some((id) => String(id) === viewerId);
   }
+const dmPermission = viewerId
+    ? evaluateDmPermission(viewerId, user)
+    : { allowed: false, reason: "UNAUTHORIZED" };
 
+  const canReceiveMessages = !!dmPermission.allowed;
   return res.json({
     ok: true,
     data: {
