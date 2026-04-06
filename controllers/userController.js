@@ -436,16 +436,13 @@ const searchUsers = asyncHandler(async (req, res) => {
       $or: [{ name: rx }, { "profile.nickname": rx }],
     },
     {
-      name: 1,
-      "profile.avatarUrl": 1,
-      "profile.city": 1,
-      "profile.region": 1,
-      blockedUsers: 1,
-      role: 1,
-      profile: 1,
-      isBanned: 1,
-      followers: 1,
-      following: 1,
+     name: 1,
+     profile: 1,
+     blockedUsers: 1,
+     role: 1,
+     isBanned: 1,
+     followers: 1,
+     following: 1,
     }
   )
     .sort({ name: 1 })
