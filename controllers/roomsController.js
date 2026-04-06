@@ -345,18 +345,50 @@ if (!evAccess.ok) return res.status(evAccess.status).json({ ok: false, error: ev
 
 const list = await RoomMessage.find(find).sort({ createdAt: -1 }).limit(limit).lean();
 
+const senderIds = [
+  ...new Set(list.map((m) => String(m.sender)).filter(Boolean)),
+];
+
+const senderUsers = senderIds.length
+  ? await require("../models/userModel")
+      .find({ _id: { $in: senderIds } })
+      .select({ _id: 1, name: 1, role: 1, "profile.nickname": 1, "profile.avatarUrl": 1 })
+      .lean()
+  : [];
+
+const senderMap = new Map(
+  senderUsers.map((u) => [String(u._id), buildChatIdentity(u)])
+);
+
 // mark read (lastReadAt) — NO UPSERT
 await RoomMember.updateOne(
   { roomId: roomIdObj, userId: meId },
   { $set: { lastReadAt: new Date() } }
 );
 
-    const data = list.map(m => ({
-      id: String(m._id),
-      text: m.text,
-      createdAt: m.createdAt,
-      sender: String(m.sender) === String(meId) ? "me" : "them",
-    }));
+    const data = list.map((m) => {
+      const senderId = String(m.sender);
+      const isMe = senderId === String(meId);
+
+      return {
+        id: String(m._id),
+        text: m.text,
+        createdAt: m.createdAt,
+        sender: isMe ? "me" : "them",
+        author:
+          senderMap.get(senderId) || {
+            _id: senderId,
+            name: null,
+            avatarUrl: null,
+            role: null,
+
+            // compatibilità temporanea col frontend attuale
+            id: senderId,
+            nickname: null,
+          },
+      };
+    });
+
     const nextBefore = list.length ? list[list.length - 1].createdAt.toISOString() : null;
 
     return res.json({ ok: true, data, nextBefore });
