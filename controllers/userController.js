@@ -416,6 +416,7 @@ const buildRegex = (q) => {
 
 const searchUsers = asyncHandler(async (req, res) => {
   const q = String(req.query.query || "").trim();
+
   if (!q || q.length < 2) {
     return res.json({ ok: true, data: [] });
   }
@@ -423,7 +424,6 @@ const searchUsers = asyncHandler(async (req, res) => {
   const rx = buildRegex(q);
   const meId = req.user && req.user._id;
 
-  // Carichiamo l'utente corrente solo se loggato, per sapere chi ha bloccato chi
   let me = null;
   if (meId) {
     me = await User.findById(meId).select("blockedUsers").lean();
@@ -440,8 +440,12 @@ const searchUsers = asyncHandler(async (req, res) => {
       "profile.avatarUrl": 1,
       "profile.city": 1,
       "profile.region": 1,
-      blockedUsers: 1, // per capire se l'altro ha bloccato me
+      blockedUsers: 1,
       role: 1,
+      profile: 1,
+      isBanned: 1,
+      followers: 1,
+      following: 1,
     }
   )
     .sort({ name: 1 })
@@ -451,32 +455,6 @@ const searchUsers = asyncHandler(async (req, res) => {
   const meIdStr = meId ? meId.toString() : null;
 
   const data = rows.map((u) => {
-  const uid = u._id.toString();
-
-  const blockedByMe =
-    me?.blockedUsers?.some((id) => id.toString() === uid) || false;
-
-  const hasBlockedMe =
-    u.blockedUsers?.some((id) => id.toString() === meIdStr) || false;
-
-  const dmPermission = meId
-    ? evaluateDmPermission(meIdStr, u)
-    : { allowed: false };
-
-  const canReceiveMessages = !!dmPermission.allowed;
-
-  return {
-    _id: u._id,
-    name: u.name,
-    avatar: u.profile?.avatarUrl || null,
-    city: u.profile?.city || null,
-    region: u.profile?.region || null,
-    blockedByMe,
-    hasBlockedMe,
-    role: u.role || null,
-    canReceiveMessages, // ✅ AGGIUNTO
-  };
-});
     const uid = u._id.toString();
 
     const blockedByMe =
@@ -484,6 +462,12 @@ const searchUsers = asyncHandler(async (req, res) => {
 
     const hasBlockedMe =
       u.blockedUsers?.some((id) => id.toString() === meIdStr) || false;
+
+    const dmPermission = meIdStr
+      ? evaluateDmPermission(meIdStr, u)
+      : { allowed: false };
+
+    const canReceiveMessages = !!dmPermission.allowed;
 
     return {
       _id: u._id,
@@ -493,12 +477,14 @@ const searchUsers = asyncHandler(async (req, res) => {
       region: u.profile?.region || null,
       blockedByMe,
       hasBlockedMe,
-      role: u.role || null, // ⬅️ AGGIUNTO
-      };
+      role: u.role || null,
+      canReceiveMessages,
+    };
   });
 
   return res.json({ ok: true, data });
 });
+
 // -----------------------------------------------------------------------------
 // FOLLOW / UNFOLLOW — Follow asimmetrico (A3.1)
 // -----------------------------------------------------------------------------
