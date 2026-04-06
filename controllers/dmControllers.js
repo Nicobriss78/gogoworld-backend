@@ -15,7 +15,35 @@ function sanitizeText(s) {
   if (typeof s !== "string") return "";
   return s.replace(/\s+/g, " ").trim();
 }
+function buildChatIdentity(user) {
+  if (!user) return null;
 
+  const _id = user._id ? String(user._id) : null;
+  const name =
+    (typeof user.name === "string" && user.name.trim()) ||
+    (typeof user.profile?.nickname === "string" && user.profile.nickname.trim()) ||
+    null;
+
+  const avatarUrl =
+    (typeof user.profile?.avatarUrl === "string" && user.profile.avatarUrl.trim()) ||
+    null;
+
+  const role =
+    typeof user.role === "string" && user.role.trim()
+      ? user.role.trim()
+      : null;
+
+  return {
+    _id,
+    name,
+    avatarUrl,
+    role,
+
+    // compatibilità temporanea con il frontend attuale
+    id: _id,
+    nickname: name,
+  };
+}
 // ---------- POST /api/dm/messages ----------
 exports.sendMessage = async (req, res, next) => {
   try {
