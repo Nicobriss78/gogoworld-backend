@@ -148,14 +148,24 @@ exports.listThreads = async (req, res, next) => {
       const [idA, idB] = r._id.split("-");
       const otherId = (idA === String(meId)) ? idB : idA;
 
-      const other = await User.findById(otherId).lean();
+      const other = await User.findById(otherId)
+        .select({ _id: 1, name: 1, role: 1, "profile.nickname": 1, "profile.avatarUrl": 1 })
+        .lean();
+
       out.push({
         threadKey: r._id,
-        user: other ? {
-          id: String(other._id),
-          nickname: other.profile?.nickname || null,
-          avatarUrl: other.profile?.avatarUrl || null,
-        } : { id: otherId },
+        user: other
+          ? buildChatIdentity(other)
+          : {
+              _id: otherId,
+              name: null,
+              avatarUrl: null,
+              role: null,
+
+              // compatibilità temporanea col frontend attuale
+              id: otherId,
+              nickname: null,
+            },
         last: {
           text: last.text,
           createdAt: last.createdAt,
