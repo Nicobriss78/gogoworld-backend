@@ -17,6 +17,35 @@ function withinWindow(now, from, until) {
   if (until && now > new Date(until)) return false;
   return true;
 }
+function buildChatIdentity(user) {
+  if (!user) return null;
+
+  const _id = user._id ? String(user._id) : null;
+  const name =
+    (typeof user.name === "string" && user.name.trim()) ||
+    (typeof user.profile?.nickname === "string" && user.profile.nickname.trim()) ||
+    null;
+
+  const avatarUrl =
+    (typeof user.profile?.avatarUrl === "string" && user.profile.avatarUrl.trim()) ||
+    null;
+
+  const role =
+    typeof user.role === "string" && user.role.trim()
+      ? user.role.trim()
+      : null;
+
+  return {
+    _id,
+    name,
+    avatarUrl,
+    role,
+
+    // compatibilità temporanea col frontend attuale
+    id: _id,
+    nickname: name,
+  };
+}
 async function requireMembership(roomIdObj, meId) {
   const m = await RoomMember.findOne({ roomId: roomIdObj, userId: meId })
     .select({ _id: 1, lastReadAt: 1 })
