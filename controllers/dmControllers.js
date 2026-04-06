@@ -195,6 +195,30 @@ exports.listMessages = async (req, res, next) => {
     const limit = Math.max(1, Math.min(100, Number(req.query.limit) || 30));
     const before = req.query.before ? new Date(req.query.before) : null;
 
+    const [meUser, peerUser] = await Promise.all([
+      User.findById(meId)
+        .select({ _id: 1, name: 1, role: 1, "profile.nickname": 1, "profile.avatarUrl": 1 })
+        .lean(),
+      User.findById(userId)
+        .select({ _id: 1, name: 1, role: 1, "profile.nickname": 1, "profile.avatarUrl": 1 })
+        .lean(),
+    ]);
+
+    if (!peerUser) {
+      return res.status(404).json({ ok: false, error: "USER_NOT_FOUND" });
+    }
+
+    const meIdentity = buildChatIdentity(meUser) || {
+      _id: String(meId),
+      name: req.user?.name || null,
+      avatarUrl: null,
+      role: req.user?.role || null,
+      id: String(meId),
+      nickname: req.user?.name || null,
+    };
+
+    const peerIdentity = buildChatIdentity(peerUser);
+
     const findQuery = { threadKey: tk };
     if (before) findQuery.createdAt = { $lt: before };
 
@@ -205,8 +229,8 @@ exports.listMessages = async (req, res, next) => {
 
     // Mark as read (i messaggi entranti senza readAt)
     const toMark = list
-      .filter(m => String(m.recipient) === String(meId) && !m.readAt)
-      .map(m => m._id);
+      .filter((m) => String(m.recipient) === String(meId) && !m.readAt)
+      .map((m) => m._id);
 
     if (toMark.length) {
       await Message.updateMany(
@@ -216,16 +240,29 @@ exports.listMessages = async (req, res, next) => {
     }
 
     // Mappa per FE
-    const data = list.map(m => ({
-      id: String(m._id),
-      text: m.text,
-      createdAt: m.createdAt,
-      sender: String(m.sender) === String(meId) ? "me" : "them",
-      readAt: m.readAt || null,
-    }));
+    const data = list.map((m) => {
+      const isMe = String(m.sender) === String(meId);
 
-    const nextBefore = list.length ? list[list.length - 1].createdAt.toISOString() : null;
-    return res.json({ ok: true, data, nextBefore });
+      return {
+        id: String(m._id),
+        text: m.text,
+        createdAt: m.createdAt,
+        sender: isMe ? "me" : "them",
+        readAt: m.readAt || null,
+        author: isMe ? meIdentity : peerIdentity,
+      };
+    });
+
+    const nextBefore = list.length
+      ? list[list.length - 1].createdAt.toISOString()
+      : null;
+
+    return res.json({
+      ok: true,
+      data,
+      peer: peerIdentity,
+      nextBefore,
+    });
   } catch (err) {
     next(err);
   }
