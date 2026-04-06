@@ -451,6 +451,32 @@ const searchUsers = asyncHandler(async (req, res) => {
   const meIdStr = meId ? meId.toString() : null;
 
   const data = rows.map((u) => {
+  const uid = u._id.toString();
+
+  const blockedByMe =
+    me?.blockedUsers?.some((id) => id.toString() === uid) || false;
+
+  const hasBlockedMe =
+    u.blockedUsers?.some((id) => id.toString() === meIdStr) || false;
+
+  const dmPermission = meId
+    ? evaluateDmPermission(meIdStr, u)
+    : { allowed: false };
+
+  const canReceiveMessages = !!dmPermission.allowed;
+
+  return {
+    _id: u._id,
+    name: u.name,
+    avatar: u.profile?.avatarUrl || null,
+    city: u.profile?.city || null,
+    region: u.profile?.region || null,
+    blockedByMe,
+    hasBlockedMe,
+    role: u.role || null,
+    canReceiveMessages, // ✅ AGGIUNTO
+  };
+});
     const uid = u._id.toString();
 
     const blockedByMe =
