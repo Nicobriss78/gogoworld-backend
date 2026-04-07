@@ -226,26 +226,54 @@ if (isPrivateEvent && !isOrganizer && !isParticipant) {
 exports.openOrJoinDM = async (req, res, next) => {
   try {
     const meId = req.user && req.user.id;
-    if (!meId) return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
+    if (!meId) {
+      return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
+    }
 
     const { targetUserId } = req.body || {};
     if (!targetUserId || !mongoose.Types.ObjectId.isValid(targetUserId)) {
       return res.status(400).json({ ok: false, error: "INVALID_TARGET" });
     }
+
     if (String(targetUserId) === String(meId)) {
       return res.status(400).json({ ok: false, error: "SELF_DM_NOT_ALLOWED" });
+    }
+
+    const peerUser = await User.findById(targetUserId)
+      .select({
+        _id: 1,
+        name: 1,
+        role: 1,
+        "profile.nickname": 1,
+        "profile.avatarUrl": 1,
+        "profile.privacy": 1,
+        blockedUsers: 1,
+        isBanned: 1,
+        followers: 1,
+        following: 1,
+      })
+      .lean();
+
+    if (!peerUser) {
+      return res.status(404).json({ ok: false, error: "USER_NOT_FOUND" });
+    }
+
+    const dmPermission = evaluateDmPermission(meId, peerUser);
+    if (!dmPermission.allowed) {
+      return res.status(403).json({
+        ok: false,
+        error: dmPermission.reason || "DM_NOT_ALLOWED",
+      });
     }
 
     const meObj = new mongoose.Types.ObjectId(meId);
     const tgtObj = new mongoose.Types.ObjectId(targetUserId);
 
-    // Normalizza la coppia (dmA = min, dmB = max)
-    const [dmA, dmB] = String(meObj) < String(tgtObj) ? [meObj, tgtObj] : [tgtObj, meObj];
+    const [dmA, dmB] =
+      String(meObj) < String(tgtObj) ? [meObj, tgtObj] : [tgtObj, meObj];
 
-    // Cerca room DM esistente
     let room = await Room.findOne({ type: "dm", dmA, dmB }).lean();
 
-    // Se non esiste, crea la room + membership
     if (!room) {
       const created = await Room.create({
         type: "dm",
@@ -258,29 +286,25 @@ exports.openOrJoinDM = async (req, res, next) => {
       });
       room = created.toObject();
 
-      // Crea/garantisci membership per entrambi (upsert-like semplice)
-      await RoomMember.create([{ roomId: room._id, userId: dmA }, { roomId: room._id, userId: dmB }].map(x => ({
-        roomId: x.roomId, userId: x.userId, lastReadAt: new Date()
-      })));
+      await RoomMember.create(
+        [{ roomId: room._id, userId: dmA }, { roomId: room._id, userId: dmB }].map((x) => ({
+          roomId: x.roomId,
+          userId: x.userId,
+          lastReadAt: new Date(),
+        }))
+      );
     }
 
-    // Peer = l'altro utente rispetto a me
-    const peerId = String(room.dmA) === String(meObj) ? room.dmB : room.dmA;
-    const peer = await (require("../models/userModel"))
-      .findById(peerId)
-      .select({ _id: 1, name: 1, "profile.avatarUrl": 1 })
-      .lean();
-
-    const peerOut = peer ? { _id: peer._id, name: peer.name, avatar: (peer.profile && peer.profile.avatarUrl) || null } : null;
+    const peerOut = buildChatIdentity(peerUser);
 
     return res.json({
       ok: true,
       data: {
-        roomId: room._id,
+        roomId: String(room._id),
         type: "dm",
         peer: peerOut,
-        canSend: true
-      }
+        canSend: true,
+      },
     });
   } catch (err) {
     next(err);
