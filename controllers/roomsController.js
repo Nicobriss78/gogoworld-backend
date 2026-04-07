@@ -831,8 +831,29 @@ exports.listMine = async (req, res, next) => {
           // "peer" valorizzato solo per type:"dm"
           peer: {
             _id: { $cond: [{ $eq: ["$type", "dm"] }, "$peerUser._id", null] },
-            name: { $cond: [{ $eq: ["$type", "dm"] }, "$peerUser.name", null] },
-            avatar: { $cond: [{ $eq: ["$type", "dm"] }, "$peerUser.profile.avatarUrl", null] }
+            name: {
+              $cond: [
+                { $eq: ["$type", "dm"] },
+                { $ifNull: ["$peerUser.name", "$peerUser.profile.nickname"] },
+                null
+              ]
+            },
+            avatarUrl: {
+              $cond: [{ $eq: ["$type", "dm"] }, "$peerUser.profile.avatarUrl", null]
+            },
+            role: {
+              $cond: [{ $eq: ["$type", "dm"] }, "$peerUser.role", null]
+            },
+            id: {
+              $cond: [{ $eq: ["$type", "dm"] }, "$peerUser._id", null]
+            },
+            nickname: {
+              $cond: [
+                { $eq: ["$type", "dm"] },
+                { $ifNull: ["$peerUser.name", "$peerUser.profile.nickname"] },
+                null
+              ]
+            }
           },
 
           unread: { $size: "$unreadArr" },
