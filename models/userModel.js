@@ -21,8 +21,8 @@ resetTokenHash: { type: String },
 resetTokenExpires: { type: Date },
     // Admin moderation flags
     isBanned: { type: Boolean, default: false },
-    // PATCH: libertà iniziale per tutti di organizzare eventi
-    canOrganize: { type: Boolean, default: true },
+    // Accesso all’organizzazione concesso solo da admin
+    canOrganize: { type: Boolean, default: false },
 // ★ NEW: Profilo utente (C1)
     profile: {
       nickname: { type: String, trim: true, maxlength: 40 },
