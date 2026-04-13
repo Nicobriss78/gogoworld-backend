@@ -360,11 +360,13 @@ if (isPrivateEvent) {
       ok: true,
       data: {
         roomId: String(room._id),
+        eventId: room.eventId ? String(room.eventId) : null,
         title: room.title,
         canSend,
         activeFrom: room.activeFrom,
         activeUntil: room.activeUntil,
-        locked: !!room.isPrivate,
+        locked: false,
+        isPrivate: !!room.isPrivate,
       },
     });
   } catch (err) {
