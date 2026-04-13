@@ -187,7 +187,7 @@ if (isPrivateEvent && !isOrganizer && !isParticipant) {
         type: "event",
         eventId: eventIdObj,
         title: ev.title || "Chat evento",
-        isPrivate: !!ev.isPrivate,
+        isPrivate: isPrivateEvent,
         isArchived: false,
         activeFrom,
         activeUntil,
