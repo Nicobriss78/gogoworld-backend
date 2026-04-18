@@ -130,7 +130,64 @@ function buildFilters(q) {
 
   return query;
 }
+function parseGeoNumber(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
 
+function parseGeoParams(q = {}) {
+  const lat = parseGeoNumber(q.lat);
+  const lng = parseGeoNumber(q.lng);
+  const radius = parseGeoNumber(q.radius);
+
+  const hasAnyGeo =
+    q.lat !== undefined || q.lng !== undefined || q.radius !== undefined;
+
+  if (!hasAnyGeo) {
+    return {
+      enabled: false,
+      lat: null,
+      lng: null,
+      radius: null
+    };
+  }
+
+  const allPresent =
+    lat !== null && lng !== null && radius !== null;
+
+  if (!allPresent) {
+    return {
+      enabled: false,
+      invalid: true,
+      reason: "GEO_PARAMS_INCOMPLETE"
+    };
+  }
+
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    return {
+      enabled: false,
+      invalid: true,
+      reason: "GEO_PARAMS_OUT_OF_RANGE"
+    };
+  }
+
+  if (radius <= 0 || radius > 100000) {
+    return {
+      enabled: false,
+      invalid: true,
+      reason: "GEO_RADIUS_INVALID"
+    };
+  }
+
+  return {
+    enabled: true,
+    invalid: false,
+    lat,
+    lng,
+    radius
+  };
+}
 // PATCH V1: validazione minima input evento
 function validateEventInput(body) {
   const errors = [];
