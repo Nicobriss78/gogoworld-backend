@@ -247,7 +247,26 @@ const listEvents = asyncHandler(async (req, res) => {
   if (!req.query.approvalStatus) {
     filters.approvalStatus = "approved";
   }
+const geo = parseGeoParams(req.query);
 
+  if (geo.invalid) {
+    return res.status(400).json({
+      ok: false,
+      message: geo.reason || "GEO_PARAMS_INVALID"
+    });
+  }
+
+  if (geo.enabled) {
+    filters.location = {
+      $near: {
+        $geometry: {
+          type: "Point",
+          coordinates: [geo.lng, geo.lat]
+        },
+        $maxDistance: geo.radius
+      }
+    };
+  }
   // Cache: solo per utenti NON loggati (così non mischiamo i risultati per utente)
   const useCache = !userId;
   const cacheKey = "events:list:" + JSON.stringify(req.query || {});
