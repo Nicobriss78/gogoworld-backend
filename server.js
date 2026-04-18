@@ -104,7 +104,7 @@ const profileRoutes = require("./routes/profile"); // NEW: profilo utente (C1)
 const dmRoutes = require("./routes/dm"); // NEW: messaggi 1:1 (C2)
 const roomsRoutes = require("./routes/rooms"); // NEW: chat evento pubblica (C2.2)
 const notificationRoutes = require("./routes/notificationRoutes"); // NEW A9
-
+const checkInRoutes = require("./routes/checkInRoutes");
 
 app.use("/api/users", userRoutes);
 app.use("/api/events", eventRoutes);
