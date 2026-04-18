@@ -321,7 +321,15 @@ const listEvents = asyncHandler(async (req, res) => {
   if (!req.query.approvalStatus) {
     filters.approvalStatus = "approved";
   }
-const geo = parseGeoParams(req.query);
+const bounds = parseBoundsParams(req.query);
+  const geo = parseGeoParams(req.query);
+
+  if (bounds.invalid) {
+    return res.status(400).json({
+      ok: false,
+      message: bounds.reason || "BOUNDS_PARAMS_INVALID"
+    });
+  }
 
   if (geo.invalid) {
     return res.status(400).json({
@@ -330,7 +338,16 @@ const geo = parseGeoParams(req.query);
     });
   }
 
-  if (geo.enabled) {
+  if (bounds.enabled) {
+    filters.location = {
+      $geoWithin: {
+        $box: [
+          [bounds.west, bounds.south],
+          [bounds.east, bounds.north]
+        ]
+      }
+    };
+  } else if (geo.enabled) {
     filters.location = {
       $near: {
         $geometry: {
