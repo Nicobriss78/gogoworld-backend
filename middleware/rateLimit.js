@@ -254,7 +254,14 @@ const roomMessageLimiter = hybridLimiter({
   keyGenerator: (req) => userKey(req), // protetta: userId-based
   code: "RATE_LIMIT_ROOM_MESSAGE",
 });
-
+// NEW: Check-in (scalabile, shared)
+const checkInLimiter = hybridLimiter({
+  scope: "checkin",
+  windowMs: 5 * 60 * 1000,
+  max: 10,
+  keyGenerator: (req) => userKey(req),
+  code: "RATE_LIMIT_CHECKIN",
+});
 module.exports = {
   loginLimiter,
   registerLimiter,
@@ -270,4 +277,5 @@ module.exports = {
   // Nuovi (Step 2)
   dmMessageLimiter,
   roomMessageLimiter,
+  checkInLimiter,
 };
