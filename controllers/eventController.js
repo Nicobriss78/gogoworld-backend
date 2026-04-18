@@ -188,6 +188,80 @@ function parseGeoParams(q = {}) {
     radius
   };
 }
+function parseBoundsParams(q = {}) {
+  const north = parseGeoNumber(q.north);
+  const south = parseGeoNumber(q.south);
+  const east = parseGeoNumber(q.east);
+  const west = parseGeoNumber(q.west);
+
+  const hasAnyBounds =
+    q.north !== undefined ||
+    q.south !== undefined ||
+    q.east !== undefined ||
+    q.west !== undefined;
+
+  if (!hasAnyBounds) {
+    return {
+      enabled: false,
+      north: null,
+      south: null,
+      east: null,
+      west: null
+    };
+  }
+
+  const allPresent =
+    north !== null &&
+    south !== null &&
+    east !== null &&
+    west !== null;
+
+  if (!allPresent) {
+    return {
+      enabled: false,
+      invalid: true,
+      reason: "BOUNDS_PARAMS_INCOMPLETE"
+    };
+  }
+
+  if (
+    north < -90 || north > 90 ||
+    south < -90 || south > 90 ||
+    east < -180 || east > 180 ||
+    west < -180 || west > 180
+  ) {
+    return {
+      enabled: false,
+      invalid: true,
+      reason: "BOUNDS_PARAMS_OUT_OF_RANGE"
+    };
+  }
+
+  if (south > north) {
+    return {
+      enabled: false,
+      invalid: true,
+      reason: "BOUNDS_LAT_INVALID"
+    };
+  }
+
+  if (west > east) {
+    return {
+      enabled: false,
+      invalid: true,
+      reason: "BOUNDS_LNG_INVALID"
+    };
+  }
+
+  return {
+    enabled: true,
+    invalid: false,
+    north,
+    south,
+    east,
+    west
+  };
+}
 // PATCH V1: validazione minima input evento
 function validateEventInput(body) {
   const errors = [];
