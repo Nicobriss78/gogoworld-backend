@@ -934,8 +934,12 @@ const createEvent = asyncHandler(async (req, res) => {
   if (body.lon != null && !isNaN(Number(String(body.lon).replace(",", ".")))) {
     body.lon = Number(String(body.lon).replace(",", "."));
   }
-const event = new Event({
+
+  const geoPoint = buildGeoPointFromLatLon(body.lat, body.lon);
+
+  const event = new Event({
     ...body,
+    ...(geoPoint ? { location: geoPoint } : {}),
     isFree,
     price,
     ...(currency ? { currency } : {}),
