@@ -1028,13 +1028,20 @@ const updateEvent = asyncHandler(async (req, res) => {
     province: body.province,
     region: body.region,
     country: body.country,
- lat: (body.lat != null && !isNaN(Number(String(body.lat).replace(",", "."))))
- ? Number(String(body.lat).replace(",", "."))
- : undefined,
- lon: (body.lon != null && !isNaN(Number(String(body.lon).replace(",", "."))))
- ? Number(String(body.lon).replace(",", "."))
- : undefined,
-
+    lat: (body.lat != null && !isNaN(Number(String(body.lat).replace(",", "."))))
+      ? Number(String(body.lat).replace(",", "."))
+      : undefined,
+    lon: (body.lon != null && !isNaN(Number(String(body.lon).replace(",", "."))))
+      ? Number(String(body.lon).replace(",", "."))
+      : undefined,
+    location: buildGeoPointFromLatLon(
+      (body.lat != null && !isNaN(Number(String(body.lat).replace(",", "."))))
+        ? Number(String(body.lat).replace(",", "."))
+        : undefined,
+      (body.lon != null && !isNaN(Number(String(body.lon).replace(",", "."))))
+        ? Number(String(body.lon).replace(",", "."))
+        : undefined
+    ),
 
     // date
     dateStart: body.dateStart ? new Date(body.dateStart) : undefined,
