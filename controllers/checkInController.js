@@ -235,7 +235,85 @@ const getCheckInStatus = asyncHandler(async (req, res) => {
 
   return res.json({ ok: true, status });
 });
+const getCheckInPrecheck = asyncHandler(async (req, res) => {
+  const eventId = req.params.id;
+  const userId = req.user?._id;
 
+  const event = await Event.findById(eventId)
+    .select("title organizer participants revokedUsers visibility isPrivate location date dateStart dateEnd endDate")
+    .lean();
+
+  if (!event) {
+    res.status(404);
+    throw new Error(CHECKIN_REASON.EVENT_NOT_FOUND);
+  }
+
+  const access = buildEventAccessFlags(event, req.user);
+  if (!access.canAccess) {
+    res.status(403);
+    throw new Error(CHECKIN_REASON.FORBIDDEN);
+  }
+
+  const existing = await CheckIn.findOne({ eventId, userId }).lean();
+  const radiusMeters = getCheckInRadiusForEvent(event);
+
+  const preview = buildBaseStatus({
+    access,
+    existing,
+    event,
+    radiusMeters,
+  });
+
+  if (existing) {
+    return res.json({ ok: true, preview });
+  }
+
+  const coords = event?.location?.coordinates;
+  if (!Array.isArray(coords) || coords.length !== 2) {
+    preview.reasonCode = CHECKIN_REASON.EVENT_HAS_NO_LOCATION;
+    return res.json({ ok: true, preview });
+  }
+
+  if (!isWithinCheckInWindow(event, new Date())) {
+    preview.reasonCode = CHECKIN_REASON.EVENT_NOT_ACTIVE;
+    return res.json({ ok: true, preview });
+  }
+
+  const position = parsePosition(req.body || {});
+  if (!position) {
+    preview.reasonCode = CHECKIN_REASON.LOCATION_REQUIRED;
+    return res.json({ ok: true, preview });
+  }
+
+  const locationTimestamp = req.body?.meta?.locationTimestamp || null;
+  if (!isLocationFresh(locationTimestamp, new Date())) {
+    preview.reasonCode = CHECKIN_REASON.LOCATION_TOO_OLD;
+    return res.json({ ok: true, preview });
+  }
+
+  if (!isAccuracyAcceptable(position.accuracy)) {
+    preview.reasonCode = CHECKIN_REASON.LOCATION_TOO_IMPRECISE;
+    return res.json({ ok: true, preview });
+  }
+
+  const distanceMeters = computeDistanceFromEvent(event, position.lat, position.lng);
+  if (!Number.isFinite(distanceMeters)) {
+    preview.reasonCode = CHECKIN_REASON.EVENT_HAS_NO_LOCATION;
+    return res.json({ ok: true, preview });
+  }
+
+  preview.distanceFromEventMeters = distanceMeters;
+
+  if (distanceMeters > radiusMeters) {
+    preview.reasonCode = CHECKIN_REASON.OUTSIDE_RADIUS;
+    return res.json({ ok: true, preview });
+  }
+
+  preview.canCheckIn = true;
+  preview.reasonCode = CHECKIN_REASON.VALID;
+
+  return res.json({ ok: true, preview });
+});
 const getEventCheckInSummary = asyncHandler(async (req, res) => {
   const eventId = req.params.id;
 
