@@ -7,6 +7,7 @@ const { checkInLimiter } = require("../middleware/rateLimit");
 const {
   createCheckIn,
   getCheckInStatus,
+  getCheckInPrecheck,
   getEventCheckInSummary,
   listEventCheckIns,
 } = require("../controllers/checkInController");
