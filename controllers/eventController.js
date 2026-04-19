@@ -135,7 +135,26 @@ function parseGeoNumber(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
+function buildGeoPointFromLatLon(lat, lon) {
+  const latNum = parseGeoNumber(lat);
+  const lonNum = parseGeoNumber(lon);
 
+  if (
+    latNum === null ||
+    lonNum === null ||
+    latNum < -90 ||
+    latNum > 90 ||
+    lonNum < -180 ||
+    lonNum > 180
+  ) {
+    return undefined;
+  }
+
+  return {
+    type: "Point",
+    coordinates: [lonNum, latNum],
+  };
+}
 function parseGeoParams(q = {}) {
   const lat = parseGeoNumber(q.lat);
   const lng = parseGeoNumber(q.lng);
