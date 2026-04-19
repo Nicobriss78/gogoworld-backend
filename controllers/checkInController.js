@@ -42,7 +42,20 @@ function parsePosition(body = {}) {
     accuracy: Number.isFinite(accuracy) ? accuracy : null,
   };
 }
-
+function buildBaseStatus({ access, existing, event, radiusMeters }) {
+  return {
+    canCheckIn: false,
+    alreadyCheckedIn: Boolean(existing),
+    checkInId: existing?._id || null,
+    checkInType: existing?.type || null,
+    checkInAt: existing?.checkedInAt || null,
+    isParticipant: Boolean(access?.isParticipant),
+    eventStatus: resolveEventStatusForCheckIn(event, new Date()),
+    requiresFreshLocation: true,
+    radiusMeters,
+    reasonCode: existing ? CHECKIN_REASON.ALREADY_CHECKED_IN : null,
+  };
+}
 async function buildSummary(eventId) {
   const [total, planned, spontaneous] = await Promise.all([
     CheckIn.countDocuments({ eventId }),
