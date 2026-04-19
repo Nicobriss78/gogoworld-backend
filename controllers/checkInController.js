@@ -207,26 +207,14 @@ const getCheckInStatus = asyncHandler(async (req, res) => {
   const radiusMeters = getCheckInRadiusForEvent(event);
   const eventStatus = resolveEventStatusForCheckIn(event, new Date());
 
-  const status = {
-    canCheckIn: false,
-    alreadyCheckedIn: false,
-    checkInId: null,
-    checkInType: null,
-    checkInAt: null,
-    isParticipant: access.isParticipant,
-    eventStatus,
-    requiresFreshLocation: true,
+  const status = buildBaseStatus({
+    access,
+    existing,
+    event,
     radiusMeters,
-    reasonCode: null,
-  };
+  });
 
   if (existing) {
-    status.canCheckIn = false;
-    status.alreadyCheckedIn = true;
-    status.checkInId = existing._id;
-    status.checkInType = existing.type;
-    status.checkInAt = existing.checkedInAt;
-    status.reasonCode = CHECKIN_REASON.ALREADY_CHECKED_IN;
 
     return res.json({ ok: true, status });
   }
