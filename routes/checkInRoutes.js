@@ -14,6 +14,7 @@ const {
 router.post("/", protect, checkInLimiter, createCheckIn);
 
 router.get("/events/:id/status", protect, getCheckInStatus);
+router.post("/events/:id/precheck", protect, getCheckInPrecheck);
 router.get("/events/:id/summary", protect, getEventCheckInSummary);
 router.get("/events/:id/list", protect, listEventCheckIns);
 
