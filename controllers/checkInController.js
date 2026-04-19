@@ -372,6 +372,7 @@ const listEventCheckIns = asyncHandler(async (req, res) => {
 module.exports = {
   createCheckIn,
   getCheckInStatus,
+  getCheckInPrecheck,
   getEventCheckInSummary,
   listEventCheckIns,
 };
