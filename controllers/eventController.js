@@ -648,20 +648,67 @@ const accessPrivateEventByCode = asyncHandler(async (req, res) => {
 const listPrivateEvents = asyncHandler(async (req, res) => {
   const userId = req.user?._id;
 
-  const events = await Event.find({
-    visibility: "private",
-    approvalStatus: "approved",
-    participants: userId,
-  })
+  if (!userId) {
+    res.status(401);
+    throw new Error("Non autenticato");
+  }
+
+  const filters = buildFilters(req.query || {});
+  filters.visibility = "private";
+  filters.approvalStatus = "approved";
+  filters.participants = userId;
+
+  const bounds = parseBoundsParams(req.query);
+  const geo = parseGeoParams(req.query);
+
+  if (bounds.invalid) {
+    return res.status(400).json({
+      ok: false,
+      message: bounds.reason || "BOUNDS_PARAMS_INVALID"
+    });
+  }
+
+  if (geo.invalid) {
+    return res.status(400).json({
+      ok: false,
+      message: geo.reason || "GEO_PARAMS_INVALID"
+    });
+  }
+
+  if (bounds.enabled) {
+    filters.location = {
+      $geoWithin: {
+        $box: [
+          [bounds.west, bounds.south],
+          [bounds.east, bounds.north]
+        ]
+      }
+    };
+  } else if (geo.enabled) {
+    filters.location = {
+      $near: {
+        $geometry: {
+          type: "Point",
+          coordinates: [geo.lng, geo.lat]
+        },
+        $maxDistance: geo.radius
+      }
+    };
+  }
+
+  const events = await Event.find(filters)
     .populate("organizer", "name")
     .sort({ dateStart: 1 });
 
   const now = new Date();
   const payload = attachStatusToArray(events, now);
 
-  // (coerenza con altre schede: non mostrare i "past")
-  const filtered = Array.isArray(payload) ? payload.filter((e) => e?.status !== "past") : [];
-// 🧼 Sanitizzazione lista privati (partecipanti): niente accessCode/liste interne
+  // coerenza con le altre schede: non mostrare i "past"
+  const filtered = Array.isArray(payload)
+    ? payload.filter((e) => e?.status !== "past")
+    : [];
+
+  // sanitizzazione lista privati per i partecipanti
   const sanitized = Array.isArray(filtered)
     ? filtered.map((e) => {
         if (e && typeof e === "object") {
@@ -670,7 +717,9 @@ const listPrivateEvents = asyncHandler(async (req, res) => {
           delete e.revokedUsers;
           delete e.flaggedBy;
           delete e.moderation;
-          if (e.organizer && typeof e.organizer === "object") delete e.organizer.email;
+          if (e.organizer && typeof e.organizer === "object") {
+            delete e.organizer.email;
+          }
         }
         return e;
       })
