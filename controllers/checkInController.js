@@ -43,6 +43,20 @@ function parsePosition(body = {}) {
     accuracy: Number.isFinite(accuracy) ? accuracy : null,
   };
 }
+function normalizeEventId(value) {
+  const eventId = String(value || "").trim();
+
+  if (!eventId || !mongoose.Types.ObjectId.isValid(eventId)) {
+    return null;
+  }
+
+  return eventId;
+}
+
+function sendDuplicateCheckInError(res) {
+  res.status(409);
+  throw new Error(CHECKIN_REASON.ALREADY_CHECKED_IN);
+}
 function buildBaseStatus({ access, existing, event, radiusMeters }) {
   return {
     canCheckIn: false,
