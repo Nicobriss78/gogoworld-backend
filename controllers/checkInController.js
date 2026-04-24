@@ -210,7 +210,12 @@ try {
 });
 
 const getCheckInStatus = asyncHandler(async (req, res) => {
-  const eventId = req.params.id;
+  const eventId = normalizeEventId(req.params.id);
+
+if (!eventId) {
+  res.status(400);
+  throw new Error(CHECKIN_REASON.INVALID_EVENT_ID);
+}
   const userId = req.user?._id;
 
   const event = await Event.findById(eventId)
