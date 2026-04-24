@@ -86,7 +86,7 @@ async function buildSummary(eventId) {
 }
 
 const createCheckIn = asyncHandler(async (req, res) => {
-  const eventId = String(req.body?.eventId || "").trim();
+  const eventId = normalizeEventId(req.body?.eventId);
   const userId = req.user?._id;
 
   if (!eventId) {
