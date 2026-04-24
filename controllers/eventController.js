@@ -658,43 +658,10 @@ const listPrivateEvents = asyncHandler(async (req, res) => {
   filters.approvalStatus = "approved";
   filters.participants = userId;
 
-  const bounds = parseBoundsParams(req.query);
-  const geo = parseGeoParams(req.query);
-
-  if (bounds.invalid) {
-    return res.status(400).json({
-      ok: false,
-      message: bounds.reason || "BOUNDS_PARAMS_INVALID"
-    });
-  }
-
-  if (geo.invalid) {
-    return res.status(400).json({
-      ok: false,
-      message: geo.reason || "GEO_PARAMS_INVALID"
-    });
-  }
-
-  if (bounds.enabled) {
-    filters.location = {
-      $geoWithin: {
-        $box: [
-          [bounds.west, bounds.south],
-          [bounds.east, bounds.north]
-        ]
-      }
-    };
-  } else if (geo.enabled) {
-    filters.location = {
-      $near: {
-        $geometry: {
-          type: "Point",
-          coordinates: [geo.lng, geo.lat]
-        },
-        $maxDistance: geo.radius
-      }
-    };
-  }
+  // MAPPA PRIVATI V2:
+  // dataset autorizzato stabile.
+  // Nessun filtro geo/bounds/radius.
+  // La posizione utente resta riservata a check-in e navigazione esterna.
 
   const events = await Event.find(filters)
     .populate("organizer", "name")
