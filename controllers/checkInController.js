@@ -155,7 +155,10 @@ const createCheckIn = asyncHandler(async (req, res) => {
     throw new Error(CHECKIN_REASON.OUTSIDE_RADIUS);
   }
 
-  const checkIn = await CheckIn.create({
+  let checkIn;
+
+try {
+  checkIn = await CheckIn.create({
     eventId,
     userId,
     type: deriveCheckInType(event, userId),
@@ -173,6 +176,13 @@ const createCheckIn = asyncHandler(async (req, res) => {
       locationTimestamp: locationTimestamp ? new Date(locationTimestamp) : null,
     },
   });
+} catch (error) {
+  if (error?.code === 11000) {
+    return sendDuplicateCheckInError(res);
+  }
+
+  throw error;
+}
 
   const summary = await buildSummary(eventId);
 
