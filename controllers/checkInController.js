@@ -90,9 +90,9 @@ const createCheckIn = asyncHandler(async (req, res) => {
   const userId = req.user?._id;
 
   if (!eventId) {
-    res.status(400);
-    throw new Error("EVENT_ID_REQUIRED");
-  }
+  res.status(400);
+  throw new Error(CHECKIN_REASON.INVALID_EVENT_ID);
+}
 
   const position = parsePosition(req.body);
   if (!position) {
