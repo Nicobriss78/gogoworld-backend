@@ -357,6 +357,7 @@ exports.listMessages = async (req, res, next) => {
     const roomIdObj = new mongoose.Types.ObjectId(roomId);
     const limit = Math.max(1, Math.min(100, Number(req.query.limit) || 50));
     const before = req.query.before ? new Date(req.query.before) : null;
+const after = req.query.after ? new Date(req.query.after) : null;
 
     const find = { roomId: roomIdObj };
     if (before) find.createdAt = { $lt: before };
