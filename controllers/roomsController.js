@@ -360,7 +360,17 @@ exports.listMessages = async (req, res, next) => {
 const after = req.query.after ? new Date(req.query.after) : null;
 
     const find = { roomId: roomIdObj };
-    if (before) find.createdAt = { $lt: before };
+
+if (before) {
+  find.createdAt = { $lt: before };
+}
+
+if (after) {
+  find.createdAt = {
+    ...(find.createdAt || {}),
+    $gt: after,
+  };
+}
 
 // ✅ membership hard-check (deny by default)
 const member = await requireMembership(roomIdObj, meId);
