@@ -194,6 +194,7 @@ exports.listMessages = async (req, res, next) => {
     const tk = threadKeyFor(meId, userId);
     const limit = Math.max(1, Math.min(100, Number(req.query.limit) || 30));
     const before = req.query.before ? new Date(req.query.before) : null;
+    const after = req.query.after ? new Date(req.query.after) : null;
 
     const [meUser, peerUser] = await Promise.all([
       User.findById(meId)
