@@ -221,7 +221,17 @@ exports.listMessages = async (req, res, next) => {
     const peerIdentity = buildChatIdentity(peerUser);
 
     const findQuery = { threadKey: tk };
-    if (before) findQuery.createdAt = { $lt: before };
+
+if (before) {
+  findQuery.createdAt = { $lt: before };
+}
+
+if (after) {
+  findQuery.createdAt = {
+    ...(findQuery.createdAt || {}),
+    $gt: after,
+  };
+}
 
     const list = await Message.find(findQuery)
       .sort({ createdAt: -1 })
