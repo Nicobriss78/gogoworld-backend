@@ -27,11 +27,28 @@ const notificationSchema = new Schema(
     },
 
     // Tipo di notifica (estendibile in futuro)
-type: {
-  type: String,
-  enum: ["follow", "event_created", "event_approved", "system"],
-  required: true,
-},
+    type: {
+      type: String,
+      enum: [
+        "follow",
+        "event_created",
+        "event_approved",
+        "system",
+
+        "dm_message",
+        "room_message",
+        "follow_new_event",
+        "follow_activity",
+        "event_joined",
+        "event_checkin",
+        "event_updated",
+        "event_cancelled",
+        "review_received",
+        "review_available",
+        "organizer_event_activity",
+      ],
+      required: true,
+    },
 
     // Titolo breve della notifica (mostrato nella lista)
     title: {
