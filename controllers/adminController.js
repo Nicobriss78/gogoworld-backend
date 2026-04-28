@@ -162,8 +162,13 @@ const approveEvent = asyncHandler(async (req, res) => {
       },
     });
   }
-// A9.2 – Notifiche in-app ai follower dell'organizzatore (solo alla prima approvazione)
-  if (isFirstApproval && ev.organizer) {
+// A9.2 – Notifiche in-app ai follower dell'organizzatore
+// Solo eventi pubblici: gli eventi privati vengono comunicati tramite codice invito.
+  const isPublicEventForFollowers =
+    String(ev.visibility || "").toLowerCase() !== "private" &&
+    ev.isPrivate !== true;
+
+  if (isFirstApproval && ev.organizer && isPublicEventForFollowers) {
     try {
       const organizer = await User.findById(ev.organizer).select("name followers");
 
