@@ -87,7 +87,20 @@ exports.sendMessage = async (req, res, next) => {
       recipient: recipientId,
       text: t,
     });
-
+await createNotification({
+      user: recipientId,
+      actor: meId,
+      type: "dm_message",
+      title: "Nuovo messaggio privato",
+      message: "Hai ricevuto un nuovo messaggio privato.",
+      data: {
+        threadKey: tk,
+        senderId: String(meId),
+        recipientId: String(recipientId),
+        messageId: String(doc._id),
+        link: `/pages/messages-v2.html?tab=dm&userId=${meId}`,
+      },
+    });
     return res.status(201).json({
       ok: true,
       data: {
