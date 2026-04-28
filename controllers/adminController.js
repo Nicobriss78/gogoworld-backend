@@ -177,11 +177,15 @@ const approveEvent = asyncHandler(async (req, res) => {
             user: followerId, // destinatario
             actor: organizer._id, // chi ha l'evento approvato
             event: ev._id, // riferimento all'evento
-            type: "event_approved",
+            type: "follow_new_event",
             title,
             message: baseMsg,
             data: {
               eventId: ev._id.toString(),
+              organizerId: organizer._id.toString(),
+              link: `/pages/evento-v2.html?id=${ev._id.toString()}`,
+              // Futuro Centro Notifiche V2:
+              // il click sulla notifica aprirà direttamente il dettaglio evento V2.
             },
           });
         }
