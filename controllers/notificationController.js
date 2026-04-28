@@ -112,14 +112,13 @@ async function createNotification({ user, actor, event, type, title, message, da
   if (actor) payload.actor = actor;
   if (event) payload.event = event;
 
-  try {
+try {
     const notification = await Notification.create(payload);
     return notification;
-} catch (err) {
-  logger.error("[notification] create failed", err);
-  return null;
-}
-
+  } catch (err) {
+    logger.error("[notification] create failed", err);
+    return null;
+  }
 }
 
 module.exports = {
