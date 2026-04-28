@@ -531,12 +531,19 @@ const me = await User.findById(meId).select("following blockedUsers name");
     // A9.1 — Notifica "nuovo follower"
     try {
       await createNotification({
-        user: targetId, // chi riceve la notifica
-        actor: meId, // chi ha iniziato a seguire
-        type: "follow",
-        title: "Hai un nuovo follower!",
-        message: `${me.name || "Un utente"} ha iniziato a seguirti`,
-      });
+  user: targetId, // chi riceve la notifica
+  actor: meId, // chi ha iniziato a seguire
+  type: "follow",
+  title: "Hai un nuovo follower!",
+  message: `${me.name || "Un utente"} ha iniziato a seguirti`,
+  data: {
+    actorId: String(meId),
+    link: `/pages/user-public.html?id=${meId}`,
+    // Futuro Centro Notifiche V2:
+    // il click sulla notifica potrà aprire direttamente il profilo pubblico
+    // dell'utente che ha iniziato a seguire.
+  },
+});
 } catch (err) {
   logger.warn("[notifications][follow] notify failed", err);
   // non blocchiamo la risposta se la notifica fallisce
