@@ -6,7 +6,7 @@ const RoomMember = require("../models/roomMemberModel");
 const Event = require("../models/eventModel"); // esistente nel tuo progetto
 const User = require("../models/userModel");
 const { evaluateDmPermission } = require("../utils/dmPrivacy");
-
+const { createNotification } = require("./notificationController");
 function isValidObjectId(id) {
   return mongoose.Types.ObjectId.isValid(id);
 }
