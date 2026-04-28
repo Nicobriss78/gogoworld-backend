@@ -480,7 +480,35 @@ if (!evAccess.ok) return res.status(evAccess.status).json({ ok: false, error: ev
 
 
     const doc = await RoomMessage.create({ roomId, sender: meId, text: t });
+    const recipients = await RoomMember.find({
+      roomId: room._id,
+      userId: { $ne: meId },
+    })
+      .select({ userId: 1, _id: 0 })
+      .lean();
 
+    if (recipients.length) {
+      await Promise.all(
+        recipients.map((member) =>
+          createNotification({
+            user: member.userId,
+            actor: meId,
+            event: room.eventId || undefined,
+            type: "room_message",
+            title: "Nuovo messaggio nella chat evento",
+            message: room.title
+              ? `C'è un nuovo messaggio in "${room.title}".`
+              : "C'è un nuovo messaggio in una chat evento.",
+            data: {
+              roomId: String(room._id),
+              eventId: room.eventId ? String(room.eventId) : null,
+              messageId: String(doc._id),
+              link: `/pages/messages-v2.html?tab=rooms&roomId=${room._id}`,
+            },
+          })
+        )
+      );
+    }
     return res.status(201).json({
       ok: true,
       data: {
