@@ -87,17 +87,14 @@ function buildFilters(q) {
       query.$and.push({
         $or: [
           { title: { $regex: safeSearch, $options: "i" } },
-          { description: { $regex: safeSearch, $options: "i" } },
           { venueName: { $regex: safeSearch, $options: "i" } },
           { address: { $regex: safeSearch, $options: "i" } },
-          { street: { $regex: safeSearch, $options: "i" } },
           { city: { $regex: safeSearch, $options: "i" } },
           { province: { $regex: safeSearch, $options: "i" } },
           { region: { $regex: safeSearch, $options: "i" } },
           { country: { $regex: safeSearch, $options: "i" } },
           { category: { $regex: safeSearch, $options: "i" } },
-          { subcategory: { $regex: safeSearch, $options: "i" } },
-          { tags: { $regex: safeSearch, $options: "i" } }
+          { subcategory: { $regex: safeSearch, $options: "i" } }
         ]
       });
     }
