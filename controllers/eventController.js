@@ -102,6 +102,72 @@ function buildFilters(q) {
       });
     }
   }
+
+  if (q.visibility) {
+    query.visibility = q.visibility;
+  }
+
+  if (q.title) {
+    query.title = { $regex: q.title, $options: "i" };
+  }
+
+  if (q.city) {
+    query.city = { $regex: q.city, $options: "i" };
+  }
+
+  if (q.region) {
+    query.region = q.region;
+  }
+
+  if (q.country) {
+    query.country = q.country;
+  }
+
+  if (q.category) {
+    query.category = q.category;
+  }
+
+  if (q.subcategory) {
+    query.subcategory = q.subcategory;
+  }
+
+  if (q.approvalStatus) {
+    query.approvalStatus = q.approvalStatus;
+  }
+
+  if (q.language) {
+    query.language = q.language;
+  }
+
+  if (q.target) {
+    query.target = q.target;
+  }
+
+  if (q.isFree) {
+    query.isFree = q.isFree === "true";
+  }
+
+  // Filtro dateStart con range
+  if (q.dateStart || q.dateEnd) {
+    query.dateStart = {};
+    if (q.dateStart) {
+      query.dateStart.$gte = new Date(q.dateStart);
+    }
+    if (q.dateEnd) {
+      const end = new Date(q.dateEnd);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(q.dateEnd)) {
+        const nextDay = new Date(end);
+        nextDay.setDate(end.getDate() + 1);
+        query.dateStart.$lt = nextDay;
+      } else {
+        query.dateStart.$lte = end;
+      }
+    }
+  }
+
+  return query;
+}
+
 function parseGeoNumber(value) {
   if (value === undefined || value === null || value === "") return null;
   const n = Number(value);
