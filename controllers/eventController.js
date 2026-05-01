@@ -70,66 +70,38 @@ async function safeCreateActivity(payload) {
   }
 }
 
+function escapeRegex(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 // Costruisce filtri dinamici dalle query string
 function buildFilters(q) {
   const query = {};
 
-  if (q.title) {
-    query.title = { $regex: q.title, $options: "i" };
-  }
-  if (q.city) {
-    query.city = { $regex: q.city, $options: "i" };
-  }
-  if (q.region) {
-    query.region = { $regex: q.region, $options: "i" };
-  }
-  if (q.country) {
-    query.country = { $regex: q.country, $options: "i" };
-  }
-  if (q.category) {
-    query.category = q.category;
-  }
-  if (q.subcategory) {
-    query.subcategory = q.subcategory;
-  }
-  if (q.visibility) {
-    query.visibility = q.visibility;
-  }
-  // --- Admin: filtro stato approvazione (opzionale da query) ---
-  if (q.approvalStatus) {
-    query.approvalStatus = q.approvalStatus;
-  }
-  if (q.language) {
-    query.language = q.language;
-  }
-  if (q.target) {
-    query.target = q.target;
-  }
-  if (q.isFree) {
-    query.isFree = q.isFree === "true";
-  }
+  if (q.q) {
+    const rawSearch = String(q.q).trim().slice(0, 80);
 
-  // Filtro dateStart con range
-  if (q.dateStart || q.dateEnd) {
-    query.dateStart = {};
-    if (q.dateStart) {
-      query.dateStart.$gte = new Date(q.dateStart);
-    }
-    if (q.dateEnd) {
-      const end = new Date(q.dateEnd);
-      // Se formato solo-data (YYYY-MM-DD), includi tutta la giornata
-      if (/^\d{4}-\d{2}-\d{2}$/.test(q.dateEnd)) {
-        const nextDay = new Date(end);
-        nextDay.setDate(end.getDate() + 1);
-        query.dateStart.$lt = nextDay;
-      } else {
-        query.dateStart.$lte = end;
-      }
+    if (rawSearch) {
+      const safeSearch = escapeRegex(rawSearch);
+      query.$and = query.$and || [];
+      query.$and.push({
+        $or: [
+          { title: { $regex: safeSearch, $options: "i" } },
+          { description: { $regex: safeSearch, $options: "i" } },
+          { venueName: { $regex: safeSearch, $options: "i" } },
+          { address: { $regex: safeSearch, $options: "i" } },
+          { street: { $regex: safeSearch, $options: "i" } },
+          { city: { $regex: safeSearch, $options: "i" } },
+          { province: { $regex: safeSearch, $options: "i" } },
+          { region: { $regex: safeSearch, $options: "i" } },
+          { country: { $regex: safeSearch, $options: "i" } },
+          { category: { $regex: safeSearch, $options: "i" } },
+          { subcategory: { $regex: safeSearch, $options: "i" } },
+          { tags: { $regex: safeSearch, $options: "i" } }
+        ]
+      });
     }
   }
-
-  return query;
-}
 function parseGeoNumber(value) {
   if (value === undefined || value === null || value === "") return null;
   const n = Number(value);
