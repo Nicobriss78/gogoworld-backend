@@ -163,8 +163,19 @@ async function createTrillDraft({ user, payload = {}, now = new Date() }) {
     throw buildTrillError(TRILL_REASON.PROMO_NOT_IMPLEMENTED, 409);
   }
 
-  const userId = getUserId(user);
+  const existingDraft = await Trill.findOne({
+    eventId,
+    createdBy: getUserId(user),
+    status: { $in: ["draft", "scheduled"] },
+  })
+    .select("_id status createdAt")
+    .lean();
 
+  if (existingDraft) {
+    throw buildTrillError(TRILL_REASON.DRAFT_ALREADY_EXISTS, 409);
+  }
+
+  const userId = getUserId(user);
   return Trill.create({
     eventId,
     organizerId: event.organizer,
