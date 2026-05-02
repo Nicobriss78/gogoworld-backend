@@ -63,6 +63,22 @@ router.get(
   listMyTrills
 );
 router.get(
+  "/admin",
+  protect,
+  RL.admin,
+  authorize("admin"),
+  listAdminTrills
+);
+
+router.patch(
+  "/admin/:id/block",
+  writeLimiter,
+  protect,
+  RL.admin,
+  authorize("admin"),
+  blockTrillAdmin
+);
+router.get(
   "/event/:eventId",
   protect,
   RL.read,
