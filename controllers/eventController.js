@@ -327,7 +327,13 @@ function validateEventInput(body) {
   if (!reqStr(body.country)) errors.push("country obbligatorio");
 
   if (body.dateStart && isNaN(new Date(body.dateStart).getTime())) errors.push("dateStart non valida");
-  if (body.dateEnd && isNaN(new Date(body.dateEnd).getTime())) errors.push("dateEnd non valida");
+
+const hasDateEnd = Object.prototype.hasOwnProperty.call(body, "dateEnd");
+if (!hasDateEnd || !body.dateEnd) {
+  errors.push("dateEnd obbligatoria");
+} else if (isNaN(new Date(body.dateEnd).getTime())) {
+  errors.push("dateEnd non valida");
+}
   // Guardrail: dateEnd non può essere precedente a dateStart
   if (body.dateStart && body.dateEnd) {
     const ds = new Date(body.dateStart);
