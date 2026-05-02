@@ -162,6 +162,11 @@ const listMyTrills = asyncHandler(async (req, res) => {
     .populate("eventId", "title dateStart dateEnd city region approvalStatus")
     .lean();
 
+  auditTrill("list_mine", req, {
+    count: trills.length,
+    limit,
+  });
+
   return res.json({
     ok: true,
     trills: trills.map(serializeTrill),
