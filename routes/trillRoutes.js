@@ -7,6 +7,7 @@ const { securityRateLimit } = require("../middleware/securityRateLimit");
 
 const {
   createTrillDraftController,
+  sendTrillController,
   listMyTrills,
   listEventTrills,
 } = require("../controllers/trillController");
