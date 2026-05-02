@@ -121,9 +121,23 @@ const createTrillDraftController = asyncHandler(async (req, res) => {
       trill: serializeTrill(trill),
     });
   } catch (error) {
-    if (sendKnownTrillError(res, error)) return;
+    if (error?.code && Object.values(TRILL_REASON).includes(error.code)) {
+      auditTrill("draft_rejected", req, {
+        reason: error.code,
+        status: error.status || 400,
+        eventId: req.body?.eventId ? String(req.body.eventId) : null,
+      });
+      return res.status(error.status || 400).json({
+        ok: false,
+        error: error.code,
+      });
+    }
 
-    logger.error("[trills] create draft failed", error);
+    logger.error("[trills] create draft failed", {
+      path: req.originalUrl,
+      userId: getUserId(req.user) ? String(getUserId(req.user)) : null,
+      message: error?.message || "unknown_error",
+    });
     throw error;
   }
 });
