@@ -1047,7 +1047,7 @@ const updateEvent = asyncHandler(async (req, res) => {
     throw new Error("Evento bloccato dall’amministratore");
   }
   // PATCH V3: validazione input (parziale)
-  const vErr = validateEventInput(req.body || {});
+  const vErr = validateEventInput(req.body || {}, { partial: true });
   if (vErr.length) {
     return res.status(400).json({ ok: false, code: "VALIDATION_ERROR", errors: vErr });
   }
