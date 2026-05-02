@@ -48,7 +48,13 @@ router.post(
   authorize("organizer"),
   sendTrillController
 );
-
+router.get(
+  "/mine",
+  protect,
+  RL.read,
+  authorize("organizer"),
+  listMyTrills
+);
 router.get(
   "/event/:eventId",
   protect,
