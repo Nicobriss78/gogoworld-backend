@@ -19,6 +19,12 @@ const TRILL_REASON = {
   INVALID_RADIUS: "INVALID_RADIUS",
   TYPE_NOT_AVAILABLE: "TYPE_NOT_AVAILABLE",
   DRAFT_ALREADY_EXISTS: "DRAFT_ALREADY_EXISTS",
+
+  TRILL_NOT_FOUND: "TRILL_NOT_FOUND",
+  TRILL_NOT_SENDABLE: "TRILL_NOT_SENDABLE",
+  TARGETING_NOT_AVAILABLE: "TARGETING_NOT_AVAILABLE",
+  NO_RECIPIENTS: "NO_RECIPIENTS",
+
   PROMO_NOT_IMPLEMENTED: "PROMO_NOT_IMPLEMENTED",
 };
 
@@ -37,12 +43,24 @@ const TYPE_MAX_RADIUS = {
   promo: 5000,
   admin: 5000,
 };
-// T1-C: in questa fase il backend espone solo bozze base/admin.
-// boost e promo restano modellati, ma non ancora attivabili senza piano/PromoCampaign.
+
+// T1-C: solo base/admin
 const ENABLED_T1_DRAFT_TYPES = new Set(["base", "admin"]);
+
 function normalizeObjectId(value) {
   const id = String(value || "").trim();
   return mongoose.Types.ObjectId.isValid(id) ? id : null;
+}
+
+function normalizeIdList(list = []) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((value) => normalizeObjectId(value?._id || value))
+    .filter(Boolean);
+}
+
+function uniqueIdList(list = []) {
+  return [...new Set(list.map(String))];
 }
 
 function normalizeTrillType(value) {
@@ -80,6 +98,7 @@ function isAdmin(user) {
 function canManageEvent(user, event) {
   const userId = getUserId(user);
   const organizerId = event?.organizer?._id || event?.organizer;
+
   if (!userId || !organizerId) return false;
   return isAdmin(user) || String(userId) === String(organizerId);
 }
@@ -92,10 +111,7 @@ function getRequiredEventDates(event) {
   const start = event?.dateStart ? new Date(event.dateStart) : null;
   const end = event?.dateEnd ? new Date(event.dateEnd) : null;
 
-  if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-    return null;
-  }
-
+  if (!start || !end) return null;
   return { start, end };
 }
 
@@ -114,65 +130,67 @@ function normalizeRadiusMeters(type, value) {
   const raw = Number(value);
   const fallback = TYPE_DEFAULT_RADIUS[type] || TYPE_DEFAULT_RADIUS.base;
   const max = TYPE_MAX_RADIUS[type] || TYPE_MAX_RADIUS.base;
-  const radius = Number.isFinite(raw) ? raw : fallback;
 
+  const radius = Number.isFinite(raw) ? raw : fallback;
   if (radius < 100 || radius > max) return null;
+
   return Math.round(radius);
 }
 
 function buildTrillError(code, status = 400) {
-  const error = new Error(code);
-  error.status = status;
-  error.code = code;
-  return error;
+  const err = new Error(code);
+  err.code = code;
+  err.status = status;
+  return err;
 }
 
-async function getCheckedInUserIds(eventId) {
-  const checkIns = await CheckIn.find({ eventId })
-    .select("userId")
+async function getEventForTrill(eventId) {
+  return Event.findById(eventId)
+    .select("title organizer approvalStatus dateStart dateEnd participants revokedUsers")
     .lean();
+}
 
-  return new Set(
-    checkIns
-      .map((row) => row?.userId)
-      .filter(Boolean)
-      .map(String)
-  );
+/* =========================
+   RECIPIENTS
+========================= */
+
+async function getCheckedInUserIds(eventId) {
+  const checkIns = await CheckIn.find({ eventId }).select("userId").lean();
+  return new Set(checkIns.map((c) => String(c.userId)));
 }
 
 async function getInterestedNotCheckedInRecipients(event) {
-  const participantIds = uniqueIdList(normalizeIdList(event.participants));
-  const revokedIds = new Set(uniqueIdList(normalizeIdList(event.revokedUsers)));
-  const checkedInIds = await getCheckedInUserIds(event._id);
+  const participants = uniqueIdList(normalizeIdList(event.participants));
+  const revoked = new Set(uniqueIdList(normalizeIdList(event.revokedUsers)));
+  const checkedIn = await getCheckedInUserIds(event._id);
 
-  return participantIds.filter((id) => {
-    if (!id) return false;
-    if (revokedIds.has(String(id))) return false;
-    if (checkedInIds.has(String(id))) return false;
-    if (event.organizer && String(id) === String(event.organizer)) return false;
+  return participants.filter((id) => {
+    if (revoked.has(id)) return false;
+    if (checkedIn.has(id)) return false;
+    if (String(event.organizer) === id) return false;
     return true;
   });
 }
 
 async function getNearbyFallbackRecipients(event) {
-  const revokedIds = new Set(uniqueIdList(normalizeIdList(event.revokedUsers)));
-  const checkedInIds = await getCheckedInUserIds(event._id);
+  const revoked = new Set(uniqueIdList(normalizeIdList(event.revokedUsers)));
+  const checkedIn = await getCheckedInUserIds(event._id);
 
   const users = await User.find({
-    _id: {
-      $nin: [
-        ...Array.from(revokedIds),
-        String(event.organizer),
-        ...Array.from(checkedInIds),
-      ],
-    },
     role: "participant",
   })
     .select("_id")
     .limit(500)
     .lean();
 
-  return uniqueIdList(users.map((user) => user._id));
+  return users
+    .map((u) => String(u._id))
+    .filter((id) => {
+      if (revoked.has(id)) return false;
+      if (checkedIn.has(id)) return false;
+      if (String(event.organizer) === id) return false;
+      return true;
+    });
 }
 
 async function resolveTrillRecipients({ trill, event }) {
@@ -185,93 +203,139 @@ async function resolveTrillRecipients({ trill, event }) {
   }
 
   if (trill.targetingMode === "both") {
-    const interested = await getInterestedNotCheckedInRecipients(event);
-    const nearby = await getNearbyFallbackRecipients(event);
-    return uniqueIdList([...interested, ...nearby]);
+    const a = await getInterestedNotCheckedInRecipients(event);
+    const b = await getNearbyFallbackRecipients(event);
+    return uniqueIdList([...a, ...b]);
   }
 
   throw buildTrillError(TRILL_REASON.TARGETING_NOT_AVAILABLE, 409);
 }
 
+/* =========================
+   NOTIFICATION PAYLOAD
+========================= */
+
+function buildTrillNotificationPayload({ trill, event, recipientId }) {
+  return {
+    user: recipientId,
+    actor: trill.createdBy,
+    event: event._id,
+    type: "trill",
+    title: trill.title || "Trillo evento",
+    message: trill.message,
+    data: {
+      trillId: String(trill._id),
+      eventId: String(event._id),
+    },
+  };
+}
+
+/* =========================
+   CREATE DRAFT
+========================= */
+
 async function createTrillDraft({ user, payload = {}, now = new Date() }) {
   const eventId = normalizeObjectId(payload.eventId);
-  if (!eventId) throw buildTrillError(TRILL_REASON.INVALID_EVENT_ID, 400);
+  if (!eventId) throw buildTrillError(TRILL_REASON.INVALID_EVENT_ID);
 
   const event = await getEventForTrill(eventId);
   if (!event) throw buildTrillError(TRILL_REASON.EVENT_NOT_FOUND, 404);
   if (!canManageEvent(user, event)) throw buildTrillError(TRILL_REASON.FORBIDDEN, 403);
   if (!isEventApproved(event)) throw buildTrillError(TRILL_REASON.EVENT_NOT_APPROVED, 409);
-
-  const dates = getRequiredEventDates(event);
-  if (!dates) throw buildTrillError(TRILL_REASON.EVENT_DATES_REQUIRED, 409);
-  if (!isWithinTrillWindow(event, now)) {
-    throw buildTrillError(TRILL_REASON.EVENT_OUTSIDE_TRILL_WINDOW, 409);
-  }
+  if (!isWithinTrillWindow(event, now)) throw buildTrillError(TRILL_REASON.EVENT_OUTSIDE_TRILL_WINDOW, 409);
 
   const type = normalizeTrillType(payload.type);
-  if (!type) throw buildTrillError(TRILL_REASON.INVALID_TYPE, 400);
-  if (!ENABLED_T1_DRAFT_TYPES.has(type)) {
-    throw buildTrillError(TRILL_REASON.TYPE_NOT_AVAILABLE, 409);
-  }
-  if (type === "admin" && !isAdmin(user)) throw buildTrillError(TRILL_REASON.FORBIDDEN, 403);
+  if (!type) throw buildTrillError(TRILL_REASON.INVALID_TYPE);
+  if (!ENABLED_T1_DRAFT_TYPES.has(type)) throw buildTrillError(TRILL_REASON.TYPE_NOT_AVAILABLE, 409);
+
   const targetingMode = normalizeTargetingMode(payload.targetingMode);
-  if (!targetingMode) throw buildTrillError(TRILL_REASON.INVALID_TARGETING_MODE, 400);
+  if (!targetingMode) throw buildTrillError(TRILL_REASON.INVALID_TARGETING_MODE);
 
   const message = normalizeMessage(payload.message);
-  if (!message) throw buildTrillError(TRILL_REASON.INVALID_MESSAGE, 400);
+  if (!message) throw buildTrillError(TRILL_REASON.INVALID_MESSAGE);
 
   const radiusMeters = normalizeRadiusMeters(type, payload.radiusMeters);
-  if (!radiusMeters) throw buildTrillError(TRILL_REASON.INVALID_RADIUS, 400);
+  if (!radiusMeters) throw buildTrillError(TRILL_REASON.INVALID_RADIUS);
 
-  if (type === "promo" && payload.promoCampaignId) {
-    throw buildTrillError(TRILL_REASON.PROMO_NOT_IMPLEMENTED, 409);
-  }
-
-  const existingDraft = await Trill.findOne({
+  const existing = await Trill.findOne({
     eventId,
     createdBy: getUserId(user),
     status: { $in: ["draft", "scheduled"] },
-  })
-    .select("_id status createdAt")
-    .lean();
+  }).lean();
 
-  if (existingDraft) {
-    throw buildTrillError(TRILL_REASON.DRAFT_ALREADY_EXISTS, 409);
-  }
+  if (existing) throw buildTrillError(TRILL_REASON.DRAFT_ALREADY_EXISTS, 409);
 
-  const userId = getUserId(user);
   return Trill.create({
     eventId,
     organizerId: event.organizer,
-    createdBy: userId,
+    createdBy: getUserId(user),
     createdByRole: getUserRole(user),
     type,
     status: "draft",
-    title: normalizeTitle(payload.title),
     message,
     radiusMeters,
     targetingMode,
-    scheduledAt: null,
-    sentAt: null,
-    expiresAt: dates.end,
-    promoCampaignId: null,
-    recipientCount: 0,
-    deliveredCount: 0,
-    openedCount: 0,
-    clickedCount: 0,
-    checkInCount: 0,
+    expiresAt: event.dateEnd,
   });
+}
+
+/* =========================
+   SEND
+========================= */
+
+async function sendTrillNotifications({ user, trillId, now = new Date() }) {
+  const id = normalizeObjectId(trillId);
+  if (!id) throw buildTrillError(TRILL_REASON.INVALID_EVENT_ID);
+
+  const trill = await Trill.findById(id);
+  if (!trill) throw buildTrillError(TRILL_REASON.TRILL_NOT_FOUND, 404);
+
+  if (!["draft", "scheduled"].includes(trill.status)) {
+    throw buildTrillError(TRILL_REASON.TRILL_NOT_SENDABLE, 409);
+  }
+
+  const event = await getEventForTrill(trill.eventId);
+  if (!event) throw buildTrillError(TRILL_REASON.EVENT_NOT_FOUND, 404);
+  if (!canManageEvent(user, event)) throw buildTrillError(TRILL_REASON.FORBIDDEN, 403);
+
+  const recipients = await resolveTrillRecipients({ trill, event });
+  if (!recipients.length) throw buildTrillError(TRILL_REASON.NO_RECIPIENTS, 409);
+
+  let delivered = 0;
+
+  for (const userId of recipients) {
+    const notif = await Notification.create(
+      buildTrillNotificationPayload({ trill, event, recipientId: userId })
+    );
+
+    await TrillDelivery.create({
+      trillId: trill._id,
+      eventId: event._id,
+      userId,
+      notificationId: notif._id,
+      deliveredAt: now,
+      status: "delivered",
+    });
+
+    delivered++;
+  }
+
+  trill.status = "sent";
+  trill.sentAt = now;
+  trill.recipientCount = recipients.length;
+  trill.deliveredCount = delivered;
+
+  await trill.save();
+
+  return {
+    trill,
+    recipientCount: recipients.length,
+    deliveredCount: delivered,
+  };
 }
 
 module.exports = {
   TRILL_REASON,
-  TRILL_WINDOW_BEFORE_START_MS,
-  TYPE_DEFAULT_RADIUS,
-  TYPE_MAX_RADIUS,
-  ENABLED_T1_DRAFT_TYPES,
-  normalizeObjectId,
-  normalizeTrillType,
-  normalizeTargetingMode,
-  isWithinTrillWindow,
   createTrillDraft,
+  sendTrillNotifications,
 };
