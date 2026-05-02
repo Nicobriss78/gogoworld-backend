@@ -30,6 +30,11 @@ const RL = {
     windowMs: 60_000,
     max: 60,
   }),
+  admin: securityRateLimit({
+    scope: "trill_admin",
+    windowMs: 60_000,
+    max: 60,
+  }),
 };
 
 // T1-B: crea solo una bozza validata. Nessun invio, nessuna delivery, nessuna notifica.
