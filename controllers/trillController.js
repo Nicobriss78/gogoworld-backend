@@ -107,6 +107,14 @@ const createTrillDraftController = asyncHandler(async (req, res) => {
       now: new Date(),
     });
 
+    auditTrill("draft_created", req, {
+      trillId: String(trill._id),
+      eventId: String(trill.eventId),
+      type: trill.type,
+      targetingMode: trill.targetingMode,
+      status: trill.status,
+    });
+
     return res.status(201).json({
       ok: true,
       mode: "draft_only",
