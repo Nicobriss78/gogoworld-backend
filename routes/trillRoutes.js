@@ -40,12 +40,13 @@ router.post(
   createTrillDraftController
 );
 
-router.get(
-  "/mine",
+router.post(
+  "/:id/send",
+  writeLimiter,
   protect,
-  RL.read,
+  RL.send,
   authorize("organizer"),
-  listMyTrills
+  sendTrillController
 );
 
 router.get(
