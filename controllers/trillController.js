@@ -219,7 +219,86 @@ const listMyTrills = asyncHandler(async (req, res) => {
     trills: trills.map(serializeTrill),
   });
 });
+// GET /api/trills/admin
+// T3: storico/moderazione admin backend-only.
+const listAdminTrills = asyncHandler(async (req, res) => {
+  const limit = normalizeLimit(req.query.limit);
+  const query = {};
 
+  if (req.query.status) query.status = String(req.query.status);
+  if (req.query.type) query.type = String(req.query.type);
+
+  const eventId = normalizeObjectId(req.query.eventId);
+  if (eventId) query.eventId = eventId;
+
+  const organizerId = normalizeObjectId(req.query.organizerId);
+  if (organizerId) query.organizerId = organizerId;
+
+  const trills = await Trill.find(query)
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .populate("eventId", "title dateStart dateEnd approvalStatus")
+    .populate("organizerId", "name email role")
+    .lean();
+
+  auditTrill("admin_list", req, {
+    count: trills.length,
+    limit,
+  });
+
+  return res.json({
+    ok: true,
+    trills: trills.map(serializeTrill),
+  });
+});
+
+// PATCH /api/trills/admin/:id/block
+// T3: blocco moderazione admin. Non cancella notifiche già create.
+const blockTrillAdmin = asyncHandler(async (req, res) => {
+  const id = normalizeObjectId(req.params.id);
+
+  if (!id) {
+    return res.status(400).json({
+      ok: false,
+      error: TRILL_REASON.INVALID_EVENT_ID,
+    });
+  }
+
+  const reason = String(req.body?.reason || "admin_block").trim().slice(0, 240);
+  const notes = String(req.body?.notes || "").trim().slice(0, 1000);
+
+  const trill = await Trill.findById(id);
+
+  if (!trill) {
+    return res.status(404).json({
+      ok: false,
+      error: TRILL_REASON.TRILL_NOT_FOUND || "TRILL_NOT_FOUND",
+    });
+  }
+
+  trill.status = "blocked";
+  trill.moderation = {
+    ...(trill.moderation || {}),
+    isBlocked: true,
+    blockedBy: getUserId(req.user),
+    blockedAt: new Date(),
+    reason,
+    notes,
+  };
+
+  await trill.save();
+
+  auditTrill("admin_block", req, {
+    trillId: String(trill._id),
+    eventId: String(trill.eventId),
+    reason,
+  });
+
+  return res.json({
+    ok: true,
+    trill: serializeTrill(trill),
+  });
+});
 // GET /api/trills/event/:eventId
 const listEventTrills = asyncHandler(async (req, res) => {
   const eventId = normalizeObjectId(req.params.eventId);
