@@ -142,7 +142,53 @@ const createTrillDraftController = asyncHandler(async (req, res) => {
     throw error;
   }
 });
+// POST /api/trills/:id/send
+// T2: invia notifiche in-app e crea delivery. Nessun frontend, nessuna push, nessun QR.
+const sendTrillController = asyncHandler(async (req, res) => {
+  try {
+    const result = await sendTrillNotifications({
+      user: req.user,
+      trillId: req.params.id,
+      now: new Date(),
+    });
 
+    auditTrill("notifications_sent", req, {
+      trillId: String(result.trill._id),
+      eventId: String(result.trill.eventId),
+      recipientCount: result.recipientCount,
+      deliveredCount: result.deliveredCount,
+    });
+
+    return res.json({
+      ok: true,
+      mode: "notification_only",
+      trill: serializeTrill(result.trill),
+      recipientCount: result.recipientCount,
+      deliveredCount: result.deliveredCount,
+    });
+  } catch (error) {
+    if (error?.code && Object.values(TRILL_REASON).includes(error.code)) {
+      auditTrill("send_rejected", req, {
+        reason: error.code,
+        status: error.status || 400,
+        trillId: req.params.id ? String(req.params.id) : null,
+      });
+
+      return res.status(error.status || 400).json({
+        ok: false,
+        error: error.code,
+      });
+    }
+
+    logger.error("[trills] send failed", {
+      path: req.originalUrl,
+      userId: getUserId(req.user) ? String(getUserId(req.user)) : null,
+      message: error?.message || "unknown_error",
+    });
+
+    throw error;
+  }
+});
 // GET /api/trills/mine
 const listMyTrills = asyncHandler(async (req, res) => {
   const userId = getUserId(req.user);
