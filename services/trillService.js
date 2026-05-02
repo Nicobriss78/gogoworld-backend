@@ -33,7 +33,9 @@ const TYPE_MAX_RADIUS = {
   promo: 5000,
   admin: 5000,
 };
-
+// T1-C: in questa fase il backend espone solo bozze base/admin.
+// boost e promo restano modellati, ma non ancora attivabili senza piano/PromoCampaign.
+const ENABLED_T1_DRAFT_TYPES = new Set(["base", "admin"]);
 function normalizeObjectId(value) {
   const id = String(value || "").trim();
   return mongoose.Types.ObjectId.isValid(id) ? id : null;
