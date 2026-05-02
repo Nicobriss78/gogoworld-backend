@@ -99,4 +99,14 @@ trillSchema.index({ organizerId: 1, createdAt: -1 });
 trillSchema.index({ status: 1, expiresAt: 1 });
 trillSchema.index({ type: 1, targetingMode: 1 });
 
+// T1-C: evita bozze/scheduled duplicate dello stesso creator sullo stesso evento.
+trillSchema.index(
+  { eventId: 1, createdBy: 1, status: 1 },
+  {
+    partialFilterExpression: {
+      status: { $in: ["draft", "scheduled"] },
+    },
+  }
+);
+
 module.exports = mongoose.model("Trill", trillSchema);
