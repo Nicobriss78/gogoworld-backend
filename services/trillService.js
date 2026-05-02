@@ -127,10 +127,70 @@ function buildTrillError(code, status = 400) {
   return error;
 }
 
-async function getEventForTrill(eventId) {
-  return Event.findById(eventId)
-    .select("title organizer approvalStatus dateStart dateEnd location visibility isPrivate participants revokedUsers")
+async function getCheckedInUserIds(eventId) {
+  const checkIns = await CheckIn.find({ eventId })
+    .select("userId")
     .lean();
+
+  return new Set(
+    checkIns
+      .map((row) => row?.userId)
+      .filter(Boolean)
+      .map(String)
+  );
+}
+
+async function getInterestedNotCheckedInRecipients(event) {
+  const participantIds = uniqueIdList(normalizeIdList(event.participants));
+  const revokedIds = new Set(uniqueIdList(normalizeIdList(event.revokedUsers)));
+  const checkedInIds = await getCheckedInUserIds(event._id);
+
+  return participantIds.filter((id) => {
+    if (!id) return false;
+    if (revokedIds.has(String(id))) return false;
+    if (checkedInIds.has(String(id))) return false;
+    if (event.organizer && String(id) === String(event.organizer)) return false;
+    return true;
+  });
+}
+
+async function getNearbyFallbackRecipients(event) {
+  const revokedIds = new Set(uniqueIdList(normalizeIdList(event.revokedUsers)));
+  const checkedInIds = await getCheckedInUserIds(event._id);
+
+  const users = await User.find({
+    _id: {
+      $nin: [
+        ...Array.from(revokedIds),
+        String(event.organizer),
+        ...Array.from(checkedInIds),
+      ],
+    },
+    role: "participant",
+  })
+    .select("_id")
+    .limit(500)
+    .lean();
+
+  return uniqueIdList(users.map((user) => user._id));
+}
+
+async function resolveTrillRecipients({ trill, event }) {
+  if (trill.targetingMode === "interested_not_checked_in") {
+    return getInterestedNotCheckedInRecipients(event);
+  }
+
+  if (trill.targetingMode === "nearby") {
+    return getNearbyFallbackRecipients(event);
+  }
+
+  if (trill.targetingMode === "both") {
+    const interested = await getInterestedNotCheckedInRecipients(event);
+    const nearby = await getNearbyFallbackRecipients(event);
+    return uniqueIdList([...interested, ...nearby]);
+  }
+
+  throw buildTrillError(TRILL_REASON.TARGETING_NOT_AVAILABLE, 409);
 }
 
 async function createTrillDraft({ user, payload = {}, now = new Date() }) {
