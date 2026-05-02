@@ -10,6 +10,8 @@ const {
   sendTrillController,
   listMyTrills,
   listEventTrills,
+  listAdminTrills,
+  blockTrillAdmin,
 } = require("../controllers/trillController");
 
 const RL = {
