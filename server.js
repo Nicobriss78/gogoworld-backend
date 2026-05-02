@@ -117,6 +117,7 @@ app.use("/api/dm", dmRoutes); // NEW: messaggi 1:1 (C2)
 app.use("/api/rooms", roomsRoutes); // NEW: chat evento pubblica (C2.2)
 app.use("/api/notifications", notificationRoutes); // NEW A9
 app.use("/api/checkins", checkInRoutes);
+app.use("/api/trills", trillRoutes);
 app.use("/healthz", healthRoutes); // #HEALTHZ
 
 // Root & Health
