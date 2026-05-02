@@ -290,6 +290,10 @@ async function sendTrillNotifications({ user, trillId, now = new Date() }) {
   const trill = await Trill.findById(id);
   if (!trill) throw buildTrillError(TRILL_REASON.TRILL_NOT_FOUND, 404);
 
+  if (trill.moderation?.isBlocked === true || String(trill.status) === "blocked") {
+    throw buildTrillError(TRILL_REASON.TRILL_NOT_SENDABLE, 409);
+  }
+
   if (!["draft", "scheduled"].includes(trill.status)) {
     throw buildTrillError(TRILL_REASON.TRILL_NOT_SENDABLE, 409);
   }
