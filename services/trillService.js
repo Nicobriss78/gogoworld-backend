@@ -204,6 +204,7 @@ module.exports = {
   TRILL_WINDOW_BEFORE_START_MS,
   TYPE_DEFAULT_RADIUS,
   TYPE_MAX_RADIUS,
+  ENABLED_T1_DRAFT_TYPES,
   normalizeObjectId,
   normalizeTrillType,
   normalizeTargetingMode,
