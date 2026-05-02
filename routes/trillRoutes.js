@@ -18,6 +18,11 @@ const RL = {
     windowMs: 60_000,
     max: 10,
   }),
+  send: securityRateLimit({
+    scope: "trill_send",
+    windowMs: 60_000,
+    max: 5,
+  }),
   read: securityRateLimit({
     scope: "trill_read",
     windowMs: 60_000,
