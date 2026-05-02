@@ -359,4 +359,6 @@ module.exports = {
   sendTrillController,
   listMyTrills,
   listEventTrills,
+  listAdminTrills,
+  blockTrillAdmin,
 };
