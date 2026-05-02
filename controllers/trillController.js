@@ -85,7 +85,18 @@ function sendKnownTrillError(res, error) {
     error: error.code,
   });
 }
-
+function auditTrill(action, req, details = {}) {
+  try {
+    logger.info("[trills:audit]", {
+      action,
+      userId: getUserId(req.user) ? String(getUserId(req.user)) : null,
+      role: getUserRole(req.user),
+      path: req.originalUrl,
+      ip: req.ip,
+      ...details,
+    });
+  } catch (_) {}
+}
 // POST /api/trills
 // T1-B: crea SOLO una bozza validata. Non invia notifiche e non crea delivery.
 const createTrillDraftController = asyncHandler(async (req, res) => {
