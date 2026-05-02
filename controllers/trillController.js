@@ -8,6 +8,7 @@ const { logger } = require("../core/logger");
 const {
   TRILL_REASON,
   createTrillDraft,
+  sendTrillNotifications,
 } = require("../services/trillService");
 
 function normalizeObjectId(value) {
