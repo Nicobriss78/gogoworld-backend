@@ -1,6 +1,10 @@
 const mongoose = require("mongoose");
 const Event = require("../models/eventModel");
 const Trill = require("../models/trillModel");
+const User = require("../models/userModel");
+const TrillDelivery = require("../models/trillDeliveryModel");
+const CheckIn = require("../models/checkInModel");
+const Notification = require("../models/notificationModel");
 
 const TRILL_REASON = {
   INVALID_EVENT_ID: "INVALID_EVENT_ID",
