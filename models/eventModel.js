@@ -31,7 +31,7 @@ coordinates: { type: [Number] } // [lon, lat]
 
     // Date e orari
     dateStart: { type: Date, required: true },
-    dateEnd: { type: Date },
+dateEnd: { type: Date, required: true },
 
     // Visibilità / lingua / target
     visibility: {
