@@ -146,8 +146,10 @@ async function createTrillDraft({ user, payload = {}, now = new Date() }) {
 
   const type = normalizeTrillType(payload.type);
   if (!type) throw buildTrillError(TRILL_REASON.INVALID_TYPE, 400);
+  if (!ENABLED_T1_DRAFT_TYPES.has(type)) {
+    throw buildTrillError(TRILL_REASON.TYPE_NOT_AVAILABLE, 409);
+  }
   if (type === "admin" && !isAdmin(user)) throw buildTrillError(TRILL_REASON.FORBIDDEN, 403);
-
   const targetingMode = normalizeTargetingMode(payload.targetingMode);
   if (!targetingMode) throw buildTrillError(TRILL_REASON.INVALID_TARGETING_MODE, 400);
 
