@@ -317,24 +317,32 @@ function parseBoundsParams(q = {}) {
   };
 }
 // PATCH V1: validazione minima input evento
-function validateEventInput(body) {
+function validateEventInput(body, options = {}) {
   const errors = [];
   const reqStr = (v) => (typeof v === "string" && v.trim().length > 0);
+  const isPartial = options.partial === true;
 
-  if (!reqStr(body.title)) errors.push("title obbligatorio");
-  if (!reqStr(body.city)) errors.push("city obbligatoria");
-  if (!reqStr(body.region)) errors.push("region obbligatoria");
-  if (!reqStr(body.country)) errors.push("country obbligatorio");
+  if (!isPartial) {
+    if (!reqStr(body.title)) errors.push("title obbligatorio");
+    if (!reqStr(body.city)) errors.push("city obbligatoria");
+    if (!reqStr(body.region)) errors.push("region obbligatoria");
+    if (!reqStr(body.country)) errors.push("country obbligatorio");
+  } else {
+    if (Object.prototype.hasOwnProperty.call(body, "title") && !reqStr(body.title)) errors.push("title obbligatorio");
+    if (Object.prototype.hasOwnProperty.call(body, "city") && !reqStr(body.city)) errors.push("city obbligatoria");
+    if (Object.prototype.hasOwnProperty.call(body, "region") && !reqStr(body.region)) errors.push("region obbligatoria");
+    if (Object.prototype.hasOwnProperty.call(body, "country") && !reqStr(body.country)) errors.push("country obbligatorio");
+  }
 
   if (body.dateStart && isNaN(new Date(body.dateStart).getTime())) errors.push("dateStart non valida");
 
-const hasDateEnd = Object.prototype.hasOwnProperty.call(body, "dateEnd");
-if (!hasDateEnd || !body.dateEnd) {
-  errors.push("dateEnd obbligatoria");
-} else if (isNaN(new Date(body.dateEnd).getTime())) {
-  errors.push("dateEnd non valida");
-}
-  // Guardrail: dateEnd non può essere precedente a dateStart
+  const hasDateEnd = Object.prototype.hasOwnProperty.call(body, "dateEnd");
+  if (!isPartial && (!hasDateEnd || !body.dateEnd)) {
+    errors.push("dateEnd obbligatoria");
+  } else if (hasDateEnd && body.dateEnd && isNaN(new Date(body.dateEnd).getTime())) {
+    errors.push("dateEnd non valida");
+  }
+
   if (body.dateStart && body.dateEnd) {
     const ds = new Date(body.dateStart);
     const de = new Date(body.dateEnd);
