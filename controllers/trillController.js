@@ -209,6 +209,12 @@ const listEventTrills = asyncHandler(async (req, res) => {
     .limit(limit)
     .lean();
 
+  auditTrill("list_event", req, {
+    eventId: String(event._id),
+    count: trills.length,
+    limit,
+  });
+
   return res.json({
     ok: true,
     event: {
