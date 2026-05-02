@@ -301,6 +301,10 @@ async function sendTrillNotifications({ user, trillId, now = new Date() }) {
   const event = await getEventForTrill(trill.eventId);
   if (!event) throw buildTrillError(TRILL_REASON.EVENT_NOT_FOUND, 404);
   if (!canManageEvent(user, event)) throw buildTrillError(TRILL_REASON.FORBIDDEN, 403);
+  if (!isEventApproved(event)) throw buildTrillError(TRILL_REASON.EVENT_NOT_APPROVED, 409);
+  if (!isWithinTrillWindow(event, now)) {
+    throw buildTrillError(TRILL_REASON.EVENT_OUTSIDE_TRILL_WINDOW, 409);
+  }
 
   const recipients = await resolveTrillRecipients({ trill, event });
   if (!recipients.length) throw buildTrillError(TRILL_REASON.NO_RECIPIENTS, 409);
