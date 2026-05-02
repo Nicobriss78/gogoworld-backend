@@ -46,6 +46,7 @@ const notificationSchema = new Schema(
         "review_received",
         "review_available",
         "organizer_event_activity",
+        "trill",
       ],
       required: true,
     },
