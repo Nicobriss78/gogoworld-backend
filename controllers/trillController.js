@@ -277,6 +277,7 @@ const listEventTrills = asyncHandler(async (req, res) => {
 
 module.exports = {
   createTrillDraftController,
+  sendTrillController,
   listMyTrills,
   listEventTrills,
 };
