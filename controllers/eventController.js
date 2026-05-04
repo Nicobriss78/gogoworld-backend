@@ -799,11 +799,30 @@ if (ev.visibility !== "private") {
   });
 }
 
-  res.json({
-    ok: true,
-    participants: Array.isArray(ev.participants) ? ev.participants : [],
-    revokedUsers: Array.isArray(ev.revokedUsers) ? ev.revokedUsers : [],
-  });
+  const participants = Array.isArray(ev.participants) ? ev.participants : [];
+const revokedUsers = Array.isArray(ev.revokedUsers) ? ev.revokedUsers : [];
+
+res.json({
+  ok: true,
+
+  // V2 structure
+  event: {
+    _id: ev._id,
+    title: ev.title,
+    visibility: ev.visibility,
+    isPrivate: Boolean(ev.isPrivate || ev.visibility === "private"),
+    accessCode: ev.accessCode || null,
+  },
+
+  access: {
+    allowedUsers: participants,
+    bannedUsers: revokedUsers,
+  },
+
+  // legacy compatibility
+  participants,
+  revokedUsers,
+});
 });
 
 // @desc Invita utente via email (aggiunge a participants se non bannato)
