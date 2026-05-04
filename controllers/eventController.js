@@ -782,12 +782,13 @@ if (ev.visibility !== "private") {
     note: "EVENT_NOT_PRIVATE",
 
     event: {
-      _id: ev._id,
-      title: ev.title,
-      visibility: ev.visibility,
-      isPrivate: Boolean(ev.isPrivate || ev.visibility === "private"),
-      accessCode: null,
-    },
+  _id: ev._id,
+  title: ev.title,
+  visibility: ev.visibility,
+  isPrivate: Boolean(ev.isPrivate || ev.visibility === "private"),
+  accessCode: ev.accessCode || null,
+  organizer: ev.organizer,
+},
 
     access: {
       allowedUsers: [],
