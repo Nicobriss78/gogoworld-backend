@@ -775,9 +775,29 @@ const getEventAccess = asyncHandler(async (req, res) => {
   }
 
   // per coerenza: access management ha senso solo sui privati
-  if (ev.visibility !== "private") {
-    return res.json({ ok: true, participants: [], revokedUsers: [], note: "EVENT_NOT_PRIVATE" });
-  }
+if (ev.visibility !== "private") {
+  return res.json({
+    ok: true,
+    note: "EVENT_NOT_PRIVATE",
+
+    event: {
+      _id: ev._id,
+      title: ev.title,
+      visibility: ev.visibility,
+      isPrivate: Boolean(ev.isPrivate || ev.visibility === "private"),
+      accessCode: null,
+    },
+
+    access: {
+      allowedUsers: [],
+      bannedUsers: [],
+    },
+
+    // legacy compatibility
+    participants: [],
+    revokedUsers: [],
+  });
+}
 
   res.json({
     ok: true,
