@@ -761,10 +761,9 @@ const normalizeEmail = (s) => String(s || "").trim().toLowerCase();
 // @access Private (organizer/admin)
 const getEventAccess = asyncHandler(async (req, res) => {
   const ev = await Event.findById(req.params.id)
-    .select("title visibility organizer participants revokedUsers")
-    .populate("participants", "name email")
-    .populate("revokedUsers", "name email");
-
+  .select("title visibility isPrivate accessCode organizer participants revokedUsers")
+  .populate("participants", "name email")
+  .populate("revokedUsers", "name email");
   if (!ev) {
     res.status(404);
     throw new Error("Evento non trovato");
