@@ -917,7 +917,13 @@ const banFromPrivateEvent = asyncHandler(async (req, res) => {
     res.status(400);
     throw new Error("Non puoi escludere l’organizzatore");
   }
+  // non bannare admin
+const targetUser = await User.findById(targetUserId).select("role");
 
+if (targetUser && String(targetUser.role || "").toLowerCase() === "admin") {
+  res.status(400);
+  throw new Error("Non puoi escludere un admin");
+}
   ev.participants = Array.isArray(ev.participants) ? ev.participants : [];
   ev.revokedUsers = Array.isArray(ev.revokedUsers) ? ev.revokedUsers : [];
 
