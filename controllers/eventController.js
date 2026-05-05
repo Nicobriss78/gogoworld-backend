@@ -936,7 +936,37 @@ if (targetUser && String(targetUser.role || "").toLowerCase() === "admin") {
   await ev.save();
   res.json({ ok: true });
 });
+// @desc Rigenera codice accesso evento privato senza revocare utenti già autorizzati
+// @route POST /api/events/:id/access/rotate-code
+// @access Private (organizer/admin)
+const rotatePrivateAccessCode = asyncHandler(async (req, res) => {
+  const ev = await Event.findById(req.params.id).select("visibility organizer accessCode");
 
+  if (!ev) {
+    res.status(404);
+    throw new Error("Evento non trovato");
+  }
+
+  if (!canManageEventAsOwnerOrAdmin(req, ev)) {
+    res.status(403);
+    throw new Error("Non autorizzato");
+  }
+
+  if (ev.visibility !== "private") {
+    res.status(400);
+    throw new Error("Evento non privato");
+  }
+
+  const newCode = generatePrivateCode();
+  ev.accessCode = newCode;
+  await ev.save();
+
+  res.json({
+    ok: true,
+    eventId: ev._id,
+    accessCode: newCode,
+  });
+});
 // @desc Unban + reinserimento (pull da revokedUsers + add a participants)
 // @route POST /api/events/:id/unban
 // @access Private (organizer/admin)
