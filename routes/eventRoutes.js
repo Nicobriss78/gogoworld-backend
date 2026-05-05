@@ -68,8 +68,8 @@ router.get("/mine/list", protect, authorize("organizer"), listMyEvents);
 router.get("/:id/access", protect, authorize("organizer"), getEventAccess);
 router.post("/:id/invite", protect, authorize("organizer"), inviteToPrivateEvent);
 router.post("/:id/ban", protect, authorize("organizer"), banFromPrivateEvent);
+router.post("/:id/access/rotate-code", protect, authorize("organizer"), rotatePrivateAccessCode);
 router.post("/:id/unban", protect, authorize("organizer"), unbanToPrivateEvent);
-
 // Banner = coverImage
 router.patch("/:id/banner", protect, authorize("organizer"), updateEventBanner);
 
