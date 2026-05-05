@@ -1525,6 +1525,7 @@ module.exports = {
   getEventAccess,
   inviteToPrivateEvent,
   banFromPrivateEvent,
+  rotatePrivateAccessCode,
   unbanToPrivateEvent,
   updateEventBanner,
 };
