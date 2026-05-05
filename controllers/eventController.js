@@ -814,6 +814,7 @@ res.json({
     visibility: ev.visibility,
     isPrivate: Boolean(ev.isPrivate || ev.visibility === "private"),
     accessCode: ev.accessCode || null,
+    organizer: ev.organizer,
   },
 
   access: {
