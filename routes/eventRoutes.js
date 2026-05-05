@@ -25,6 +25,7 @@ const {
   getEventAccess,
   inviteToPrivateEvent,
   banFromPrivateEvent,
+  rotatePrivateAccessCode,
   unbanToPrivateEvent,
   updateEventBanner,
 } = require("../controllers/eventController");
