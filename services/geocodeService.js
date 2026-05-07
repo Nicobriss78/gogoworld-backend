@@ -1,0 +1,120 @@
+const DEFAULT_NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
+
+let lastRequestAt = 0;
+const cache = new Map();
+
+function clean(value) {
+  return String(value || "").trim();
+}
+
+function buildAddressQuery(input = {}) {
+  const parts = [
+    input.venueName,
+    [input.street, input.streetNumber].filter(Boolean).join(" "),
+    input.postalCode,
+    input.city,
+    input.province,
+    input.region,
+    input.country,
+  ]
+    .map(clean)
+    .filter(Boolean);
+
+  return clean(input.q) || parts.join(", ");
+}
+
+function normalizeResult(item) {
+  const address = item.address || {};
+
+  return {
+    label: item.display_name || "",
+    lat: Number(item.lat),
+    lon: Number(item.lon),
+    city: address.city || address.town || address.village || "",
+    province: address.county || "",
+    region: address.state || "",
+    country: address.country_code ? address.country_code.toUpperCase() : "",
+    postalCode: address.postcode || "",
+    provider: "nominatim",
+  };
+}
+
+async function waitProviderSlot() {
+  const now = Date.now();
+  const diff = now - lastRequestAt;
+  const minGap = Number(process.env.GEOCODE_MIN_INTERVAL_MS || 1100);
+
+  if (diff < minGap) {
+    await new Promise((resolve) => setTimeout(resolve, minGap - diff));
+  }
+
+  lastRequestAt = Date.now();
+}
+
+async function geocodeAddress(input = {}) {
+  const query = buildAddressQuery(input);
+
+  if (!query || query.length < 3) {
+    const error = new Error("geocode_query_too_short");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const cacheKey = query.toLowerCase();
+  const cached = cache.get(cacheKey);
+
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data;
+  }
+
+  await waitProviderSlot();
+
+  const baseUrl = process.env.GEOCODE_NOMINATIM_URL || DEFAULT_NOMINATIM_URL;
+  const url = new URL(baseUrl);
+
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("addressdetails", "1");
+  url.searchParams.set("limit", "5");
+  url.searchParams.set("q", query);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), Number(process.env.GEOCODE_TIMEOUT_MS || 8000));
+
+  const response = await fetch(url, {
+    method: "GET",
+    signal: controller.signal,
+    headers: {
+      "User-Agent": process.env.GEOCODE_USER_AGENT || "GoGoWorld.life/1.0",
+      "Accept": "application/json",
+    },
+  }).finally(() => clearTimeout(timeout));
+
+  if (!response.ok) {
+    const error = new Error("geocode_provider_error");
+    error.statusCode = 502;
+    throw error;
+  }
+
+  const json = await response.json();
+  const results = Array.isArray(json)
+    ? json.map(normalizeResult).filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lon))
+    : [];
+
+  const data = {
+    ok: true,
+    query,
+    results,
+    attribution: "Geocoding data © OpenStreetMap contributors",
+  };
+
+  cache.set(cacheKey, {
+    data,
+    expiresAt: Date.now() + Number(process.env.GEOCODE_CACHE_TTL_MS || 86_400_000),
+  });
+
+  return data;
+}
+
+module.exports = {
+  geocodeAddress,
+};
