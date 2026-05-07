@@ -106,6 +106,7 @@ const roomsRoutes = require("./routes/rooms"); // NEW: chat evento pubblica (C2.
 const notificationRoutes = require("./routes/notificationRoutes"); // NEW A9
 const checkInRoutes = require("./routes/checkInRoutes");
 const trillRoutes = require("./routes/trillRoutes");
+const geocodeRoutes = require("./routes/geocodeRoutes");
 
 app.use("/api/users", userRoutes);
 app.use("/api/events", eventRoutes);
