@@ -106,38 +106,51 @@ if (!queries.length) {
 let successfulQuery = "";
 
 for (const query of queries) {
-  url.searchParams.set("q", query) 
+  url.searchParams.set("q", query);
 
-  if (results.length) {
-    successfulQuery = query;
-    break;
+  const controller = new AbortController();
+
+  const timeout = setTimeout(
+    () => controller.abort(),
+    Number(process.env.GEOCODE_TIMEOUT_MS || 8000)
+  );
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      signal: controller.signal,
+      headers: {
+        "User-Agent": process.env.GEOCODE_USER_AGENT || "GoGoWorld.life/1.0",
+        "Accept": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      continue;
+    }
+
+    const json = await response.json();
+
+    results = Array.isArray(json)
+      ? json
+          .map(normalizeResult)
+          .filter(
+            (item) =>
+              Number.isFinite(item.lat) &&
+              Number.isFinite(item.lon)
+          )
+      : [];
+
+    if (results.length) {
+      successfulQuery = query;
+      break;
+    }
+  } finally {
+    clearTimeout(timeout);
   }
 
   await waitProviderSlot();
 }
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), Number(process.env.GEOCODE_TIMEOUT_MS || 8000));
-
-  const response = await fetch(url, {
-    method: "GET",
-    signal: controller.signal,
-    headers: {
-      "User-Agent": process.env.GEOCODE_USER_AGENT || "GoGoWorld.life/1.0",
-      "Accept": "application/json",
-    },
-  }).finally(() => clearTimeout(timeout));
-
-  if (!response.ok) {
-    const error = new Error("geocode_provider_error");
-    error.statusCode = 502;
-    throw error;
-  }
-
-  const json = await response.json();
-  const results = Array.isArray(json)
-    ? json.map(normalizeResult).filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lon))
-    : [];
 
   const data = {
     ok: true,
