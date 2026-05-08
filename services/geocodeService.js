@@ -102,7 +102,50 @@ if (!queries.length) {
   url.searchParams.set("format", "jsonv2");
   url.searchParams.set("addressdetails", "1");
   url.searchParams.set("limit", "5");
+  let results = [];
+let successfulQuery = "";
+
+for (const query of queries) {
   url.searchParams.set("q", query);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    Number(process.env.GEOCODE_TIMEOUT_MS || 8000)
+  );
+
+  const response = await fetch(url, {
+    method: "GET",
+    signal: controller.signal,
+    headers: {
+      "User-Agent": process.env.GEOCODE_USER_AGENT || "GoGoWorld.life/1.0",
+      "Accept": "application/json",
+    },
+  }).finally(() => clearTimeout(timeout));
+
+  if (!response.ok) {
+    continue;
+  }
+
+  const json = await response.json();
+
+  results = Array.isArray(json)
+    ? json
+        .map(normalizeResult)
+        .filter(
+          (item) =>
+            Number.isFinite(item.lat) &&
+            Number.isFinite(item.lon)
+        )
+    : [];
+
+  if (results.length) {
+    successfulQuery = query;
+    break;
+  }
+
+  await waitProviderSlot();
+}
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), Number(process.env.GEOCODE_TIMEOUT_MS || 8000));
