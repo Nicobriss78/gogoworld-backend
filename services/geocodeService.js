@@ -40,16 +40,18 @@ function buildAddressQueries(input = {}) {
   }
 
   if (venueName) {
-    queries.push(
-      [`${venueName} ${city} ${region} ${country}`],
-      [`${venueName} ${city}`],
-      [`${venueName} ${region} ${country}`],
-      [`${venueName} ${region}`],
-      [venueName, city, region, country],
-      [venueName, city, country],
-      [venueName, region, country]
-    );
-  }
+  queries.push(
+    [`${venueName} ${city} ${region} ${country}`],
+    [`${venueName} ${city}`],
+    [`${venueName} ${region}`],
+    [`${venueName} ${region} ${country}`],
+    [`${venueName} ${region} Italia`],
+    [`${venueName} ${country}`],
+    [venueName, city, region, country],
+    [venueName, city, country],
+    [venueName, region, country]
+  );
+}
 
   if (!venueName) {
     queries.push([city, region, country]);
