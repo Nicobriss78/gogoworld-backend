@@ -35,6 +35,9 @@ function buildAddressQueries(input = {}) {
     [venueName, city, region, country],
     [venueName, city, country],
     [venueName, region, country],
+    [`${venueName} ${city} ${region} ${country}`],
+    [`${venueName} ${city}`],
+    [`${venueName} ${region}`],
     [postalCode, city, region, country],
     [city, region, country],
   ]
