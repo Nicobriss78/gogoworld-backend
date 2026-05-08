@@ -19,6 +19,7 @@ function normalizeCountry(value) {
 
 function buildAddressQueries(input = {}) {
   const streetLine = [input.street, input.streetNumber]
+  const venueName = clean(input.venueName);
     .map(clean)
     .filter(Boolean)
     .join(" ");
