@@ -7,20 +7,47 @@ function clean(value) {
   return String(value || "").trim();
 }
 
-function buildAddressQuery(input = {}) {
-  const parts = [
-    input.venueName,
-    [input.street, input.streetNumber].filter(Boolean).join(" "),
-    input.postalCode,
-    input.city,
-    input.province,
-    input.region,
-    input.country,
-  ]
+function normalizeCountry(value) {
+  const normalized = clean(value).toUpperCase();
+
+  if (normalized === "IT") return "Italia";
+  if (normalized === "UK") return "United Kingdom";
+  if (normalized === "US") return "United States";
+
+  return clean(value);
+}
+
+function buildAddressQueries(input = {}) {
+  const streetLine = [input.street, input.streetNumber]
     .map(clean)
+    .filter(Boolean)
+    .join(" ");
+
+  const city = clean(input.city);
+  const postalCode = clean(input.postalCode);
+  const province = clean(input.province);
+  const region = clean(input.region);
+  const country = normalizeCountry(input.country);
+
+  const queries = [
+    [streetLine, postalCode, city, region, country],
+    [streetLine, city, region, country],
+    [postalCode, city, region, country],
+    [city, region, country],
+  ]
+    .map((parts) =>
+      parts
+        .map(clean)
+        .filter(Boolean)
+        .join(", ")
+    )
     .filter(Boolean);
 
-  return clean(input.q) || parts.join(", ");
+  if (input.q) {
+    queries.unshift(clean(input.q));
+  }
+
+  return [...new Set(queries)];
 }
 
 function normalizeResult(item) {
