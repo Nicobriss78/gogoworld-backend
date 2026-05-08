@@ -25,7 +25,6 @@ function buildAddressQueries(input = {}) {
 
   const city = clean(input.city);
   const postalCode = clean(input.postalCode);
-  const province = clean(input.province);
   const region = clean(input.region);
   const country = normalizeCountry(input.country);
 
@@ -35,12 +34,7 @@ function buildAddressQueries(input = {}) {
     [postalCode, city, region, country],
     [city, region, country],
   ]
-    .map((parts) =>
-      parts
-        .map(clean)
-        .filter(Boolean)
-        .join(", ")
-    )
+    .map((parts) => parts.map(clean).filter(Boolean).join(", "))
     .filter(Boolean);
 
   if (input.q) {
@@ -78,38 +72,15 @@ async function waitProviderSlot() {
   lastRequestAt = Date.now();
 }
 
-async function geocodeAddress(input = {}) {
-  const queries = buildAddressQueries(input);
-
-if (!queries.length) {
-    const error = new Error("geocode_query_too_short");
-    error.statusCode = 400;
-    throw error;
-  }
-
-  const cacheKey = queries.join("||").toLowerCase();
-  const cached = cache.get(cacheKey);
-
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.data;
-  }
-
-  await waitProviderSlot();
-
-  const baseUrl = process.env.GEOCODE_NOMINATIM_URL || DEFAULT_NOMINATIM_URL;
+async function fetchNominatimQuery(baseUrl, query) {
   const url = new URL(baseUrl);
 
   url.searchParams.set("format", "jsonv2");
   url.searchParams.set("addressdetails", "1");
   url.searchParams.set("limit", "5");
-  let results = [];
-let successfulQuery = "";
-
-for (const query of queries) {
   url.searchParams.set("q", query);
 
   const controller = new AbortController();
-
   const timeout = setTimeout(
     () => controller.abort(),
     Number(process.env.GEOCODE_TIMEOUT_MS || 8000)
@@ -126,12 +97,12 @@ for (const query of queries) {
     });
 
     if (!response.ok) {
-      continue;
+      return [];
     }
 
     const json = await response.json();
 
-    results = Array.isArray(json)
+    return Array.isArray(json)
       ? json
           .map(normalizeResult)
           .filter(
@@ -140,22 +111,47 @@ for (const query of queries) {
               Number.isFinite(item.lon)
           )
       : [];
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function geocodeAddress(input = {}) {
+  const queries = buildAddressQueries(input);
+
+  if (!queries.length) {
+    const error = new Error("geocode_query_too_short");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const cacheKey = queries.join("||").toLowerCase();
+  const cached = cache.get(cacheKey);
+
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data;
+  }
+
+  const baseUrl = process.env.GEOCODE_NOMINATIM_URL || DEFAULT_NOMINATIM_URL;
+
+  let results = [];
+  let successfulQuery = "";
+
+  for (const query of queries) {
+    await waitProviderSlot();
+
+    results = await fetchNominatimQuery(baseUrl, query);
 
     if (results.length) {
       successfulQuery = query;
       break;
     }
-  } finally {
-    clearTimeout(timeout);
   }
-
-  await waitProviderSlot();
-}
 
   const data = {
     ok: true,
     query: successfulQuery || queries[0],
-testedQueries: queries,
+    testedQueries: queries,
     results,
     attribution: "Geocoding data © OpenStreetMap contributors",
   };
