@@ -87,7 +87,7 @@ if (!queries.length) {
     throw error;
   }
 
-  const cacheKey = query.toLowerCase();
+  const cacheKey = queries.join("||").toLowerCase();
   const cached = cache.get(cacheKey);
 
   if (cached && cached.expiresAt > Date.now()) {
