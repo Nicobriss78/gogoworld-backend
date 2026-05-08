@@ -79,9 +79,9 @@ async function waitProviderSlot() {
 }
 
 async function geocodeAddress(input = {}) {
-  const query = buildAddressQuery(input);
+  const queries = buildAddressQueries(input);
 
-  if (!query || query.length < 3) {
+if (!queries.length) {
     const error = new Error("geocode_query_too_short");
     error.statusCode = 400;
     throw error;
