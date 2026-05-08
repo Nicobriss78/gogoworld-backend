@@ -30,11 +30,14 @@ function buildAddressQueries(input = {}) {
   const country = normalizeCountry(input.country);
 
   const queries = [
-    [streetLine, postalCode, city, region, country],
-    [streetLine, city, region, country],
-    [postalCode, city, region, country],
-    [city, region, country],
-  ]
+  [streetLine, postalCode, city, region, country],
+  [streetLine, city, region, country],
+  [venueName, city, region, country],
+  [venueName, city, country],
+  [venueName, region, country],
+  [postalCode, city, region, country],
+  [city, region, country],
+]
     .map((parts) => parts.map(clean).filter(Boolean).join(", "))
     .filter(Boolean);
 
