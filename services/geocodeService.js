@@ -29,26 +29,41 @@ function buildAddressQueries(input = {}) {
   const region = clean(input.region);
   const country = normalizeCountry(input.country);
 
-  const queries = [
-    [streetLine, postalCode, city, region, country],
-    [streetLine, city, region, country],
-    [venueName, city, region, country],
-    [venueName, city, country],
-    [venueName, region, country],
-    [`${venueName} ${city} ${region} ${country}`],
-    [`${venueName} ${city}`],
-    [`${venueName} ${region}`],
-    [postalCode, city, region, country],
-    [city, region, country],
-  ]
-    .map((parts) => parts.map(clean).filter(Boolean).join(", "))
-    .filter(Boolean);
+  const queries = [];
+
+  if (streetLine || postalCode) {
+    queries.push(
+      [streetLine, postalCode, city, region, country],
+      [streetLine, city, region, country],
+      [postalCode, city, region, country]
+    );
+  }
+
+  if (venueName) {
+    queries.push(
+      [`${venueName} ${city} ${region} ${country}`],
+      [`${venueName} ${city}`],
+      [`${venueName} ${region} ${country}`],
+      [`${venueName} ${region}`],
+      [venueName, city, region, country],
+      [venueName, city, country],
+      [venueName, region, country]
+    );
+  }
+
+  if (!venueName) {
+    queries.push([city, region, country]);
+  }
 
   if (input.q) {
     queries.unshift(clean(input.q));
   }
 
-  return [...new Set(queries)];
+  return [...new Set(
+    queries
+      .map((parts) => parts.map(clean).filter(Boolean).join(", "))
+      .filter(Boolean)
+  )];
 }
 
 function normalizeResult(item) {
