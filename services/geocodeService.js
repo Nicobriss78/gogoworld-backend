@@ -141,7 +141,8 @@ for (const query of queries) {
 
   const data = {
     ok: true,
-    query,
+    query: successfulQuery || queries[0],
+testedQueries: queries,
     results,
     attribution: "Geocoding data © OpenStreetMap contributors",
   };
