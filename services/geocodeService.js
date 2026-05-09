@@ -248,10 +248,14 @@ async function fetchNominatimReverse(baseUrl, coordinates) {
       const result = normalizeReverseResult(json);
 
       const hasUsefulData =
-        result.city ||
-        result.province ||
-        result.region ||
-        result.country;
+  result.label ||
+  result.venueName ||
+  result.street ||
+  result.streetNumber ||
+  result.city ||
+  result.province ||
+  result.region ||
+  result.country;
 
       if (
         Number.isFinite(result.lat) &&
