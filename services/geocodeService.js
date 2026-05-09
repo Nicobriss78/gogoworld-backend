@@ -209,7 +209,45 @@ async function fetchNominatimQuery(baseUrl, query) {
     clearTimeout(timeout);
   }
 }
+async function fetchNominatimReverse(baseUrl, coordinates) {
+  const url = new URL(baseUrl);
 
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("addressdetails", "1");
+  url.searchParams.set("lat", String(coordinates.lat));
+  url.searchParams.set("lon", String(coordinates.lon));
+  url.searchParams.set("zoom", "18");
+
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    Number(process.env.GEOCODE_TIMEOUT_MS || 8000)
+  );
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      signal: controller.signal,
+      headers: {
+        "User-Agent": process.env.GEOCODE_USER_AGENT || "GoGoWorld.life/1.0",
+        "Accept": "application/json",
+      },
+    });
+
+    if (!response.ok) return null;
+
+    const json = await response.json();
+    if (!json || json.error) return null;
+
+    const result = normalizeReverseResult(json);
+
+    return Number.isFinite(result.lat) && Number.isFinite(result.lon)
+      ? result
+      : null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 async function geocodeAddress(input = {}) {
   const queries = buildAddressQueries(input);
 
