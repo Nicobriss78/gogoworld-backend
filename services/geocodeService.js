@@ -296,9 +296,6 @@ async function geocodeAddress(input = {}) {
   return data;
 }
 
-module.exports = {
-  geocodeAddress,
-};
 async function reverseGeocode(input = {}) {
   const coordinates = normalizeCoordinates(input);
   const cacheKey = `reverse:${coordinates.lat.toFixed(6)},${coordinates.lon.toFixed(6)}`;
@@ -331,3 +328,8 @@ async function reverseGeocode(input = {}) {
 
   return data;
 }
+
+module.exports = {
+  geocodeAddress,
+  reverseGeocode,
+};
