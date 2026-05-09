@@ -84,7 +84,76 @@ function normalizeResult(item) {
     provider: "nominatim",
   };
 }
+function normalizeStreet(address = {}) {
+  return (
+    address.road ||
+    address.pedestrian ||
+    address.footway ||
+    address.residential ||
+    address.path ||
+    ""
+  );
+}
 
+function normalizeVenueName(item = {}, address = {}) {
+  return (
+    item.name ||
+    address.amenity ||
+    address.shop ||
+    address.tourism ||
+    address.leisure ||
+    ""
+  );
+}
+
+function normalizeReverseResult(item) {
+  const address = item.address || {};
+
+  return {
+    label: item.display_name || "",
+    lat: Number(item.lat),
+    lon: Number(item.lon),
+    venueName: normalizeVenueName(item, address),
+    street: normalizeStreet(address),
+    streetNumber: address.house_number || "",
+    city: address.city || address.town || address.village || "",
+    province: address.county || "",
+    region: address.state || "",
+    country: address.country_code ? address.country_code.toUpperCase() : "",
+    postalCode: address.postcode || "",
+    provider: "nominatim",
+  };
+}
+
+function readCoordinate(input = {}, keys = []) {
+  for (const key of keys) {
+    if (input[key] !== undefined && input[key] !== null && input[key] !== "") {
+      return Number(input[key]);
+    }
+  }
+
+  return NaN;
+}
+
+function normalizeCoordinates(input = {}) {
+  const lat = readCoordinate(input, ["lat", "latitude"]);
+  const lon = readCoordinate(input, ["lon", "lng", "longitude"]);
+
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lon) ||
+    lat < -90 ||
+    lat > 90 ||
+    lon < -180 ||
+    lon > 180
+  ) {
+    const error = new Error("invalid_coordinates");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return { lat, lon };
+}
 async function waitProviderSlot() {
   const now = Date.now();
   const diff = now - lastRequestAt;
