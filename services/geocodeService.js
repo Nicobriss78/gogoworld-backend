@@ -299,3 +299,35 @@ async function geocodeAddress(input = {}) {
 module.exports = {
   geocodeAddress,
 };
+async function reverseGeocode(input = {}) {
+  const coordinates = normalizeCoordinates(input);
+  const cacheKey = `reverse:${coordinates.lat.toFixed(6)},${coordinates.lon.toFixed(6)}`;
+  const cached = cache.get(cacheKey);
+
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data;
+  }
+
+  const baseUrl =
+    process.env.GEOCODE_NOMINATIM_REVERSE_URL ||
+    DEFAULT_NOMINATIM_REVERSE_URL;
+
+  await waitProviderSlot();
+
+  const result = await fetchNominatimReverse(baseUrl, coordinates);
+
+  const data = {
+    ok: true,
+    lat: coordinates.lat,
+    lon: coordinates.lon,
+    result,
+    attribution: "Geocoding data © OpenStreetMap contributors",
+  };
+
+  cache.set(cacheKey, {
+    data,
+    expiresAt: Date.now() + Number(process.env.GEOCODE_CACHE_TTL_MS || 86_400_000),
+  });
+
+  return data;
+}
