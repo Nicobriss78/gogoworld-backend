@@ -1,3 +1,4 @@
+const DEFAULT_NOMINATIM_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse";
 const DEFAULT_NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 
 let lastRequestAt = 0;
