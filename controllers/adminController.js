@@ -650,4 +650,3 @@ module.exports = {
   toggleCanOrganize, // nome interno
   setUserCanOrganize: toggleCanOrganize, // ← alias per le routes
 };
-
