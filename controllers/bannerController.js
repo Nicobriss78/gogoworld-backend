@@ -571,44 +571,78 @@ message: err.message || "Invalid estimate payload",
 };
 // Organizer — submit banner request
 exports.submitBannerRequest = async (req, res) => {
-  if (!requireRole(req, res, ["organizer", "admin"])) return;
+if (!requireRole(req, res, ["organizer", "admin"])) return;
 
-  try {
-    const body = req.body || {};
-    const required = ["title", "imageUrl", "targetUrl", "placement"];
-    for (const k of required) {
-      if (!body[k]) return res.status(400).json({ ok:false, error:`${k} is required` });
-    }
+try {
+const body = req.body || {};
+const required = ["title", "imageUrl", "targetUrl", "placement", "activeFrom", "activeTo"];
+for (const k of required) {
+if (!body[k]) return res.status(400).json({ ok:false, error:`${k} is required` });
+}
 
-    // Consenti solo URL https
-    const isHttps = (u) => { try { const x = new URL(String(u)); return x.protocol === "https:"; } catch { return false; } };
-    if (!isHttps(body.imageUrl) || !isHttps(body.targetUrl)) {
-      return res.status(400).json({ ok:false, error:"imageUrl and targetUrl must be https://" });
-    }
+// Consenti solo URL https
+const isHttps = (u) => {
+try {
+const x = new URL(String(u));
+return x.protocol === "https:";
+} catch {
+return false;
+}
+};
 
-    const doc = new Banner({
-      type: "event_promo",
-      source: "organizer",
-      status: "PENDING_REVIEW",
-      eventId: body.eventId || null,
-      title: String(body.title).trim(),
-      imageUrl: String(body.imageUrl).trim(),
-      targetUrl: String(body.targetUrl).trim(),
-      placement: body.placement,
-      country: body.country || null,
-      region: body.region || null,
-      isActive: true,
-      activeFrom: body.activeFrom || null,
-      activeTo: body.activeTo || null,
-      priority: body.priority !== undefined ? Number(body.priority) : 100,
-      createdBy: req.user && req.user._id ? req.user._id : null,
-      notes: body.notes || ""
-    });
+if (!isHttps(body.imageUrl) || !isHttps(body.targetUrl)) {
+return res.status(400).json({ ok:false, error:"imageUrl and targetUrl must be https://" });
+}
 
-    await doc.save();
-    return res.status(201).json({ ok:true, data:{ id: String(doc._id) }});
-  } catch (err) {
-    logger.error("[Banner] submitBannerRequest error:", err);
-    return res.status(500).json({ ok:false, error:"internal_error" });
-  }
+const estimate = estimateBannerPrice(body);
+const geoTarget = normalizeGeoTarget(body);
+
+const doc = new Banner({
+type: "event_promo",
+source: "organizer",
+status: "PENDING_PAYMENT",
+eventId: body.eventId || null,
+title: String(body.title).trim(),
+imageUrl: String(body.imageUrl).trim(),
+targetUrl: String(body.targetUrl).trim(),
+placement: body.placement,
+country: geoTarget.country,
+region: geoTarget.region,
+geoScope: geoTarget.geoScope,
+pricingSnapshot: estimate.pricingSnapshot,
+estimatedPrice: estimate.estimatedPrice,
+currency: estimate.currency,
+paymentStatus: "PENDING",
+paymentProvider: null,
+paymentIntentId: null,
+paidAt: null,
+isActive: true,
+activeFrom: body.activeFrom,
+activeTo: body.activeTo,
+priority: body.priority !== undefined ? Number(body.priority) : 100,
+createdBy: req.user && req.user._id ? req.user._id : null,
+notes: body.notes || "",
+});
+
+await doc.save();
+
+return res.status(201).json({
+ok:true,
+data:{
+id: String(doc._id),
+status: doc.status,
+paymentStatus: doc.paymentStatus,
+estimatedPrice: doc.estimatedPrice,
+currency: doc.currency,
+pricingSnapshot: doc.pricingSnapshot,
+},
+});
+} catch (err) {
+logger.error("[Banner] submitBannerRequest error:", err);
+return res.status(err.statusCode || 500).json({
+ok:false,
+error: err.code || "internal_error",
+message: err.message || "Internal error",
+});
+}
 };
