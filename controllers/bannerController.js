@@ -3,6 +3,10 @@
 
 const { Banner, BannerStatsDaily } = require("../models/bannerModel");
 const { logger } = require("../core/logger");
+const {
+estimateBannerPrice,
+normalizeGeoTarget,
+} = require("../services/bannerPricingService");
 
 // Cache semplice in RAM con TTL per lista attiva e indice round-robin per chiave
 const activeCache = new Map(); // key -> { expiresAt, items: [banner], rr: 0 }
