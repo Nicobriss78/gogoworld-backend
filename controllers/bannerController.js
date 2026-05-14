@@ -332,27 +332,6 @@ exports.listBannersAdmin = async (req, res) => {
   }
 };
 
-// Lista MIEI banner (organizer)
-exports.listBannersMine = async (req, res) => {
-  if (!requireRole(req, res, ["organizer", "admin"])) return;
-
-  try {
-    const q = req.query || {};
-    const me = req.user && req.user._id ? req.user._id : null;
-    if (!me) return res.status(401).json({ ok: false, error: "not_authorized" });
-
-    const filter = { createdBy: me };
-    if (q.status) filter.status = String(q.status);
-    if (q.placement) filter.placement = String(q.placement);
-
-    const items = await Banner.find(filter).sort({ updatedAt: -1 }).lean();
-    return res.json({ ok: true, data: items });
-  } catch (err) {
-    logger.error("[Banner] listBannersMine error:", err);
-    return res.status(500).json({ ok: false, error: "internal_error" });
-  }
-};
-
 // Organizer: lista MIEI banner con filtri opzionali
 exports.listBannersMine = async (req, res) => {
 try {
@@ -564,6 +543,31 @@ exports.resumeBanner = async (req, res) => {
     logger.error("[Banner] resume error:", err);
     return res.status(500).json({ ok:false, error:"internal_error" });
   }
+};
+// Organizer — stima prezzo promozione
+exports.estimateBannerRequest = async (req, res) => {
+if (!requireRole(req, res, ["organizer", "admin"])) return;
+
+try {
+const estimate = estimateBannerPrice(req.body || {});
+
+return res.json({
+ok: true,
+data: {
+estimatedPrice: estimate.estimatedPrice,
+currency: estimate.currency,
+pricingSnapshot: estimate.pricingSnapshot,
+geoTarget: estimate.normalizedTarget,
+},
+});
+} catch (err) {
+logger.warn("[Banner] estimateBannerRequest validation error:", err);
+return res.status(err.statusCode || 400).json({
+ok: false,
+error: err.code || "invalid_estimate_payload",
+message: err.message || "Invalid estimate payload",
+});
+}
 };
 // Organizer — submit banner request
 exports.submitBannerRequest = async (req, res) => {
