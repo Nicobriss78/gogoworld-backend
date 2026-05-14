@@ -76,10 +76,46 @@ const bannerSchema = new mongoose.Schema(
     },
 
     // Target geografico (opzionale)
-    country: { type: String, trim: true }, // ISO 3166-1 alpha-2 (es. "IT")
-    region: { type: String, trim: true }, // es. "Basilicata"
+country: { type: String, trim: true }, // ISO 3166-1 alpha-2 (es. "IT")
+region: { type: String, trim: true }, // es. "Basilicata"
+geoScope: {
+type: String,
+enum: ["REGION", "COUNTRY", "GLOBAL"],
+default: "REGION",
+},
 
-    // Finestra di attività e stato legacy (compat)
+// Pricing / pagamento promozioni V2
+pricingSnapshot: {
+type: Object,
+default: null,
+},
+estimatedPrice: {
+type: Number,
+default: 0,
+},
+currency: {
+type: String,
+default: "EUR",
+},
+paymentStatus: {
+type: String,
+enum: ["NOT_REQUIRED", "PENDING", "PAID", "FAILED", "REFUNDED"],
+default: "PENDING",
+},
+paymentProvider: {
+type: String,
+default: null,
+},
+paymentIntentId: {
+type: String,
+default: null,
+},
+paidAt: {
+type: Date,
+default: null,
+},
+
+// Finestra di attività e stato legacy (compat)
     isActive: { type: Boolean, default: true, index: true },
     activeFrom: { type: Date, default: null, index: true },
     activeTo: { type: Date, default: null, index: true },
