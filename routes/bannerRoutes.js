@@ -75,7 +75,14 @@ authorize("organizer", "admin"),
 RL.submit,
 bannerController.estimateBannerRequest
 );
-
+router.post(
+"/:id/mark-paid",
+adminLimiter,
+protect,
+RL.adminModerate,
+authorize("admin"),
+bannerController.markPaidBanner
+);
 // ------------------------------------------------------------------
 // Admin CRUD & Moderazione
 // ------------------------------------------------------------------
