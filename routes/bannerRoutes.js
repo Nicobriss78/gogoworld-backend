@@ -67,7 +67,14 @@ router.get(
   RL.mine,
   bannerController.listBannersMine
 );
-
+// Organizer: stima prezzo promozione
+router.post(
+"/estimate",
+protect,
+authorize("organizer", "admin"),
+RL.submit,
+bannerController.estimateBannerRequest
+);
 
 // ------------------------------------------------------------------
 // Admin CRUD & Moderazione
