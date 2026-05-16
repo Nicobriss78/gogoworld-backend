@@ -616,7 +616,7 @@ if (!requireRole(req, res, ["organizer", "admin"])) return;
 
 try {
 const body = req.body || {};
-const required = ["title", "imageUrl", "targetUrl", "placement", "activeFrom", "activeTo"];
+const required = ["eventId", "title", "imageUrl", "targetUrl", "placement", "activeFrom", "activeTo"];
 for (const k of required) {
 if (!body[k]) return res.status(400).json({ ok:false, error:`${k} is required` });
 }
