@@ -100,7 +100,7 @@ default: "EUR",
 paymentStatus: {
 type: String,
 enum: ["NOT_REQUIRED", "PENDING", "PAID", "FAILED", "REFUNDED"],
-default: "PENDING",
+default: "NOT_REQUIRED",
 },
 paymentProvider: {
 type: String,
