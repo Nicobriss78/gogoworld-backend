@@ -114,7 +114,14 @@ paidAt: {
 type: Date,
 default: null,
 },
-
+approvedAt: {
+  type: Date,
+  default: null,
+},
+rejectedAt: {
+  type: Date,
+  default: null,
+},
 // Finestra di attività e stato legacy (compat)
     isActive: { type: Boolean, default: true, index: true },
     activeFrom: { type: Date, default: null, index: true },
