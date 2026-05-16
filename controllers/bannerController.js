@@ -521,7 +521,29 @@ exports.rejectBanner = async (req, res) => {
     return res.status(500).json({ ok:false, error:"internal_error" });
   }
 };
+exports.pauseBanner = async (req, res) => {
+  if (!requireRole(req, res, ["admin"])) return;
 
+  try {
+    const id = req.params.id;
+    if (!id) return res.status(400).json({ ok:false, error:"id is required" });
+
+    await Banner.updateOne(
+      { _id:id },
+      {
+        $set: {
+          status:"PAUSED",
+          isActive:false,
+        },
+      }
+    );
+
+    return res.status(204).send();
+  } catch (err) {
+    logger.error("[Banner] pause error:", err);
+    return res.status(500).json({ ok:false, error:"internal_error" });
+  }
+};
 exports.resumeBanner = async (req, res) => {
   if (!requireRole(req, res, ["admin"])) return;
 
