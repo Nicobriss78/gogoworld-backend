@@ -642,7 +642,7 @@ const doc = new Banner({
 type: "event_promo",
 source: "organizer",
 status: "PENDING_PAYMENT",
-eventId: body.eventId || null,
+eventId: body.eventId,
 title: String(body.title).trim(),
 imageUrl: String(body.imageUrl).trim(),
 targetUrl: String(body.targetUrl).trim(),
