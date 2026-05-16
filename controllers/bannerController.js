@@ -545,44 +545,55 @@ exports.resumeBanner = async (req, res) => {
 };
 // Admin/Test — simula pagamento promozione
 exports.markPaidBanner = async (req, res) => {
-if (!requireRole(req, res, ["admin"])) return;
+  if (!requireRole(req, res, ["admin"])) return;
 
-try {
-const id = req.params.id;
-if (!id) return res.status(400).json({ ok:false, error:"id is required" });
+  try {
+    const id = req.params.id;
+    if (!id) return res.status(400).json({ ok:false, error:"id is required" });
 
-const updated = await Banner.findOneAndUpdate(
-{ _id: id, status: "PENDING_PAYMENT" },
-{
-$set: {
-paymentStatus: "PAID",
-paidAt: new Date(),
-status: "PENDING_REVIEW",
-},
-},
-{ new: true }
-);
+    const banner = await Banner.findOne({ _id: id, status: "PENDING_PAYMENT" })
+      .select("activeFrom activeTo")
+      .lean();
 
-if (!updated) {
-return res.status(404).json({
-ok:false,
-error:"not_found_or_not_pending_payment",
-});
-}
+    if (!banner) {
+      return res.status(404).json({
+        ok:false,
+        error:"not_found_or_not_pending_payment",
+      });
+    }
 
-return res.json({
-ok:true,
-data:{
-id: String(updated._id),
-status: updated.status,
-paymentStatus: updated.paymentStatus,
-paidAt: updated.paidAt,
-},
-});
-} catch (err) {
-logger.error("[Banner] markPaidBanner error:", err);
-return res.status(500).json({ ok:false, error:"internal_error" });
-}
+    const now = new Date();
+    let nextStatus = "ACTIVE";
+    if (banner.activeFrom && new Date(banner.activeFrom) > now) {
+      nextStatus = "SCHEDULED";
+    }
+
+    const updated = await Banner.findOneAndUpdate(
+      { _id: id, status: "PENDING_PAYMENT" },
+      {
+        $set: {
+          paymentStatus: "PAID",
+          paidAt: new Date(),
+          status: nextStatus,
+          isActive: true,
+        },
+      },
+      { new: true }
+    );
+
+    return res.json({
+      ok:true,
+      data:{
+        id: String(updated._id),
+        status: updated.status,
+        paymentStatus: updated.paymentStatus,
+        paidAt: updated.paidAt,
+      },
+    });
+  } catch (err) {
+    logger.error("[Banner] markPaidBanner error:", err);
+    return res.status(500).json({ ok:false, error:"internal_error" });
+  }
 };
 // Organizer — stima prezzo promozione
 exports.estimateBannerRequest = async (req, res) => {
