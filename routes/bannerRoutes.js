@@ -75,6 +75,14 @@ authorize("organizer", "admin"),
 RL.submit,
 bannerController.estimateBannerRequest
 );
+// Organizer: analisi disponibilità + preventivo promozione
+router.post(
+"/analyze",
+protect,
+authorize("organizer", "admin"),
+RL.submit,
+bannerController.analyzeBannerRequest
+);
 router.post(
 "/:id/mark-paid",
 adminLimiter,
