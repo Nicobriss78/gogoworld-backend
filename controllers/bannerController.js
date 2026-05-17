@@ -644,6 +644,44 @@ message: err.message || "Invalid estimate payload",
 });
 }
 };
+// Organizer — analisi disponibilità + preventivo promo
+exports.analyzeBannerRequest = async (req, res) => {
+if (!requireRole(req, res, ["organizer", "admin"])) return;
+
+try {
+const body = req.body || {};
+
+const estimate = estimateBannerPrice(body);
+const availability = await checkPromoAvailability(body);
+
+return res.json({
+ok: true,
+data: {
+valid: true,
+validationErrors: [],
+pricing: {
+estimatedPrice: estimate.estimatedPrice,
+currency: estimate.currency,
+pricingSnapshot: estimate.pricingSnapshot,
+geoTarget: estimate.normalizedTarget,
+},
+availability,
+},
+});
+} catch (err) {
+logger.warn("[Banner] analyzeBannerRequest validation error:", err);
+
+return res.status(err.statusCode || 400).json({
+ok: false,
+data: {
+valid: false,
+validationErrors: [err.code || "ANALYZE_FAILED"],
+},
+error: err.code || "invalid_analyze_payload",
+message: err.message || "Invalid analyze payload",
+});
+}
+};
 // Organizer — submit banner request
 exports.submitBannerRequest = async (req, res) => {
 if (!requireRole(req, res, ["organizer", "admin"])) return;
