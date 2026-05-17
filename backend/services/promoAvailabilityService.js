@@ -65,7 +65,17 @@ function calculateDurationDays(activeFrom, activeTo) {
   const ms = activeTo.getTime() - activeFrom.getTime();
   return Math.ceil(ms / (1000 * 60 * 60 * 24));
 }
+function normalizeInclusivePromoRange(activeFromRaw, activeToRaw) {
+  const activeFrom = startOfUtcDay(activeFromRaw);
+  const inclusiveActiveTo = startOfUtcDay(activeToRaw);
+  const exclusiveActiveTo = addUtcDays(inclusiveActiveTo, 1);
 
+  return {
+    activeFrom,
+    inclusiveActiveTo,
+    exclusiveActiveTo,
+  };
+}
 function buildDays(activeFrom, activeTo) {
   const days = [];
   let cursor = startOfUtcDay(activeFrom);
