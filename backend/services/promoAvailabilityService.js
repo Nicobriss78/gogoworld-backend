@@ -296,12 +296,12 @@ const {
   }
 
   const filter = buildBaseFilter({
-    placement,
-    target,
-    activeFrom,
-    activeTo,
-    excludeBannerId: payload.excludeBannerId,
-  });
+  placement,
+  target,
+  activeFrom,
+  activeTo: exclusiveActiveTo,
+  excludeBannerId: payload.excludeBannerId,
+});
 
   const occupyingBanners = await Banner.find(filter)
     .select("_id status geoScope country region activeFrom activeTo")
