@@ -284,11 +284,11 @@ const {
   const event = await loadEventForValidation(payload.eventId);
 
   const temporal = validateTemporalRules({
-    activeFrom,
-    activeTo,
-    event,
-    now: payload.now ? new Date(payload.now) : new Date(),
-  });
+  activeFrom,
+  activeTo: exclusiveActiveTo,
+  event,
+  now: payload.now ? new Date(payload.now) : new Date(),
+});
 
   const requestedDays = buildDays(activeFrom, activeTo);
   if (!requestedDays.length) {
