@@ -273,8 +273,14 @@ async function checkPromoAvailability(payload = {}) {
 
   const capacity = getPlacementCapacity(placement);
   const target = normalizeGeoTarget(payload);
-  const activeFrom = parseDate(payload.activeFrom, "activeFrom");
-  const activeTo = parseDate(payload.activeTo, "activeTo");
+  const parsedActiveFrom = parseDate(payload.activeFrom, "activeFrom");
+const parsedActiveTo = parseDate(payload.activeTo, "activeTo");
+
+const {
+  activeFrom,
+  inclusiveActiveTo,
+  exclusiveActiveTo,
+} = normalizeInclusivePromoRange(parsedActiveFrom, parsedActiveTo);
   const event = await loadEventForValidation(payload.eventId);
 
   const temporal = validateTemporalRules({
