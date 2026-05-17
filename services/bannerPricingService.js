@@ -96,19 +96,32 @@ function parseDate(value, fieldName) {
   return date;
 }
 
+function startOfUtcDay(date) {
+const d = new Date(date);
+d.setUTCHours(0, 0, 0, 0);
+return d;
+}
+
+function addUtcDays(date, days) {
+const d = new Date(date);
+d.setUTCDate(d.getUTCDate() + Number(days || 0));
+return d;
+}
+
 function calculateDurationDays(activeFrom, activeTo) {
-  const from = parseDate(activeFrom, "activeFrom");
-  const to = parseDate(activeTo, "activeTo");
+const from = startOfUtcDay(parseDate(activeFrom, "activeFrom"));
+const inclusiveTo = startOfUtcDay(parseDate(activeTo, "activeTo"));
+const exclusiveTo = addUtcDays(inclusiveTo, 1);
 
-  if (to <= from) {
-    const err = new Error("activeTo must be after activeFrom");
-    err.statusCode = 400;
-    err.code = "invalid_date_range";
-    throw err;
-  }
+if (exclusiveTo <= from) {
+const err = new Error("activeTo must be same day or after activeFrom");
+err.statusCode = 400;
+err.code = "invalid_date_range";
+throw err;
+}
 
-  const ms = to.getTime() - from.getTime();
-  return Math.max(1, Math.ceil(ms / (1000 * 60 * 60 * 24)));
+const ms = exclusiveTo.getTime() - from.getTime();
+return Math.max(1, Math.ceil(ms / (1000 * 60 * 60 * 24)));
 }
 
 function roundMoney(value) {
