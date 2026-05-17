@@ -65,6 +65,7 @@ function calculateDurationDays(activeFrom, activeTo) {
   const ms = activeTo.getTime() - activeFrom.getTime();
   return Math.ceil(ms / (1000 * 60 * 60 * 24));
 }
+
 function normalizeInclusivePromoRange(activeFromRaw, activeToRaw) {
   const activeFrom = startOfUtcDay(activeFromRaw);
   const inclusiveActiveTo = startOfUtcDay(activeToRaw);
@@ -76,6 +77,7 @@ function normalizeInclusivePromoRange(activeFromRaw, activeToRaw) {
     exclusiveActiveTo,
   };
 }
+
 function buildDays(activeFrom, activeTo) {
   const days = [];
   let cursor = startOfUtcDay(activeFrom);
@@ -94,6 +96,7 @@ function getPlacementCapacity(placement) {
   if (!capacity) {
     throw makeValidationError("UNSUPPORTED_PLACEMENT", "unsupported placement");
   }
+
   return capacity;
 }
 
@@ -153,31 +156,51 @@ async function loadEventForValidation(eventId) {
 
 function validateTemporalRules({ activeFrom, activeTo, event, now = new Date() }) {
   if (activeTo <= activeFrom) {
-    throw makeValidationError("INVALID_DATE_RANGE", "activeTo must be after activeFrom");
+    throw makeValidationError(
+      "INVALID_DATE_RANGE",
+      "activeTo must be after activeFrom"
+    );
   }
 
   const durationDays = calculateDurationDays(activeFrom, activeTo);
 
   if (durationDays < MIN_DURATION_DAYS) {
-    throw makeValidationError("MIN_DURATION_NOT_MET", "minimum promo duration is 1 day");
+    throw makeValidationError(
+      "MIN_DURATION_NOT_MET",
+      "minimum promo duration is 1 day"
+    );
   }
 
   if (durationDays > MAX_DURATION_DAYS) {
-    throw makeValidationError("MAX_DURATION_EXCEEDED", "maximum promo duration exceeded");
+    throw makeValidationError(
+      "MAX_DURATION_EXCEEDED",
+      "maximum promo duration exceeded"
+    );
   }
 
-  const maxBookingTo = addUtcDays(startOfUtcDay(now), MAX_BOOKING_WINDOW_DAYS + 1);
+  const maxBookingTo = addUtcDays(
+    startOfUtcDay(now),
+    MAX_BOOKING_WINDOW_DAYS + 1
+  );
+
   if (activeFrom >= maxBookingTo) {
-    throw makeValidationError("BOOKING_WINDOW_EXCEEDED", "booking window exceeded");
+    throw makeValidationError(
+      "BOOKING_WINDOW_EXCEEDED",
+      "booking window exceeded"
+    );
   }
 
   const eventEnd = event && event.dateEnd ? new Date(event.dateEnd) : null;
+
   if (eventEnd && eventEnd < now) {
     throw makeValidationError("EVENT_ALREADY_ENDED", "event already ended");
   }
 
   if (eventEnd && activeTo > eventEnd) {
-    throw makeValidationError("PROMO_AFTER_EVENT_END", "promo cannot end after event end");
+    throw makeValidationError(
+      "PROMO_AFTER_EVENT_END",
+      "promo cannot end after event end"
+    );
   }
 
   return { durationDays };
@@ -191,6 +214,7 @@ function buildBaseFilter({ placement, target, activeFrom, activeTo, excludeBanne
   };
 
   const overlap = buildOverlapFilter(activeFrom, activeTo);
+
   filter.$and = Array.isArray(filter.$and)
     ? filter.$and.concat(overlap.$and)
     : overlap.$and;
@@ -240,7 +264,9 @@ function buildAvailabilityResult({ requestedDays, capacity, usageByDay }) {
   });
 
   const blockedDays = days.filter((day) => day.remaining <= 0);
-  const limitedDays = days.filter((day) => day.remaining > 0 && day.remaining <= 2);
+  const limitedDays = days.filter(
+    (day) => day.remaining > 0 && day.remaining <= 2
+  );
 
   const remainingSlotsAverage = days.length
     ? Math.round(
@@ -249,6 +275,7 @@ function buildAvailabilityResult({ requestedDays, capacity, usageByDay }) {
     : 0;
 
   let status = "COMPLETELY_AVAILABLE";
+
   if (blockedDays.length === days.length && days.length > 0) {
     status = "UNAVAILABLE";
   } else if (blockedDays.length > 0 || limitedDays.length > 0) {
@@ -267,41 +294,48 @@ function buildAvailabilityResult({ requestedDays, capacity, usageByDay }) {
 
 async function checkPromoAvailability(payload = {}) {
   const placement = String(payload.placement || "").trim();
+
   if (!placement) {
     throw makeValidationError("PLACEMENT_REQUIRED", "placement is required");
   }
 
   const capacity = getPlacementCapacity(placement);
   const target = normalizeGeoTarget(payload);
-  const parsedActiveFrom = parseDate(payload.activeFrom, "activeFrom");
-const parsedActiveTo = parseDate(payload.activeTo, "activeTo");
 
-const {
-  activeFrom,
-  inclusiveActiveTo,
-  exclusiveActiveTo,
-} = normalizeInclusivePromoRange(parsedActiveFrom, parsedActiveTo);
+  const parsedActiveFrom = parseDate(payload.activeFrom, "activeFrom");
+  const parsedActiveTo = parseDate(payload.activeTo, "activeTo");
+
+  const {
+    activeFrom,
+    inclusiveActiveTo,
+    exclusiveActiveTo,
+  } = normalizeInclusivePromoRange(parsedActiveFrom, parsedActiveTo);
+
   const event = await loadEventForValidation(payload.eventId);
 
   const temporal = validateTemporalRules({
-  activeFrom,
-  activeTo: exclusiveActiveTo,
-  event,
-  now: payload.now ? new Date(payload.now) : new Date(),
-});
+    activeFrom,
+    activeTo: exclusiveActiveTo,
+    event,
+    now: payload.now ? new Date(payload.now) : new Date(),
+  });
 
   const requestedDays = buildDays(activeFrom, exclusiveActiveTo);
+
   if (!requestedDays.length) {
-    throw makeValidationError("INVALID_DATE_RANGE", "date range must include at least one day");
+    throw makeValidationError(
+      "INVALID_DATE_RANGE",
+      "date range must include at least one day"
+    );
   }
 
   const filter = buildBaseFilter({
-  placement,
-  target,
-  activeFrom,
-  activeTo: exclusiveActiveTo,
-  excludeBannerId: payload.excludeBannerId,
-});
+    placement,
+    target,
+    activeFrom,
+    activeTo: exclusiveActiveTo,
+    excludeBannerId: payload.excludeBannerId,
+  });
 
   const occupyingBanners = await Banner.find(filter)
     .select("_id status geoScope country region activeFrom activeTo")
@@ -311,17 +345,17 @@ const {
   const result = buildAvailabilityResult({ requestedDays, capacity, usageByDay });
 
   return {
-  ...result,
-  capacity,
-  placement,
-  geoTarget: target,
-  occupyingStatuses: OCCUPYING_STATUSES.slice(),
-  durationDays: temporal.durationDays,
-  dateRangeMode: "USER_INCLUSIVE_BACKEND_EXCLUSIVE",
-  activeFrom: formatUtcDay(activeFrom),
-  activeTo: formatUtcDay(inclusiveActiveTo),
-  exclusiveActiveTo: formatUtcDay(exclusiveActiveTo),
-};
+    ...result,
+    capacity,
+    placement,
+    geoTarget: target,
+    occupyingStatuses: OCCUPYING_STATUSES.slice(),
+    durationDays: temporal.durationDays,
+    dateRangeMode: "USER_INCLUSIVE_BACKEND_EXCLUSIVE",
+    activeFrom: formatUtcDay(activeFrom),
+    activeTo: formatUtcDay(inclusiveActiveTo),
+    exclusiveActiveTo: formatUtcDay(exclusiveActiveTo),
+  };
 }
 
 module.exports = {
