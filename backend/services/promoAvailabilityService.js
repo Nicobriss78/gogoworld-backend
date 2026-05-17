@@ -290,7 +290,7 @@ const {
   now: payload.now ? new Date(payload.now) : new Date(),
 });
 
-  const requestedDays = buildDays(activeFrom, activeTo);
+  const requestedDays = buildDays(activeFrom, exclusiveActiveTo);
   if (!requestedDays.length) {
     throw makeValidationError("INVALID_DATE_RANGE", "date range must include at least one day");
   }
