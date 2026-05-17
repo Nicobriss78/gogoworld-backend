@@ -311,13 +311,17 @@ const {
   const result = buildAvailabilityResult({ requestedDays, capacity, usageByDay });
 
   return {
-    ...result,
-    capacity,
-    placement,
-    geoTarget: target,
-    occupyingStatuses: OCCUPYING_STATUSES.slice(),
-    durationDays: temporal.durationDays,
-  };
+  ...result,
+  capacity,
+  placement,
+  geoTarget: target,
+  occupyingStatuses: OCCUPYING_STATUSES.slice(),
+  durationDays: temporal.durationDays,
+  dateRangeMode: "USER_INCLUSIVE_BACKEND_EXCLUSIVE",
+  activeFrom: formatUtcDay(activeFrom),
+  activeTo: formatUtcDay(inclusiveActiveTo),
+  exclusiveActiveTo: formatUtcDay(exclusiveActiveTo),
+};
 }
 
 module.exports = {
