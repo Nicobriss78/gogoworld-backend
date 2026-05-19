@@ -195,12 +195,17 @@ function validateTemporalRules({ activeFrom, activeTo, inclusiveActiveTo, event,
     throw makeValidationError("EVENT_ALREADY_ENDED", "event already ended");
   }
 
-  if (eventEnd && activeTo > eventEnd) {
+if (eventEnd) {
+  const eventEndDay = startOfUtcDay(eventEnd);
+  const promoEndDay = startOfUtcDay(inclusiveActiveTo || addUtcDays(activeTo, -1));
+
+  if (promoEndDay > eventEndDay) {
     throw makeValidationError(
       "PROMO_AFTER_EVENT_END",
-      "promo cannot end after event end"
+      "promo cannot end after event end day"
     );
   }
+}
 
   return { durationDays };
 }
