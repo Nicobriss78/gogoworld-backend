@@ -154,8 +154,7 @@ async function loadEventForValidation(eventId) {
   return event;
 }
 
-function validateTemporalRules({ activeFrom, activeTo, event, now = new Date() }) {
-  if (activeTo <= activeFrom) {
+function validateTemporalRules({ activeFrom, activeTo, inclusiveActiveTo, event, now = new Date() }) {  if (activeTo <= activeFrom) {
     throw makeValidationError(
       "INVALID_DATE_RANGE",
       "activeTo must be after activeFrom"
