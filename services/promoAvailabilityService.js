@@ -318,12 +318,12 @@ async function checkPromoAvailability(payload = {}) {
   const event = await loadEventForValidation(payload.eventId);
 
   const temporal = validateTemporalRules({
-    activeFrom,
-    activeTo: exclusiveActiveTo,
-    event,
-    now: payload.now ? new Date(payload.now) : new Date(),
-  });
-
+  activeFrom,
+  activeTo: exclusiveActiveTo,
+  inclusiveActiveTo,
+  event,
+  now: payload.now ? new Date(payload.now) : new Date(),
+});
   const requestedDays = buildDays(activeFrom, exclusiveActiveTo);
 
   if (!requestedDays.length) {
