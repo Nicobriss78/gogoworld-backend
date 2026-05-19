@@ -708,7 +708,28 @@ return res.status(400).json({ ok:false, error:"imageUrl and targetUrl must be ht
 }
 
 const estimate = estimateBannerPrice(body);
-const geoTarget = normalizeGeoTarget(body);
+const availability = await checkPromoAvailability(body);
+
+if (!availability || availability.available === false) {
+  return res.status(409).json({
+    ok: false,
+    error: "PLACEMENT_CAPACITY_EXCEEDED",
+    message: "No promotional availability for the selected period",
+    data: {
+      valid: false,
+      validationErrors: ["PLACEMENT_CAPACITY_EXCEEDED"],
+      availability,
+    },
+  });
+}
+
+const geoTarget = estimate.normalizedTarget || normalizeGeoTarget(body);
+const normalizedActiveFrom = availability.activeFrom
+  ? new Date(`${availability.activeFrom}T00:00:00.000Z`)
+  : body.activeFrom;
+const normalizedActiveTo = availability.exclusiveActiveTo
+  ? new Date(`${availability.exclusiveActiveTo}T00:00:00.000Z`)
+  : body.activeTo;
 
 const doc = new Banner({
 type: "event_promo",
