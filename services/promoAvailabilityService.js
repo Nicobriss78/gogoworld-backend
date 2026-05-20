@@ -163,7 +163,14 @@ function validateTemporalRules({ activeFrom, activeTo, inclusiveActiveTo, event,
 
   const durationDays = calculateDurationDays(activeFrom, activeTo);
 
-  if (durationDays < MIN_DURATION_DAYS) {
+if (activeFrom < startOfUtcDay(now)) {
+  throw makeValidationError(
+    "EVENT_ALREADY_STARTED",
+    "promo cannot start in a past day"
+  );
+}
+
+if (durationDays < MIN_DURATION_DAYS) {
     throw makeValidationError(
       "MIN_DURATION_NOT_MET",
       "minimum promo duration is 1 day"
