@@ -146,7 +146,13 @@ bannerSchema.index({ placement: 1, isActive: 1, priority: 1 });
 bannerSchema.index({ country: 1, region: 1, isActive: 1 });
 bannerSchema.index({ activeFrom: 1, activeTo: 1 });
 bannerSchema.index({ type: 1, source: 1, status: 1, placement: 1 });
-
+bannerSchema.index(
+  { requestKey: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { requestKey: { $type: "string" } },
+  }
+);
 // Attivo “nel tempo” se (from null|<=now) && (to null|>now)
 bannerSchema.statics.timeActiveFilter = function (now = new Date()) {
   return {
