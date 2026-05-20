@@ -735,6 +735,37 @@ const normalizedActiveTo = availability.exclusiveActiveTo
   ? new Date(`${availability.exclusiveActiveTo}T00:00:00.000Z`)
   : body.activeTo;
 
+const requestKey = [
+  req.user && req.user._id ? String(req.user._id) : "unknown",
+  String(body.eventId || ""),
+  String(body.placement || ""),
+  String(geoTarget.geoScope || ""),
+  String(geoTarget.country || ""),
+  String(geoTarget.region || ""),
+  normalizedActiveFrom instanceof Date ? normalizedActiveFrom.toISOString() : String(normalizedActiveFrom || ""),
+  normalizedActiveTo instanceof Date ? normalizedActiveTo.toISOString() : String(normalizedActiveTo || ""),
+].join("::");
+
+const existingRequest = await Banner.findOne({
+  requestKey,
+  status: { $in: ["PENDING_REVIEW", "PENDING_PAYMENT", "SCHEDULED", "ACTIVE"] },
+}).lean();
+
+if (existingRequest) {
+  return res.status(200).json({
+    ok: true,
+    data: {
+      id: String(existingRequest._id),
+      status: existingRequest.status,
+      paymentStatus: existingRequest.paymentStatus,
+      estimatedPrice: existingRequest.estimatedPrice,
+      currency: existingRequest.currency,
+      pricingSnapshot: existingRequest.pricingSnapshot,
+      duplicate: true,
+    },
+  });
+}
+
 const doc = new Banner({
 type: "event_promo",
 source: "organizer",
