@@ -67,6 +67,13 @@ router.get(
   RL.mine,
   bannerController.listBannersMine
 );
+router.get(
+  "/mine/:id",
+  protect,
+  authorize("organizer", "admin"),
+  RL.mine,
+  bannerController.getBannerMineById
+);
 // Organizer: stima prezzo promozione
 router.post(
 "/estimate",
