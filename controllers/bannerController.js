@@ -386,7 +386,48 @@ logger.error("[Banner] listBannersMine error:", err);
 return res.status(500).json({ ok:false, error:"internal_error" });
 }
 };
+// Organizer: dettaglio di un mio banner
+exports.getBannerMineById = async (req, res) => {
+  try {
+    const me = req.user && req.user._id ? req.user._id : null;
+    if (!me) {
+      return res.status(401).json({ ok: false, error: "not_authorized" });
+    }
 
+    const bannerId = req.params.id;
+
+    const item = await Banner.findOne({
+      _id: bannerId,
+      createdBy: me,
+    })
+      .populate("eventId", "title nome dateStart dateEnd")
+      .lean();
+
+    if (!item) {
+      return res.status(404).json({
+        ok: false,
+        error: "banner_not_found",
+      });
+    }
+
+    const now = new Date();
+    const isExpired = !!(item.activeTo && new Date(item.activeTo) < now);
+
+    return res.json({
+      ok: true,
+      data: {
+        ...item,
+        isExpired,
+      },
+    });
+  } catch (err) {
+    logger.error("[Banner] getBannerMineById error:", err);
+    return res.status(500).json({
+      ok: false,
+      error: "internal_error",
+    });
+  }
+};
 exports.createBanner = async (req, res) => {
   if (!requireRole(req, res, ["admin"])) return;
 
