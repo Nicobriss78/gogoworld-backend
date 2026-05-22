@@ -35,6 +35,7 @@ const ALLOWED_STATUSES = [
   "PAUSED",
   "ENDED",
   "REJECTED",
+  "CANCELLED",
 ];
 
 const bannerSchema = new mongoose.Schema(
