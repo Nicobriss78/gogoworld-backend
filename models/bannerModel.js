@@ -20,7 +20,7 @@ const mongoose = require("mongoose");
  *
  * Stati:
  * - DRAFT, PENDING_PAYMENT, PENDING_REVIEW, SCHEDULED,
- * ACTIVE, PAUSED, ENDED, REJECTED
+ * ACTIVE, PAUSED, ENDED, REJECTED, CANCELLED
  */
 
 const ALLOWED_TYPES = ["sponsor", "event_promo", "house"];
