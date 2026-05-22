@@ -428,6 +428,73 @@ exports.getBannerMineById = async (req, res) => {
     });
   }
 };
+// Organizer: ritira una mia richiesta promo ancora in revisione
+exports.withdrawBannerMine = async (req, res) => {
+  try {
+    const me = req.user && req.user._id ? req.user._id : null;
+    if (!me) {
+      return res.status(401).json({ ok: false, error: "not_authorized" });
+    }
+
+    const bannerId = req.params.id;
+    if (!bannerId) {
+      return res.status(400).json({ ok: false, error: "id is required" });
+    }
+
+    const reason =
+      req.body && typeof req.body.reason === "string"
+        ? req.body.reason.trim().slice(0, 500)
+        : "";
+
+    const updated = await Banner.findOneAndUpdate(
+      {
+        _id: bannerId,
+        createdBy: me,
+        source: "organizer",
+        type: "event_promo",
+        status: "PENDING_REVIEW",
+      },
+      {
+        $set: {
+          status: "CANCELLED",
+          isActive: false,
+          paymentStatus: "NOT_REQUIRED",
+          cancelledAt: new Date(),
+          cancelledBy: me,
+          cancelledReason: reason || null,
+        },
+      },
+      { new: true }
+    )
+      .populate("eventId", "title nome dateStart dateEnd")
+      .lean();
+
+    if (!updated) {
+      return res.status(409).json({
+        ok: false,
+        error: "withdraw_not_allowed",
+        message: "La promozione può essere ritirata solo se è ancora in revisione.",
+      });
+    }
+
+    const now = new Date();
+    const isExpired = !!(updated.activeTo && new Date(updated.activeTo) < now);
+
+    return res.json({
+      ok: true,
+      data: {
+        ...updated,
+        isExpired,
+      },
+    });
+  } catch (err) {
+    logger.error("[Banner] withdrawBannerMine error:", err);
+    return res.status(500).json({
+      ok: false,
+      error: "internal_error",
+    });
+  }
+};
 exports.createBanner = async (req, res) => {
   if (!requireRole(req, res, ["admin"])) return;
 
