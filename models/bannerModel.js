@@ -115,6 +115,19 @@ paidAt: {
 type: Date,
 default: null,
 },
+scheduledAt: {
+type: Date,
+default: null,
+},
+paymentTestAt: {
+type: Date,
+default: null,
+},
+paymentTestBy: {
+type: mongoose.Schema.Types.ObjectId,
+ref: "User",
+default: null,
+},
 approvedAt: {
   type: Date,
   default: null,
