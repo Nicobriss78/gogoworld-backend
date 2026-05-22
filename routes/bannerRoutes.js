@@ -74,6 +74,13 @@ router.get(
   RL.mine,
   bannerController.getBannerMineById
 );
+router.post(
+  "/mine/:id/withdraw",
+  protect,
+  authorize("organizer", "admin"),
+  RL.submit,
+  bannerController.withdrawBannerMine
+);
 // Organizer: stima prezzo promozione
 router.post(
 "/estimate",
