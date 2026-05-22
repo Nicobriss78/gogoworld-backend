@@ -123,6 +123,20 @@ rejectedAt: {
   type: Date,
   default: null,
 },
+cancelledAt: {
+  type: Date,
+  default: null,
+},
+cancelledBy: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "User",
+  default: null,
+},
+cancelledReason: {
+  type: String,
+  trim: true,
+  default: null,
+},
 // Finestra di attività e stato legacy (compat)
     isActive: { type: Boolean, default: true, index: true },
     activeFrom: { type: Date, default: null, index: true },
