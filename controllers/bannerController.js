@@ -495,6 +495,83 @@ exports.withdrawBannerMine = async (req, res) => {
     });
   }
 };
+// Organizer/Admin TEST: simula pagamento promo in attesa pagamento
+// Non è un checkout reale: serve solo per testare il lifecycle payment-ready.
+exports.payTestBannerMine = async (req, res) => {
+  try {
+    const me = req.user && req.user._id ? req.user._id : null;
+    if (!me) {
+      return res.status(401).json({ ok: false, error: "not_authorized" });
+    }
+
+    const bannerId = req.params.id;
+    if (!bannerId) {
+      return res.status(400).json({ ok: false, error: "id is required" });
+    }
+
+    const now = new Date();
+
+    const promo = await Banner.findOne({
+      _id: bannerId,
+      createdBy: me,
+      source: "organizer",
+      type: "event_promo",
+      status: "PENDING_PAYMENT",
+    }).lean();
+
+    if (!promo) {
+      return res.status(409).json({
+        ok: false,
+        error: "pay_test_not_allowed",
+        message: "Il pagamento test è disponibile solo per promozioni in attesa di pagamento.",
+      });
+    }
+
+    let nextStatus = "ACTIVE";
+    if (promo.activeFrom && new Date(promo.activeFrom) > now) {
+      nextStatus = "SCHEDULED";
+    }
+
+    const paymentIntentId = `TEST_${bannerId}_${now.getTime()}`;
+
+    const updated = await Banner.findOneAndUpdate(
+      {
+        _id: bannerId,
+        createdBy: me,
+        source: "organizer",
+        type: "event_promo",
+        status: "PENDING_PAYMENT",
+      },
+      {
+        $set: {
+          status: nextStatus,
+          isActive: true,
+          paymentStatus: "PAID",
+          paymentProvider: "TEST",
+          paymentIntentId,
+          paidAt: now,
+          paymentTestAt: now,
+          paymentTestBy: me,
+          scheduledAt: nextStatus === "SCHEDULED" ? now : null,
+        },
+      },
+      { new: true }
+    )
+      .populate("eventId", "title nome dateStart dateEnd")
+      .lean();
+
+    return res.json({
+      ok: true,
+      data: updated,
+    });
+  } catch (err) {
+    logger.error("[Banner] payTestBannerMine error:", err);
+    return res.status(500).json({
+      ok: false,
+      error: "internal_error",
+    });
+  }
+};
 exports.createBanner = async (req, res) => {
   if (!requireRole(req, res, ["admin"])) return;
 
