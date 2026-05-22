@@ -81,6 +81,13 @@ router.post(
   RL.submit,
   bannerController.withdrawBannerMine
 );
+router.post(
+  "/mine/:id/pay-test",
+  protect,
+  authorize("organizer", "admin"),
+  RL.submit,
+  bannerController.payTestBannerMine
+);
 // Organizer: stima prezzo promozione
 router.post(
 "/estimate",
