@@ -838,10 +838,13 @@ exports.markPaidBanner = async (req, res) => {
     }
 
     const now = new Date();
-    let nextStatus = "ACTIVE";
-    if (banner.activeFrom && new Date(banner.activeFrom) > now) {
-      nextStatus = "SCHEDULED";
-    }
+const nextStatus = getEffectivePromoStatus(
+{
+...banner,
+status: "ACTIVE",
+},
+now
+);
 
     const updated = await Banner.findOneAndUpdate(
       { _id: id, status: "PENDING_PAYMENT" },
