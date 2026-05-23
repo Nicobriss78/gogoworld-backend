@@ -528,15 +528,11 @@ exports.withdrawBannerMine = async (req, res) => {
     }
 
     const now = new Date();
-    const isExpired = !!(updated.activeTo && new Date(updated.activeTo) < now);
 
-    return res.json({
-      ok: true,
-      data: {
-        ...updated,
-        isExpired,
-      },
-    });
+return res.json({
+ok: true,
+data: enrichPromoLifecycle(updated, now),
+});
   } catch (err) {
     logger.error("[Banner] withdrawBannerMine error:", err);
     return res.status(500).json({
