@@ -465,15 +465,11 @@ exports.getBannerMineById = async (req, res) => {
     }
 
     const now = new Date();
-    const isExpired = !!(item.activeTo && new Date(item.activeTo) < now);
 
-    return res.json({
-      ok: true,
-      data: {
-        ...item,
-        isExpired,
-      },
-    });
+return res.json({
+  ok: true,
+  data: enrichPromoLifecycle(item, now),
+});
   } catch (err) {
     logger.error("[Banner] getBannerMineById error:", err);
     return res.status(500).json({
