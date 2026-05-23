@@ -152,6 +152,37 @@ cancelledReason: {
   trim: true,
   default: null,
 },
+invalidatedAt: {
+  type: Date,
+  default: null,
+},
+invalidatedBy: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "User",
+  default: null,
+},
+invalidatedReason: {
+  type: String,
+  trim: true,
+  default: null,
+},
+invalidatedPreviousStatus: {
+  type: String,
+  default: null,
+},
+invalidatedEventStart: {
+  type: Date,
+  default: null,
+},
+invalidatedEventEnd: {
+  type: Date,
+  default: null,
+},
+invalidatedByEventId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Event",
+  default: null,
+},
 // Finestra di attività e stato legacy (compat)
     isActive: { type: Boolean, default: true, index: true },
     activeFrom: { type: Date, default: null, index: true },
