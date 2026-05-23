@@ -610,9 +610,9 @@ now
       .lean();
 
     return res.json({
-      ok: true,
-      data: updated,
-    });
+ok: true,
+data: enrichPromoLifecycle(updated, now),
+});
   } catch (err) {
     logger.error("[Banner] payTestBannerMine error:", err);
     return res.status(500).json({
