@@ -853,7 +853,7 @@ now
           paymentStatus: "PAID",
           paidAt: new Date(),
           status: nextStatus,
-          isActive: true,
+          isActive: nextStatus === "ACTIVE" || nextStatus === "SCHEDULED",
         },
       },
       { new: true }
