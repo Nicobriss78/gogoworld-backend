@@ -390,12 +390,18 @@ const q = req.query || {};
 const filter = { createdBy: me };
  
 // status: accetta 'expired' (logico) oppure gli stati reali (ACTIVE/PAUSED/...)
+let requestedStatus = "";
+
 if (q.status) {
 const s = String(q.status).trim().toUpperCase();
+requestedStatus = s;
+
 if (s === "EXPIRED") {
 // gestito sotto con $and (activeTo < now)
+} else if (["SCHEDULED", "ACTIVE", "ENDED"].includes(s)) {
+filter.status = { $in: ["SCHEDULED", "ACTIVE", "ENDED"] };
 } else {
-filter.status = s; // es.: ACTIVE, PAUSED, PENDING_REVIEW, SCHEDULED, REJECTED, DRAFT
+filter.status = s;
 }
 }
 if (q.placement) filter.placement = String(q.placement);
