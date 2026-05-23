@@ -278,6 +278,7 @@ function buildAvailabilityResult({ requestedDays, capacity, usageByDay }) {
   const limitedDays = days.filter(
     (day) => day.remaining > 0 && day.remaining <= 2
   );
+  const availableDays = days.filter((day) => day.remaining > 0);
 
   const remainingSlotsAverage = days.length
     ? Math.round(
@@ -297,8 +298,14 @@ function buildAvailabilityResult({ requestedDays, capacity, usageByDay }) {
     available: status !== "UNAVAILABLE",
     status,
     availabilityStatus: status,
-    remainingSlotsAverage,
+    totalDays: days.length,
+    availableCount: availableDays.length,
+    blockedCount: blockedDays.length,
+    limitedCount: limitedDays.length,
+    availableDays,
+    limitedDays,
     blockedDays,
+    remainingSlotsAverage,
     days,
   };
 }
