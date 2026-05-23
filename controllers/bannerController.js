@@ -428,10 +428,12 @@ const items = await Banner.find(filter)
 .lean();
   
 // Campo calcolato lato BE: isExpired
-const data = items.map(b => {
-const exp = !!(b.activeTo && new Date(b.activeTo) < now);
-return Object.assign(b, { isExpired: exp });
-});
+let data = items.map((b) => enrichPromoLifecycle(b, now));
+
+if (requestedStatus && ["SCHEDULED", "ACTIVE", "ENDED"].includes(requestedStatus)) {
+data = data.filter((b) => b.status === requestedStatus);
+}
+
 return res.json({ ok:true, data });
 } catch (err) {
 logger.error("[Banner] listBannersMine error:", err);
