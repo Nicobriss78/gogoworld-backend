@@ -150,6 +150,19 @@ const approveEvent = asyncHandler(async (req, res) => {
 
   await ev.save();
 
+  const promoRevalidation = await revalidatePromosForEventDateChange(
+    ev,
+    req.user && req.user._id ? req.user._id : null
+  );
+
+  if (promoRevalidation && promoRevalidation.invalidated > 0) {
+    logger.info("[Admin] event approval invalidated linked promos", {
+      eventId: String(ev._id),
+      checked: promoRevalidation.checked,
+      invalidated: promoRevalidation.invalidated,
+    });
+  }
+
   // BACHECA ATTIVITÀ — created_event: solo alla prima approvazione
   if (isFirstApproval && ev.organizer) {
     await safeCreateActivity({
