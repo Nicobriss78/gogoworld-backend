@@ -594,7 +594,7 @@ now
       {
         $set: {
           status: nextStatus,
-          isActive: true,
+          isActive: nextStatus === "ACTIVE" || nextStatus === "SCHEDULED",
           paymentStatus: "PAID",
           paymentProvider: "TEST",
           paymentIntentId,
