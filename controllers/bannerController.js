@@ -573,10 +573,13 @@ exports.payTestBannerMine = async (req, res) => {
       });
     }
 
-    let nextStatus = "ACTIVE";
-    if (promo.activeFrom && new Date(promo.activeFrom) > now) {
-      nextStatus = "SCHEDULED";
-    }
+    const nextStatus = getEffectivePromoStatus(
+{
+...promo,
+status: "ACTIVE",
+},
+now
+);
 
     const paymentIntentId = `TEST_${bannerId}_${now.getTime()}`;
 
