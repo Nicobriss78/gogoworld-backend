@@ -9,6 +9,9 @@ const Activity = require("../models/activityModel");
 const { notify } = require("../services/notifications");
 const { createNotification } = require("./notificationController");
 const { logger } = require("../core/logger");
+const {
+  revalidatePromosForEventDateChange,
+} = require("../services/promoEventRevalidationService");
 // -----------------------------
 // Utils
 // -----------------------------
