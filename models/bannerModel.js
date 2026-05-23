@@ -18,9 +18,10 @@ const mongoose = require("mongoose");
  * - admin_house (annunci interni)
  * - organizer (richieste dagli organizzatori)
  *
- * Stati:
+* Stati:
  * - DRAFT, PENDING_PAYMENT, PENDING_REVIEW, SCHEDULED,
- * ACTIVE, PAUSED, ENDED, REJECTED, CANCELLED
+ * ACTIVE, PAUSED, ENDED, REJECTED, CANCELLED,
+ * INVALIDATED_BY_EVENT_CHANGE
  */
 
 const ALLOWED_TYPES = ["sponsor", "event_promo", "house"];
