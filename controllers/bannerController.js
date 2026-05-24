@@ -644,6 +644,152 @@ data: enrichPromoLifecycle(updated, now),
     });
   }
 };
+// Organizer: rivaluta una promo invalidata da modifica date evento
+exports.revalidateBannerMine = async (req, res) => {
+  try {
+    const me = req.user && req.user._id ? req.user._id : null;
+    if (!me) {
+      return res.status(401).json({ ok: false, error: "not_authorized" });
+    }
+
+    const bannerId = req.params.id;
+    if (!bannerId) {
+      return res.status(400).json({ ok: false, error: "id is required" });
+    }
+
+    const current = await Banner.findOne({
+      _id: bannerId,
+      createdBy: me,
+      source: "organizer",
+      type: "event_promo",
+      status: "INVALIDATED_BY_EVENT_CHANGE",
+    }).lean();
+
+    if (!current) {
+      return res.status(409).json({
+        ok: false,
+        error: "revalidation_not_allowed",
+        message: "La rivalutazione è disponibile solo per promozioni da rivalutare.",
+      });
+    }
+
+    const body = req.body || {};
+
+    const revalidationPayload = {
+      eventId: current.eventId,
+      title: current.title,
+      imageUrl: current.imageUrl,
+      targetUrl: current.targetUrl,
+      placement: body.placement || current.placement,
+      geoScope: body.geoScope || current.geoScope,
+      country: body.country !== undefined ? body.country : current.country,
+      region: body.region !== undefined ? body.region : current.region,
+      activeFrom: body.activeFrom || current.activeFrom,
+      activeTo: body.activeTo || current.activeTo,
+      excludeBannerId: bannerId,
+    };
+
+    const estimate = estimateBannerPrice(revalidationPayload);
+    const availability = await checkPromoAvailability(revalidationPayload);
+
+    if (!availability || availability.available === false) {
+      return res.status(409).json({
+        ok: false,
+        error: "PROMO_REVALIDATION_NOT_AVAILABLE",
+        message: "La promozione non è disponibile nel nuovo periodo selezionato.",
+        data: {
+          valid: false,
+          validationErrors: ["PROMO_REVALIDATION_NOT_AVAILABLE"],
+          availability,
+        },
+      });
+    }
+
+    const geoTarget = estimate.normalizedTarget || normalizeGeoTarget(revalidationPayload);
+
+    const normalizedActiveFrom = availability.activeFrom
+      ? new Date(`${availability.activeFrom}T00:00:00.000Z`)
+      : new Date(revalidationPayload.activeFrom);
+
+    const normalizedActiveTo = availability.exclusiveActiveTo
+      ? new Date(`${availability.exclusiveActiveTo}T00:00:00.000Z`)
+      : new Date(revalidationPayload.activeTo);
+
+    const requestKey = [
+      String(me),
+      String(current.eventId || ""),
+      String(revalidationPayload.placement || ""),
+      String(geoTarget.geoScope || ""),
+      String(geoTarget.country || ""),
+      String(geoTarget.region || ""),
+      normalizedActiveFrom instanceof Date ? normalizedActiveFrom.toISOString() : String(normalizedActiveFrom || ""),
+      normalizedActiveTo instanceof Date ? normalizedActiveTo.toISOString() : String(normalizedActiveTo || ""),
+    ].join("::");
+
+    const existingRequest = await Banner.findOne({
+      _id: { $ne: bannerId },
+      requestKey,
+    }).lean();
+
+    if (existingRequest) {
+      return res.status(409).json({
+        ok: false,
+        error: "duplicate_revalidation_request",
+        message: "Esiste già una promozione con gli stessi parametri.",
+      });
+    }
+
+    const now = new Date();
+
+    const updated = await Banner.findOneAndUpdate(
+      {
+        _id: bannerId,
+        createdBy: me,
+        source: "organizer",
+        type: "event_promo",
+        status: "INVALIDATED_BY_EVENT_CHANGE",
+      },
+      {
+        $set: {
+          status: "PENDING_REVIEW",
+          isActive: false,
+          requestKey,
+          placement: revalidationPayload.placement,
+          geoScope: geoTarget.geoScope,
+          country: geoTarget.country,
+          region: geoTarget.region,
+          activeFrom: normalizedActiveFrom,
+          activeTo: normalizedActiveTo,
+          pricingSnapshot: estimate.pricingSnapshot,
+          estimatedPrice: estimate.estimatedPrice,
+          currency: estimate.currency,
+          notes: body.notes !== undefined ? body.notes : current.notes,
+          revalidationRequestedAt: now,
+          revalidationRequestedBy: me,
+          revalidationPreviousStatus: "INVALIDATED_BY_EVENT_CHANGE",
+          revalidationReason: "EVENT_DATE_CHANGE",
+          revisionType: "EVENT_CHANGE",
+        },
+      },
+      { new: true }
+    )
+      .populate("eventId", "title nome dateStart dateEnd")
+      .lean();
+
+    return res.json({
+      ok: true,
+      data: enrichPromoLifecycle(updated, now),
+    });
+  } catch (err) {
+    logger.error("[Banner] revalidateBannerMine error:", err);
+
+    return res.status(err.statusCode || 500).json({
+      ok: false,
+      error: err.code || "internal_error",
+      message: err.message || "Internal error",
+    });
+  }
+};
 exports.createBanner = async (req, res) => {
   if (!requireRole(req, res, ["admin"])) return;
 
