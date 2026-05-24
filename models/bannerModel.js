@@ -183,6 +183,29 @@ invalidatedByEventId: {
   ref: "Event",
   default: null,
 },
+revalidationRequestedAt: {
+  type: Date,
+  default: null,
+},
+revalidationRequestedBy: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "User",
+  default: null,
+},
+revalidationPreviousStatus: {
+  type: String,
+  default: null,
+},
+revalidationReason: {
+  type: String,
+  trim: true,
+  default: null,
+},
+revisionType: {
+  type: String,
+  trim: true,
+  default: null,
+},
 // Finestra di attività e stato legacy (compat)
     isActive: { type: Boolean, default: true, index: true },
     activeFrom: { type: Date, default: null, index: true },
