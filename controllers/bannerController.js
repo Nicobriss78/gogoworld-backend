@@ -33,6 +33,56 @@ function now() {
 function isAlive(entry) {
   return entry && entry.expiresAt > now();
 }
+const PROMO_FIXED_STATUSES = new Set([
+  "DRAFT",
+  "PENDING_REVIEW",
+  "PENDING_PAYMENT",
+  "AWAITING_PAYMENT",
+  "PAUSED",
+  "REJECTED",
+  "CANCELLED",
+  "INVALIDATED_BY_EVENT_CHANGE",
+]);
+
+function getEffectivePromoStatus(banner, nowDate = new Date()) {
+  const persistedStatus = String(banner?.status || "").toUpperCase();
+
+  if (PROMO_FIXED_STATUSES.has(persistedStatus)) {
+    return persistedStatus;
+  }
+
+  if (persistedStatus !== "SCHEDULED" && persistedStatus !== "ACTIVE") {
+    return persistedStatus || "DRAFT";
+  }
+
+  const activeFrom = banner?.activeFrom ? new Date(banner.activeFrom) : null;
+  const activeTo = banner?.activeTo ? new Date(banner.activeTo) : null;
+
+  if (activeTo && activeTo <= nowDate) {
+    return "ENDED";
+  }
+
+  if (activeFrom && activeFrom > nowDate) {
+    return "SCHEDULED";
+  }
+
+  return "ACTIVE";
+}
+
+function enrichPromoLifecycle(banner, nowDate = new Date()) {
+  if (!banner) return banner;
+
+  const persistedStatus = String(banner.status || "").toUpperCase();
+  const effectiveStatus = getEffectivePromoStatus(banner, nowDate);
+
+  return {
+    ...banner,
+    persistedStatus,
+    status: effectiveStatus,
+    isExpired: effectiveStatus === "ENDED",
+    isActive: effectiveStatus === "ACTIVE",
+  };
+}
 function getEffectivePromoStatus(item, refDate = new Date()) {
   const status = item && item.status ? String(item.status).toUpperCase() : "";
 
