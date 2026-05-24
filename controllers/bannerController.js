@@ -83,53 +83,7 @@ function enrichPromoLifecycle(banner, nowDate = new Date()) {
     isActive: effectiveStatus === "ACTIVE",
   };
 }
-function getEffectivePromoStatus(item, refDate = new Date()) {
-  const status = item && item.status ? String(item.status).toUpperCase() : "";
 
-  if (
-    [
-      "DRAFT",
-      "PENDING_REVIEW",
-      "PENDING_PAYMENT",
-      "REJECTED",
-      "CANCELLED",
-      "PAUSED",
-    ].includes(status)
-  ) {
-    return status || "DRAFT";
-  }
-
-  const activeFrom = item && item.activeFrom ? new Date(item.activeFrom) : null;
-  const activeTo = item && item.activeTo ? new Date(item.activeTo) : null;
-
-  if (activeTo && !Number.isNaN(activeTo.getTime()) && activeTo <= refDate) {
-    return "ENDED";
-  }
-
-  if (activeFrom && !Number.isNaN(activeFrom.getTime()) && activeFrom > refDate) {
-    return "SCHEDULED";
-  }
-
-  if (["SCHEDULED", "ACTIVE", "ENDED"].includes(status)) {
-    return "ACTIVE";
-  }
-
-  return status || "DRAFT";
-}
-
-function enrichPromoLifecycle(item, refDate = new Date()) {
-  if (!item) return item;
-
-  const effectiveStatus = getEffectivePromoStatus(item, refDate);
-  const isExpired = effectiveStatus === "ENDED";
-
-  return {
-    ...item,
-    persistedStatus: item.status,
-    status: effectiveStatus,
-    isExpired,
-  };
-}
 // Normalizza paese a ISO-like maiuscolo (se arriva "it" dal FE)
 function normalizeArea(qs) {
   const placement = String(qs.placement || "").trim();
