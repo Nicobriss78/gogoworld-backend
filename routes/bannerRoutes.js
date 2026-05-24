@@ -88,6 +88,13 @@ router.post(
   RL.submit,
   bannerController.payTestBannerMine
 );
+router.post(
+  "/mine/:id/revalidate",
+  protect,
+  authorize("organizer", "admin"),
+  RL.submit,
+  bannerController.revalidateBannerMine
+);
 // Organizer: stima prezzo promozione
 router.post(
 "/estimate",
