@@ -427,9 +427,22 @@ if (q.to) {
 const to = new Date(q.to);
 and.push({ $or: [{ activeFrom: null }, { activeFrom: { $lte: to } }] }); // iniziati entro 'to'
 }
-if (q.status && String(q.status).trim().toUpperCase() === "EXPIRED") {
-and.push({ activeTo: { $ne: null, $lt: now } }); // scaduti
+if (requestedStatus === "EXPIRED" || requestedStatus === "ENDED") {
+  and.push({ status: { $in: ["SCHEDULED", "ACTIVE"] } });
+  and.push({ activeTo: { $ne: null, $lte: now } });
 }
+
+if (requestedStatus === "ACTIVE") {
+  and.push({ status: { $in: ["SCHEDULED", "ACTIVE"] } });
+  and.push({ $or: [{ activeFrom: null }, { activeFrom: { $lte: now } }] });
+  and.push({ $or: [{ activeTo: null }, { activeTo: { $gt: now } }] });
+}
+
+if (requestedStatus === "SCHEDULED") {
+  and.push({ status: { $in: ["SCHEDULED", "ACTIVE"] } });
+  and.push({ activeFrom: { $ne: null, $gt: now } });
+}
+
 if (and.length) filter.$and = and;
  
 const items = await Banner.find(filter)
