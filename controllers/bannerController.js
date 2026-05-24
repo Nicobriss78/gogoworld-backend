@@ -912,16 +912,27 @@ exports.rejectBanner = async (req, res) => {
     const id = req.params.id;
     if (!id) return res.status(400).json({ ok:false, error:"id is required" });
 
+    const banner = await Banner.findOne({ _id: id, status: "PENDING_REVIEW" })
+      .select("paymentStatus paidAt")
+      .lean();
+
+    if (!banner) {
+      return res.status(404).json({ ok:false, error:"already_processed_or_missing" });
+    }
+
+    const update = {
+      status: "REJECTED",
+      isActive: false,
+      rejectedAt: new Date(),
+    };
+
+    if (banner.paymentStatus !== "PAID") {
+      update.paymentStatus = "NOT_REQUIRED";
+    }
+
     await Banner.updateOne(
       { _id: id, status: "PENDING_REVIEW" },
-      {
-        $set: {
-          status: "REJECTED",
-          isActive: false,
-          paymentStatus: "NOT_REQUIRED",
-          rejectedAt: new Date(),
-        },
-      }
+      { $set: update }
     );
 
     return res.status(204).send();
