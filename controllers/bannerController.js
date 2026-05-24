@@ -393,20 +393,26 @@ if (!me) return res.status(401).json({ ok:false, error:"not_authorized" });
 const q = req.query || {};
 const filter = { createdBy: me };
  
-// status: accetta 'expired' (logico) oppure gli stati reali (ACTIVE/PAUSED/...)
-let requestedStatus = "";
+// status: accetta stati DB diretti oppure stati lifecycle calcolati
+const requestedStatus = q.status
+  ? String(q.status).trim().toUpperCase()
+  : "";
 
-if (q.status) {
-const s = String(q.status).trim().toUpperCase();
-requestedStatus = s;
+if (requestedStatus) {
+  const directDbStatuses = [
+    "DRAFT",
+    "PENDING_REVIEW",
+    "PENDING_PAYMENT",
+    "AWAITING_PAYMENT",
+    "PAUSED",
+    "REJECTED",
+    "CANCELLED",
+    "INVALIDATED_BY_EVENT_CHANGE",
+  ];
 
-if (s === "EXPIRED") {
-// gestito sotto con $and (activeTo < now)
-} else if (["SCHEDULED", "ACTIVE", "ENDED"].includes(s)) {
-filter.status = { $in: ["SCHEDULED", "ACTIVE", "ENDED"] };
-} else {
-filter.status = s;
-}
+  if (directDbStatuses.includes(requestedStatus)) {
+    filter.status = requestedStatus;
+  }
 }
 if (q.placement) filter.placement = String(q.placement);
  
