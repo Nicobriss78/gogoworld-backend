@@ -766,9 +766,15 @@ exports.revalidateBannerMine = async (req, res) => {
           notes: body.notes !== undefined ? body.notes : current.notes,
           revalidationRequestedAt: now,
           revalidationRequestedBy: me,
-          revalidationPreviousStatus: "INVALIDATED_BY_EVENT_CHANGE",
-          revalidationReason: "EVENT_DATE_CHANGE",
-          revisionType: "EVENT_CHANGE",
+          revalidationPreviousStatus: current.status,
+          revalidationReason:
+          current.status === "REJECTED"
+            ? "ADMIN_REJECTION_CORRECTION"
+            : "EVENT_DATE_CHANGE",
+          revisionType:
+          current.status === "REJECTED"
+            ? "ADMIN_REVIEW_CORRECTION"
+            : "EVENT_CHANGE",
         },
       },
       { new: true }
