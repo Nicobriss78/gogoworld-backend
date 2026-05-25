@@ -927,10 +927,12 @@ exports.rejectBanner = async (req, res) => {
     }
 
     const update = {
-      status: "REJECTED",
-      isActive: false,
-      rejectedAt: new Date(),
-    };
+status: "REJECTED",
+isActive: false,
+rejectedAt: new Date(),
+lastRejectedAt: new Date(),
+adminContactRecommendedAt: new Date(),
+};
 
     if (banner.paymentStatus !== "PAID") {
       update.paymentStatus = "NOT_REQUIRED";
