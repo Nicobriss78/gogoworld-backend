@@ -939,9 +939,12 @@ adminContactRecommendedAt: new Date(),
     }
 
     await Banner.updateOne(
-      { _id: id, status: "PENDING_REVIEW" },
-      { $set: update }
-    );
+{ _id: id, status: "PENDING_REVIEW" },
+{
+$set: update,
+$inc: { rejectedCount: 1 },
+}
+);
 
     return res.status(204).send();
   } catch (err) {
