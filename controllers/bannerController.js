@@ -74,6 +74,7 @@ function enrichPromoLifecycle(banner, nowDate = new Date()) {
 
   const persistedStatus = String(banner.status || "").toUpperCase();
   const effectiveStatus = getEffectivePromoStatus(banner, nowDate);
+  const adminContactUserId = process.env.PROMO_ADMIN_CONTACT_USER_ID || "";
 
   return {
     ...banner,
@@ -81,6 +82,7 @@ function enrichPromoLifecycle(banner, nowDate = new Date()) {
     status: effectiveStatus,
     isExpired: effectiveStatus === "ENDED",
     isActive: effectiveStatus === "ACTIVE",
+    adminContactUserId,
   };
 }
 
