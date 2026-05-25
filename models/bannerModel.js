@@ -138,6 +138,18 @@ rejectedAt: {
   type: Date,
   default: null,
 },
+rejectedCount: {
+  type: Number,
+  default: 0,
+},
+lastRejectedAt: {
+  type: Date,
+  default: null,
+},
+adminContactRecommendedAt: {
+  type: Date,
+  default: null,
+},
 cancelledAt: {
   type: Date,
   default: null,
