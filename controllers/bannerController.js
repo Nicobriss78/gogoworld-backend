@@ -881,34 +881,57 @@ exports.deleteBanner = async (req, res) => {
 
 // Moderazione (solo admin)
 exports.approveBanner = async (req, res) => {
-  if (!requireRole(req, res, ["admin"])) return;
+if (!requireRole(req, res, ["admin"])) return;
 
-  try {
-    const id = req.params.id;
-    if (!id) return res.status(400).json({ ok:false, error:"id is required" });
+try {
+const id = req.params.id;
+if (!id) return res.status(400).json({ ok:false, error:"id is required" });
 
-    const updated = await Banner.findOneAndUpdate(
-      { _id: id, status: "PENDING_REVIEW" },
-      {
-        $set: {
-          status: "PENDING_PAYMENT",
-          paymentStatus: "PENDING",
-          isActive: false,
-          approvedAt: new Date(),
-        },
-      },
-      { new: true }
-    );
+const banner = await Banner.findOne({ _id: id, status: "PENDING_REVIEW" })
+.select("paymentStatus paidAt activeFrom activeTo")
+.lean();
 
-    if (!updated) {
-      return res.status(404).json({ ok: false, error: "already_processed_or_missing" });
-    }
+if (!banner) {
+return res.status(404).json({ ok: false, error: "already_processed_or_missing" });
+}
 
-    return res.status(204).send();
-  } catch (err) {
-    logger.error("[Banner] approve error:", err);
-    return res.status(500).json({ ok:false, error:"internal_error" });
-  }
+const now = new Date();
+
+const alreadyPaid = banner.paymentStatus === "PAID" && !!banner.paidAt;
+
+const nextStatus = alreadyPaid
+? getEffectivePromoStatus(
+{
+...banner,
+status: "ACTIVE",
+},
+now
+)
+: "PENDING_PAYMENT";
+
+const updated = await Banner.findOneAndUpdate(
+{ _id: id, status: "PENDING_REVIEW" },
+{
+$set: {
+status: nextStatus,
+paymentStatus: alreadyPaid ? "PAID" : "PENDING",
+isActive: alreadyPaid && (nextStatus === "ACTIVE" || nextStatus === "SCHEDULED"),
+approvedAt: now,
+scheduledAt: alreadyPaid && nextStatus === "SCHEDULED" ? now : null,
+},
+},
+{ new: true }
+);
+
+if (!updated) {
+return res.status(404).json({ ok: false, error: "already_processed_or_missing" });
+}
+
+return res.status(204).send();
+} catch (err) {
+logger.error("[Banner] approve error:", err);
+return res.status(500).json({ ok:false, error:"internal_error" });
+}
 };
 
 exports.rejectBanner = async (req, res) => {
