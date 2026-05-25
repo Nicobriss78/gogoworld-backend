@@ -662,7 +662,7 @@ exports.revalidateBannerMine = async (req, res) => {
       createdBy: me,
       source: "organizer",
       type: "event_promo",
-      status: "INVALIDATED_BY_EVENT_CHANGE",
+      status: { $in: ["INVALIDATED_BY_EVENT_CHANGE", "REJECTED"] },
     }).lean();
 
     if (!current) {
