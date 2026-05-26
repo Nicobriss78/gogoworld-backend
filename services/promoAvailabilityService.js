@@ -441,6 +441,7 @@ const target = normalizeGeoTarget(payload);
   return {
     ...result,
     capacity,
+    lowAvailabilityThreshold: placementRule.lowAvailabilityThreshold,
     placement,
     geoTarget: target,
     occupyingStatuses: OCCUPYING_STATUSES.slice(),
@@ -454,6 +455,7 @@ const target = normalizeGeoTarget(payload);
 
 module.exports = {
   OCCUPYING_STATUSES,
+  PLACEMENT_RULES,
   PLACEMENT_CAPACITY,
   checkPromoAvailability,
 };
