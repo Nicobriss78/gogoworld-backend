@@ -951,11 +951,26 @@ exports.rejectBanner = async (req, res) => {
       return res.status(404).json({ ok:false, error:"already_processed_or_missing" });
     }
 
-    const update = {
+    const reason =
+req.body && typeof req.body.reason === "string"
+? req.body.reason.trim().slice(0, 1000)
+: "";
+
+if (!reason) {
+return res.status(400).json({
+ok: false,
+error: "rejection_reason_required",
+message: "Il motivo del rifiuto è obbligatorio.",
+});
+}
+
+const update = {
 status: "REJECTED",
 isActive: false,
 rejectedAt: new Date(),
 lastRejectedAt: new Date(),
+rejectedBy: req.user && req.user._id ? req.user._id : null,
+rejectionReason: reason,
 adminContactRecommendedAt: new Date(),
 };
 
