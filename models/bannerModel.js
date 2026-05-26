@@ -138,6 +138,16 @@ rejectedAt: {
   type: Date,
   default: null,
 },
+rejectedBy: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "User",
+  default: null,
+},
+rejectionReason: {
+  type: String,
+  trim: true,
+  default: null,
+},
 rejectedCount: {
   type: Number,
   default: 0,
