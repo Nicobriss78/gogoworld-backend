@@ -387,8 +387,9 @@ async function checkPromoAvailability(payload = {}) {
     throw makeValidationError("PLACEMENT_REQUIRED", "placement is required");
   }
 
-  const capacity = getPlacementCapacity(placement);
-  const target = normalizeGeoTarget(payload);
+  const placementRule = getPlacementRule(placement);
+const capacity = placementRule.defaultCapacity;
+const target = normalizeGeoTarget(payload);
 
   const parsedActiveFrom = parseDate(payload.activeFrom, "activeFrom");
   const parsedActiveTo = parseDate(payload.activeTo, "activeTo");
