@@ -105,13 +105,24 @@ function buildDays(activeFrom, activeTo) {
   return days;
 }
 
-function getPlacementCapacity(placement) {
-  const capacity = PLACEMENT_CAPACITY[placement];
-  if (!capacity) {
+function getPlacementRule(placement) {
+  const rule = PLACEMENT_RULES[placement];
+
+  if (!rule || !Number(rule.defaultCapacity)) {
     throw makeValidationError("UNSUPPORTED_PLACEMENT", "unsupported placement");
   }
 
-  return capacity;
+  return {
+    defaultCapacity: Number(rule.defaultCapacity),
+    lowAvailabilityThreshold: Math.max(
+      1,
+      Number(rule.lowAvailabilityThreshold || 1)
+    ),
+  };
+}
+
+function getPlacementCapacity(placement) {
+  return getPlacementRule(placement).defaultCapacity;
 }
 
 function buildGeoCompetitionFilter(target) {
