@@ -286,22 +286,38 @@ function countUsageByDay({ requestedDays, occupyingBanners }) {
   return usageByDay;
 }
 
-function buildAvailabilityResult({ requestedDays, capacity, usageByDay }) {
+function buildAvailabilityResult({
+  requestedDays,
+  capacity,
+  usageByDay,
+  lowAvailabilityThreshold,
+}) {
+  const threshold = Math.max(1, Number(lowAvailabilityThreshold || 1));
+
   const days = requestedDays.map((date) => {
     const used = usageByDay.get(date) || 0;
     const remaining = Math.max(0, capacity - used);
+
+    let status = "AVAILABLE";
+
+    if (remaining <= 0) {
+      status = "UNAVAILABLE";
+    } else if (remaining <= threshold) {
+      status = "LOW_AVAILABILITY";
+    }
 
     return {
       date,
       capacity,
       used,
       remaining,
+      status,
     };
   });
 
   const blockedDays = days.filter((day) => day.remaining <= 0);
   const limitedDays = days.filter(
-    (day) => day.remaining > 0 && day.remaining <= 2
+    (day) => day.remaining > 0 && day.remaining <= threshold
   );
   const availableDays = days.filter((day) => day.remaining > 0);
 
@@ -311,26 +327,55 @@ function buildAvailabilityResult({ requestedDays, capacity, usageByDay }) {
       ) / 100
     : 0;
 
-  let status = "COMPLETELY_AVAILABLE";
+  const remainingMinSlots = days.length
+    ? Math.min(...days.map((day) => day.remaining))
+    : 0;
 
-  if (blockedDays.length === days.length && days.length > 0) {
+  let status = "AVAILABLE";
+
+  if (!days.length || blockedDays.length === days.length) {
     status = "UNAVAILABLE";
-  } else if (blockedDays.length > 0 || limitedDays.length > 0) {
+  } else if (blockedDays.length > 0) {
     status = "PARTIALLY_AVAILABLE";
+  } else if (limitedDays.length > 0) {
+    status = "LOW_AVAILABILITY";
   }
+
+  const legacyAvailabilityStatus =
+    status === "AVAILABLE"
+      ? "COMPLETELY_AVAILABLE"
+      : status === "LOW_AVAILABILITY"
+      ? "PARTIALLY_AVAILABLE"
+      : status;
+
+  const messageByStatus = {
+    AVAILABLE: "Disponibilità buona nel periodo selezionato.",
+    LOW_AVAILABILITY: "Ultimi slot disponibili per alcuni giorni selezionati.",
+    PARTIALLY_AVAILABLE: "Alcuni giorni del periodo selezionato risultano già pieni.",
+    UNAVAILABLE: "Periodo non disponibile per il placement selezionato.",
+  };
 
   return {
     available: status !== "UNAVAILABLE",
     status,
-    availabilityStatus: status,
+    availabilityStatus: legacyAvailabilityStatus,
+    availabilityLevel: status,
     totalDays: days.length,
+    requestedDays: days.length,
     availableCount: availableDays.length,
+    availableDaysCount: availableDays.length,
     blockedCount: blockedDays.length,
+    fullDaysCount: blockedDays.length,
     limitedCount: limitedDays.length,
+    limitedDaysCount: limitedDays.length,
     availableDays,
     limitedDays,
     blockedDays,
+    fullDays: blockedDays,
     remainingSlotsAverage,
+    remainingMinSlots,
+    lowAvailabilityThreshold: threshold,
+    message: messageByStatus[status],
     days,
   };
 }
