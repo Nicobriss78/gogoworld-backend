@@ -356,7 +356,7 @@ function buildAvailabilityResult({
   };
 
   return {
-    available: status !== "UNAVAILABLE",
+    available: !["UNAVAILABLE", "PARTIALLY_AVAILABLE"].includes(status),
     status,
     availabilityStatus: legacyAvailabilityStatus,
     availabilityLevel: status,
