@@ -431,7 +431,12 @@ const target = normalizeGeoTarget(payload);
     .lean();
 
   const usageByDay = countUsageByDay({ requestedDays, occupyingBanners });
-  const result = buildAvailabilityResult({ requestedDays, capacity, usageByDay });
+  const result = buildAvailabilityResult({
+  requestedDays,
+  capacity,
+  usageByDay,
+  lowAvailabilityThreshold: placementRule.lowAvailabilityThreshold,
+});
 
   return {
     ...result,
