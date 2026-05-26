@@ -13,10 +13,24 @@ const OCCUPYING_STATUSES = [
   "ACTIVE",
 ];
 
-const PLACEMENT_CAPACITY = {
-  events_list_inline: 6,
-  home_top: 2,
+const PLACEMENT_RULES = {
+  events_list_inline: {
+    defaultCapacity: 6,
+    lowAvailabilityThreshold: 2,
+  },
+  home_top: {
+    defaultCapacity: 2,
+    lowAvailabilityThreshold: 1,
+  },
 };
+
+const PLACEMENT_CAPACITY = Object.entries(PLACEMENT_RULES).reduce(
+  (acc, [placement, rule]) => {
+    acc[placement] = rule.defaultCapacity;
+    return acc;
+  },
+  {}
+);
 
 const MIN_DURATION_DAYS = 1;
 const MAX_DURATION_DAYS = 30;
