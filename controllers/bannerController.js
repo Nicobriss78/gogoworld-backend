@@ -1141,6 +1141,7 @@ const body = req.body || {};
 
 const estimate = estimateBannerPrice(body);
 const availability = await checkPromoAvailability(body);
+const demand = calculateDemandFromAvailability(availability);
 
 return res.json({
 ok: true,
