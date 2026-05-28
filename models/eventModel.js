@@ -72,7 +72,7 @@ dateEnd: { type: Date, required: true },
     price: { type: Number, min: 0 },
     currency: { type: String, trim: true, default: "EUR" }, // ISO 4217
     // Accesso e visibilità avanzata
-    isPrivate: { type: Boolean, default: false, index: true },
+    isPrivate: { type: Boolean, default: false },
     accessCode: { type: String, trim: true }, // codice d'accesso opzionale per eventi privati
     chat: {
     activeFrom: { type: Date },
