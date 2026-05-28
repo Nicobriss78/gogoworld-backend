@@ -64,7 +64,7 @@ const bannerSchema = new mongoose.Schema(
 
     // Collegamento evento (solo per type=event_promo)
     eventId: { type: mongoose.Schema.Types.ObjectId, ref: "Event", index: true },
-    requestKey: { type: String, trim: true, index: true },
+    requestKey: { type: String, trim: true },
     // Creatività
     title: { type: String, trim: true, required: true },
     imageUrl: { type: String, trim: true, required: true },
