@@ -1199,6 +1199,7 @@ return res.status(400).json({ ok:false, error:"imageUrl and targetUrl must be ht
 
 const estimate = estimateBannerPrice(body);
 const availability = await checkPromoAvailability(body);
+const demand = calculateDemandFromAvailability(availability);
 
 if (!availability || availability.available === false) {
   return res.status(409).json({
