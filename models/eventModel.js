@@ -57,7 +57,7 @@ dateEnd: { type: Date, required: true },
       default: "pending",
       index: true,
     },
-    approvedAt: { type: Date, default: null, index: true },
+    approvedAt: { type: Date, default: null },
     moderation: {
       reason: { type: String, trim: true },
       notes: { type: String, trim: true },
