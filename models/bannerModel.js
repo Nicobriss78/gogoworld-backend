@@ -92,6 +92,10 @@ pricingSnapshot: {
 type: Object,
 default: null,
 },
+  demandSnapshot: {
+type: Object,
+default: null,
+},
 estimatedPrice: {
 type: Number,
 default: 0,
