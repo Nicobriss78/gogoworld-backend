@@ -1155,6 +1155,7 @@ pricingSnapshot: estimate.pricingSnapshot,
 geoTarget: estimate.normalizedTarget,
 },
 availability,
+demand,
 },
 });
 } catch (err) {
