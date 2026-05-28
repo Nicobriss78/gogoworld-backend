@@ -55,9 +55,11 @@ function calculateDemandFromAvailability(availability = {}) {
   const totalDays = Number(availability.totalDays || 0);
   const capacity = Number(availability.capacity || 0);
 
-  const dayStatuses = Array.isArray(availability.dayStatuses)
-    ? availability.dayStatuses
-    : [];
+  const dayStatuses = Array.isArray(availability.days)
+  ? availability.days
+  : Array.isArray(availability.dayStatuses)
+  ? availability.dayStatuses
+  : [];
 
   const limitedDays = Array.isArray(availability.limitedDays)
     ? availability.limitedDays
