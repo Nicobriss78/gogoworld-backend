@@ -446,10 +446,14 @@ const target = normalizeGeoTarget(payload);
     geoTarget: target,
     occupyingStatuses: OCCUPYING_STATUSES.slice(),
     durationDays: temporal.durationDays,
-    dateRangeMode: "USER_INCLUSIVE_BACKEND_EXCLUSIVE",
-    activeFrom: formatUtcDay(activeFrom),
-    activeTo: formatUtcDay(inclusiveActiveTo),
-    exclusiveActiveTo: formatUtcDay(exclusiveActiveTo),
+eventWindow: {
+  eventStart: event.dateStart ? new Date(event.dateStart).toISOString() : null,
+  eventEnd: event.dateEnd ? new Date(event.dateEnd).toISOString() : null,
+},
+dateRangeMode: "USER_INCLUSIVE_BACKEND_EXCLUSIVE",
+activeFrom: formatUtcDay(activeFrom),
+activeTo: formatUtcDay(inclusiveActiveTo),
+exclusiveActiveTo: formatUtcDay(exclusiveActiveTo),
   };
 }
 
