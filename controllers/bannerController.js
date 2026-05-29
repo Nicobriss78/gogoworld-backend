@@ -1166,6 +1166,7 @@ geoTarget: estimate.normalizedTarget,
 },
 availability,
 demand,
+suggestions,
 },
 });
 } catch (err) {
