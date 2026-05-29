@@ -171,9 +171,15 @@ async function findBetterWindow({
         buildCandidatePayload({ payload, from: candidateFrom, to: candidateTo })
       );
 
-      if (!candidateAvailability || candidateAvailability.available === false) {
-        continue;
-      }
+      if (
+  !candidateAvailability ||
+  candidateAvailability.available === false ||
+  candidateAvailability.status !== "AVAILABLE" ||
+  Number(candidateAvailability.blockedCount || 0) > 0 ||
+  Number(candidateAvailability.fullDaysCount || 0) > 0
+) {
+  continue;
+}
 
       const candidateDemand = calculateDemandFromAvailability(candidateAvailability);
       const candidateScore = normalizeScore(candidateDemand.competitionScore);
