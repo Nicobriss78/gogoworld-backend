@@ -13,7 +13,7 @@ const SUGGESTION_STATUS = {
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const MAX_CANDIDATE_SHIFT_DAYS = 7;
+const MAX_CANDIDATE_SHIFT_DAYS = 30;
 const MIN_SCORE_IMPROVEMENT = 15;
 
 function startOfUtcDay(value) {
