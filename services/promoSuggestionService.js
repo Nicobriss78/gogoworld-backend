@@ -185,9 +185,16 @@ async function findBetterWindow({
       const candidateScore = normalizeScore(candidateDemand.competitionScore);
       const improvement = currentScore - candidateScore;
 
-      if (improvement < MIN_SCORE_IMPROVEMENT) {
-        continue;
-      }
+      const hasBlockedCurrentDays =
+  Number(demand?.signals?.blockedDaysCount || 0) > 0;
+
+const minimumImprovement = hasBlockedCurrentDays
+  ? 8
+  : MIN_SCORE_IMPROVEMENT;
+
+if (improvement < minimumImprovement) {
+  continue;
+}
 
       const candidate = {
         type: "BETTER_WINDOW",
