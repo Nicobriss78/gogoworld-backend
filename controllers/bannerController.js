@@ -1145,6 +1145,13 @@ const body = req.body || {};
 const estimate = estimateBannerPrice(body);
 const availability = await checkPromoAvailability(body);
 const demand = calculateDemandFromAvailability(availability);
+const suggestions = await generatePromoSuggestions({
+  payload: body,
+  pricing: estimate,
+  availability,
+  demand,
+  checkAvailability: checkPromoAvailability,
+});
 
 return res.json({
 ok: true,
