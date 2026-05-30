@@ -222,9 +222,9 @@ function buildBetterWindowSuggestion({ constraints, betterWindow }) {
   return {
     status: SUGGESTION_STATUS.HAS_BETTER_WINDOW,
     tone: "strategic",
-    title: "Finestra alternativa disponibile",
+    title: "Periodo consigliato",
     message:
-      "Abbiamo individuato una finestra alternativa che resta dentro la durata utile dell’evento e può offrire una pressione promozionale più favorevole.",
+    "La prima parte del periodo selezionato risulta particolarmente richiesta. Abbiamo individuato una finestra successiva, sempre entro la durata dell’evento, con condizioni più favorevoli per la visibilità.",
     items: [betterWindow],
     constraints,
     trillFallback: {
