@@ -238,7 +238,7 @@ function buildMicroOptimizationSuggestion({ constraints }) {
   return {
     status: SUGGESTION_STATUS.MICRO_OPTIMIZATION,
     tone: "positive",
-    title: "Periodo valido",
+    title: "Periodo favorevole",
     message:
       "La finestra selezionata appare utilizzabile. Una creatività chiara e riconoscibile può aiutare la promozione a lavorare meglio nel periodo scelto.",
     items: [
