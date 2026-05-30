@@ -203,7 +203,7 @@ if (improvement < minimumImprovement) {
         competitionScore: candidateScore,
         improvement,
         message:
-          "Questa finestra mantiene la promozione entro la durata utile dell’evento e mostra una pressione promozionale più favorevole.",
+        "Questa finestra resta entro la durata dell’evento e presenta una pressione promozionale più favorevole.",
       };
 
       if (!best || candidate.improvement > best.improvement) {
