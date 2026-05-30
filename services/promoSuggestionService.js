@@ -240,7 +240,7 @@ function buildMicroOptimizationSuggestion({ constraints }) {
     tone: "positive",
     title: "Periodo favorevole",
     message:
-      "La finestra selezionata appare utilizzabile. Una creatività chiara e riconoscibile può aiutare la promozione a lavorare meglio nel periodo scelto.",
+"Il periodo scelto appare favorevole. Una creatività chiara e riconoscibile può aiutare la promozione a ottenere risultati migliori.",
     items: [
       {
         type: "CREATIVE_CLARITY",
