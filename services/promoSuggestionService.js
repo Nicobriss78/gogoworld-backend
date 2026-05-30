@@ -245,7 +245,7 @@ function buildMicroOptimizationSuggestion({ constraints }) {
       {
         type: "CREATIVE_CLARITY",
         message:
-          "Mantieni titolo, immagine e promessa della promo molto leggibili: in una fascia già attiva la chiarezza aumenta la riconoscibilità.",
+"Mantieni titolo, immagine e messaggio della promozione chiari e immediati: nei periodi più attivi la riconoscibilità conta ancora di più.",
       },
     ],
     constraints,
