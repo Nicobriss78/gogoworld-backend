@@ -224,7 +224,7 @@ function buildBetterWindowSuggestion({ constraints, betterWindow }) {
     tone: "strategic",
     title: "Periodo consigliato",
     message:
-    "La prima parte del periodo selezionato risulta particolarmente richiesta. Abbiamo individuato una finestra successiva, sempre entro la durata dell’evento, con condizioni più favorevoli per la visibilità.",
+"La parte iniziale del periodo scelto risulta particolarmente richiesta. Abbiamo individuato una finestra successiva, sempre entro la durata dell’evento, che può offrire condizioni più favorevoli per la visibilità.",
     items: [betterWindow],
     constraints,
     trillFallback: {
