@@ -262,7 +262,7 @@ function buildTrillStrategySuggestion({ constraints }) {
     tone: "strategic",
     title: "Supporto strategico consigliato",
     message:
-      "Il periodo selezionato risulta molto richiesto e non emergono finestre significativamente migliori entro la durata dell’evento. I Trilli possono aiutare a rafforzare la visibilità nei momenti più utili.",
+"Il periodo scelto è molto richiesto e non emergono alternative realmente più favorevoli entro la durata dell’evento. I Trilli possono aiutare a rafforzare visibilità e richiamo nei momenti più utili.",
     items: [
       {
         type: "TRILL_SUPPORT",
