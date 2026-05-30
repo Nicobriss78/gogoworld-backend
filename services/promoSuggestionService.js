@@ -260,21 +260,20 @@ function buildTrillStrategySuggestion({ constraints }) {
   return {
     status: SUGGESTION_STATUS.TRILL_STRATEGY,
     tone: "strategic",
-    title: "Supporto strategico consigliabile",
+    title: "Supporto strategico consigliato",
     message:
-      "La finestra selezionata può comunque essere valorizzata con strumenti di richiamo contestuale come i Trilli, soprattutto in prossimità dell’evento.",
+      "Il periodo selezionato risulta molto richiesto e non emergono finestre significativamente migliori entro la durata dell’evento. I Trilli possono aiutare a rafforzare la visibilità nei momenti più utili.",
     items: [
       {
         type: "TRILL_SUPPORT",
         message:
-          "Quando non esistono alternative temporali realmente migliori entro la fine dell’evento, i Trilli possono rafforzare la visibilità nel momento più utile.",
+          "Attiva uno o più Trilli in prossimità dell’evento per aumentare richiamo e presenza.",
       },
     ],
     constraints,
     trillFallback: {
-      recommended: true,
-      message:
-        "Valuta i Trilli come supporto live e contestuale alla promozione, senza modificare forzatamente la finestra scelta.",
+      recommended: false,
+      message: "",
     },
   };
 }
