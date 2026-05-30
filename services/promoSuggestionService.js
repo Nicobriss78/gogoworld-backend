@@ -267,7 +267,7 @@ function buildTrillStrategySuggestion({ constraints }) {
       {
         type: "TRILL_SUPPORT",
         message:
-          "Attiva uno o più Trilli in prossimità dell’evento per aumentare richiamo e presenza.",
+"Valuta uno o più Trilli in prossimità dell’evento per aumentare visibilità e partecipazione.",
       },
     ],
     constraints,
