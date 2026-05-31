@@ -452,7 +452,7 @@ return buildMicroOptimizationSuggestion({ constraints });
 }
 
 return buildNeutralSuggestion(constraints);
-
+}
 module.exports = {
   SUGGESTION_STATUS,
   generatePromoSuggestions,
