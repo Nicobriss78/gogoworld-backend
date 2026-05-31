@@ -433,15 +433,25 @@ async function generatePromoSuggestions({
   }
 
   if (shouldSuggestTrills({ demand, availability })) {
-    return buildTrillStrategySuggestion({ constraints });
-  }
-
-  if (score >= 40) {
-    return buildMicroOptimizationSuggestion({ constraints });
-  }
-
-  return buildNeutralSuggestion(constraints);
+return buildTrillStrategySuggestion({ constraints });
 }
+
+const coverageSuggestion = buildConstructiveCoverageSuggestion({
+constraints,
+requestedRange,
+eventStart,
+demand,
+});
+
+if (coverageSuggestion) {
+return coverageSuggestion;
+}
+
+if (score >= 40) {
+return buildMicroOptimizationSuggestion({ constraints });
+}
+
+return buildNeutralSuggestion(constraints);
 
 module.exports = {
   SUGGESTION_STATUS,
