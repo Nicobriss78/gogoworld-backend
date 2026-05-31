@@ -15,7 +15,10 @@ const SUGGESTION_STATUS = {
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_CANDIDATE_SHIFT_DAYS = 30;
 const MIN_SCORE_IMPROVEMENT = 15;
-
+const EXTENDED_COVERAGE_DAYS = 21;
+const COMPACT_COVERAGE_DAYS = 3;
+const EARLY_PROMO_DAYS_BEFORE_EVENT = 45;
+const CLOSE_PROMO_DAYS_BEFORE_EVENT = 7;
 function startOfUtcDay(value) {
   const date = value instanceof Date ? new Date(value) : new Date(value);
   if (Number.isNaN(date.getTime())) return null;
