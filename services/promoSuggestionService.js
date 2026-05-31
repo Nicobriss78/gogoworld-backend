@@ -236,7 +236,128 @@ function buildBetterWindowSuggestion({ constraints, betterWindow }) {
     },
   };
 }
+function getUtcDayDistance(from, to) {
+const start = startOfUtcDay(from);
+const end = startOfUtcDay(to);
 
+if (!start || !end) return null;
+
+return Math.round((end.getTime() - start.getTime()) / DAY_MS);
+}
+
+function buildConstructiveCoverageSuggestion({
+constraints,
+requestedRange,
+eventStart,
+demand = {},
+}) {
+const durationDays = Number(requestedRange?.durationDays || 0);
+const daysBeforeEvent = eventStart && requestedRange?.activeFrom
+? getUtcDayDistance(requestedRange.activeFrom, eventStart)
+: null;
+
+const score = normalizeScore(demand.competitionScore);
+
+if (durationDays >= EXTENDED_COVERAGE_DAYS && score < 65) {
+return {
+status: SUGGESTION_STATUS.MICRO_OPTIMIZATION,
+tone: "positive",
+title: "Copertura estesa",
+message:
+"La promozione offre una presenza distribuita nel tempo. Se il tuo obiettivo è mantenere visibilità costante prima dell’evento, questa scelta può essere efficace.",
+items: [
+{
+type: "COVERAGE_EXTENSION",
+message:
+"Puoi valutare anche una finestra più concentrata nelle settimane finali se desideri concentrare maggiormente l’attenzione vicino all’evento.",
+},
+],
+constraints,
+trillFallback: {
+recommended: false,
+message: "",
+},
+};
+}
+
+if (
+durationDays <= COMPACT_COVERAGE_DAYS &&
+daysBeforeEvent !== null &&
+daysBeforeEvent > EARLY_PROMO_DAYS_BEFORE_EVENT
+) {
+return {
+status: SUGGESTION_STATUS.MICRO_OPTIMIZATION,
+tone: "positive",
+title: "Copertura concentrata",
+message:
+"La promozione concentra la visibilità in pochi giorni. Questa scelta può essere utile per messaggi chiari, mirati e facilmente riconoscibili.",
+items: [
+{
+type: "COVERAGE_COMPACT",
+message:
+"Se desideri costruire presenza con più continuità prima dell’evento, puoi valutare anche una copertura leggermente più ampia.",
+},
+],
+constraints,
+trillFallback: {
+recommended: false,
+message: "",
+},
+};
+}
+
+if (
+daysBeforeEvent !== null &&
+daysBeforeEvent >= EARLY_PROMO_DAYS_BEFORE_EVENT
+) {
+return {
+status: SUGGESTION_STATUS.MICRO_OPTIMIZATION,
+tone: "positive",
+title: "Visibilità distribuita",
+message:
+"La promozione parte con largo anticipo rispetto all’evento e può aiutare a costruire presenza nel tempo.",
+items: [
+{
+type: "EARLY_VISIBILITY",
+message:
+"Se il tuo obiettivo è aumentare l’attenzione nelle settimane finali, puoi valutare anche una finestra più vicina alla data dell’evento.",
+},
+],
+constraints,
+trillFallback: {
+recommended: false,
+message: "",
+},
+};
+}
+
+if (
+daysBeforeEvent !== null &&
+daysBeforeEvent <= CLOSE_PROMO_DAYS_BEFORE_EVENT
+) {
+return {
+status: SUGGESTION_STATUS.MICRO_OPTIMIZATION,
+tone: "positive",
+title: "Spinta finale",
+message:
+"La promozione è vicina alla data dell’evento e può lavorare bene come richiamo finale.",
+items: [
+{
+type: "FINAL_PUSH",
+message:
+"Per rafforzare ulteriormente la visibilità negli ultimi momenti utili, i Trilli potranno essere valutati come supporto live alla promozione.",
+},
+],
+constraints,
+trillFallback: {
+recommended: false,
+message: "",
+},
+};
+}
+
+return null;
+}
 function buildMicroOptimizationSuggestion({ constraints }) {
   return {
     status: SUGGESTION_STATUS.MICRO_OPTIMIZATION,
