@@ -121,7 +121,19 @@ function getAvailabilityStatus(availability = {}) {
     availability.status || availability.availabilityLevel || availability.availabilityStatus || ""
   ).toUpperCase();
 }
+function isNoSlotAvailable(availability = {}) {
+  const status = getAvailabilityStatus(availability);
 
+  return (
+    availability.available === false &&
+    (
+      status === "UNAVAILABLE" ||
+      Number(availability.availableCount || availability.availableDaysCount || 0) === 0 ||
+      Number(availability.blockedCount || availability.fullDaysCount || 0) >=
+        Number(availability.totalDays || availability.requestedDays || 1)
+    )
+  );
+}
 function isLimitedAvailability(availability = {}) {
   const status = getAvailabilityStatus(availability);
 
