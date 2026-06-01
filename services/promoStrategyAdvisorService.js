@@ -425,6 +425,11 @@ function buildAlternativeStrategies({ primaryType, availability = {}, demand = {
 }
 
 function selectPrimaryStrategy({ payload = {}, availability = {}, demand = {}, suggestions = {} }) {
+  if (isNoSlotAvailable(availability)) {
+    const alternativeOpportunity = buildAlternativeOpportunityStrategy({ payload, suggestions });
+    return alternativeOpportunity || buildNoSlotAvailableStrategy();
+  }
+
   const alternativeOpportunity = buildAlternativeOpportunityStrategy({ payload, suggestions });
   if (alternativeOpportunity) return alternativeOpportunity;
 
