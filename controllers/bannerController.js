@@ -16,6 +16,9 @@ const {
 const {
   generatePromoSuggestions,
 } = require("../services/promoSuggestionService");
+const {
+  buildPromotionStrategyAdvisor,
+} = require("../services/promoStrategyAdvisorService");
 // Cache semplice in RAM con TTL per lista attiva e indice round-robin per chiave
 const activeCache = new Map(); // key -> { expiresAt, items: [banner], rr: 0 }
 const TTL_MS = 60 * 1000; // 60s: abbastanza breve per B1/1
