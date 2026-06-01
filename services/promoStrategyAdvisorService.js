@@ -206,7 +206,12 @@ function buildTrillAction(label = "Valuta supporto Trilli") {
 
 function buildDetectedFactors({ availability = {}, demand = {}, suggestions = {} }) {
   const factors = [];
-
+if (isNoSlotAvailable(availability)) {
+    factors.push({
+      type: STRATEGY_TYPE.NO_SLOT_AVAILABLE,
+      label: "Nessuno slot disponibile",
+    });
+}
   if (isHighCompetition(demand)) {
     factors.push({
       type: STRATEGY_TYPE.HIGH_COMPETITION,
