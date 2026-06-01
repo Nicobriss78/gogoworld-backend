@@ -1155,7 +1155,15 @@ const suggestions = await generatePromoSuggestions({
   demand,
   checkAvailability: checkPromoAvailability,
 });
-
+const advisor = buildPromotionStrategyAdvisor({
+  mode: "CREATE",
+  promoStatus: "DRAFT",
+  payload: body,
+  pricing: estimate,
+  availability,
+  demand,
+  suggestions,
+});
 return res.json({
 ok: true,
 data: {
