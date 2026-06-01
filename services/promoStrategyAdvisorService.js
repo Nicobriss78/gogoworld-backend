@@ -408,7 +408,8 @@ function buildStandardVisibilityStrategy({ availability = {}, demand = {} }) {
 
 function buildAlternativeStrategies({ primaryType, availability = {}, demand = {}, suggestions = {}, payload = {} }) {
   const candidates = [
-    buildAlternativeOpportunityStrategy({ payload, suggestions }),
+  isNoSlotAvailable(availability) ? buildNoSlotAvailableStrategy() : null,
+  buildAlternativeOpportunityStrategy({ payload, suggestions }),({ payload, suggestions }),
     isHighCompetition(demand) && hasSuggestionItem(suggestions, "TRILL_SUPPORT")
       ? buildPromoPlusTrilliStrategy()
       : null,
