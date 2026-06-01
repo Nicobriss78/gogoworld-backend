@@ -263,7 +263,18 @@ if (isNoSlotAvailable(availability)) {
 
   return factors;
 }
-
+function buildNoSlotAvailableStrategy() {
+  return {
+    type: STRATEGY_TYPE.NO_SLOT_AVAILABLE,
+    title: "Periodo non disponibile",
+    summary: "La finestra selezionata non ha slot promozionali disponibili.",
+    reason:
+      "Il periodo scelto risulta saturo per il placement selezionato. Il GGW Consultant può aiutarti a valutare una finestra alternativa, mantenendo la promo come strumento principale.",
+    level: STRATEGY_LEVEL.STRONG,
+    primaryAction: buildKeepAction("Valuta una finestra alternativa"),
+    secondaryActions: [],
+  };
+}
 function buildAlternativeOpportunityStrategy({ payload = {}, suggestions = {} }) {
   const betterWindow = getBetterWindow(suggestions);
 
