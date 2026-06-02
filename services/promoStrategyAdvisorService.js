@@ -766,8 +766,7 @@ personalization
     demand,
     suggestions,
     payload,
-  }).map(enrichStrategy);
-  const personalization = buildPersonalizationLayer(organizerProfile);
+  }).map((strategy) => enrichStrategy(strategy, personalization));
   return {
     version: ADVISOR_VERSION,
     mode: normalizedMode,
