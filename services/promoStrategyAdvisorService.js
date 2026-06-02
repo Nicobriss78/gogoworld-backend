@@ -671,6 +671,7 @@ function buildPromotionStrategyAdvisor({
   availability = {},
   demand = {},
   suggestions = {},
+  organizerProfile = null,
 } = {}) {
   const normalizedMode = normalizeMode(mode);
   const normalizedPromoStatus = normalizePromoStatus(promoStatus);
