@@ -725,15 +725,17 @@ function enrichAction(action = {}) {
   };
 }
 
-function enrichStrategy(strategy = {}) {
-  return {
-    ...strategy,
-    objective: buildObjective(strategy),
-    primaryAction: enrichAction(strategy.primaryAction),
-    secondaryActions: Array.isArray(strategy.secondaryActions)
-      ? strategy.secondaryActions.map(enrichAction)
-      : [],
-  };
+function enrichStrategy(strategy = {}, personalization = null) {
+const personalizedStrategy = applyBehaviorModifier(strategy, personalization);
+
+return {
+...personalizedStrategy,
+objective: buildObjective(personalizedStrategy),
+primaryAction: enrichAction(personalizedStrategy.primaryAction),
+secondaryActions: Array.isArray(personalizedStrategy.secondaryActions)
+? personalizedStrategy.secondaryActions.map(enrichAction)
+: [],
+};
 }
 
 function buildPromotionStrategyAdvisor({
