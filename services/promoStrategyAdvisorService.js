@@ -677,7 +677,45 @@ function selectPrimaryStrategy({ payload = {}, availability = {}, demand = {}, s
 
   return buildStandardVisibilityStrategy({ availability, demand });
 }
+function appendSentence(text, sentence) {
+  const base = normalizeText(text);
+  const extra = normalizeText(sentence);
 
+  if (!extra) return base;
+  if (!base) return extra;
+
+  return `${base} ${extra}`;
+}
+
+function getBehaviorModifierText(personalization = {}) {
+  if (!personalization || !personalization.enabled) return null;
+
+  if (personalization.promoBehavior === "EXPLORER") {
+    return "Considerando il tuo approccio orientato alla sperimentazione, questa configurazione può aiutarti a valutare nuove opportunità senza stravolgere la strategia principale.";
+  }
+
+  if (personalization.promoBehavior === "SELECTIVE") {
+    return "Questa configurazione mantiene un’impostazione stabile e controllata, coerente con un approccio promozionale più selettivo.";
+  }
+
+  if (personalization.promoBehavior === "DECISIVE") {
+    return "Questa configurazione è pronta per essere utilizzata in modo diretto, mantenendo il focus sull’azione principale.";
+  }
+
+  return null;
+}
+
+function applyBehaviorModifier(strategy = {}, personalization = {}) {
+  const modifierText = getBehaviorModifierText(personalization);
+
+  if (!modifierText) return strategy;
+
+  return {
+    ...strategy,
+    reason: appendSentence(strategy.reason, modifierText),
+    behaviorModifierApplied: true,
+  };
+}
 function enrichAction(action = {}) {
   return {
     label: action.label || "Prosegui",
