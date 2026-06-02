@@ -753,9 +753,12 @@ function buildPromotionStrategyAdvisor({
   const requestedRange = getRequestedRange({ payload, availability });
   const eventWindow = getEventWindow({ payload, availability });
 
-  const primaryStrategy = enrichStrategy(
-    selectPrimaryStrategy({ payload, availability, demand, suggestions })
-  );
+  const personalization = buildPersonalizationLayer(organizerProfile);
+
+const primaryStrategy = enrichStrategy(
+selectPrimaryStrategy({ payload, availability, demand, suggestions }),
+personalization
+);
 
   const alternativeStrategies = buildAlternativeStrategies({
     primaryType: primaryStrategy.type,
