@@ -283,7 +283,42 @@ function buildDetectedFactors({ availability = {}, demand = {}, suggestions = {}
 
   return factors;
 }
+function buildPersonalizationLayer(organizerProfile = null) {
+  const profileAvailable = Boolean(
+    organizerProfile &&
+    organizerProfile.available &&
+    organizerProfile.maturity !== "EMPTY"
+  );
 
+  const budgetCode = organizerProfile?.budgetProfile?.code || null;
+  const promoBehaviorCode = organizerProfile?.promoBehavior?.code || null;
+
+  let tone = "NEUTRAL";
+  let recommendationStyle = "STANDARD";
+
+  if (promoBehaviorCode === "EXPLORER") {
+    tone = "EXPLORATIVE";
+    recommendationStyle = "GUIDED";
+  }
+
+  if (promoBehaviorCode === "SELECTIVE") {
+    tone = "FOCUSED";
+    recommendationStyle = "CONCISE";
+  }
+
+  if (promoBehaviorCode === "DECISIVE") {
+    tone = "CONFIDENT";
+    recommendationStyle = "ACTION_ORIENTED";
+  }
+
+  return {
+    enabled: profileAvailable,
+    budgetProfile: budgetCode,
+    promoBehavior: promoBehaviorCode,
+    tone,
+    recommendationStyle,
+  };
+}
 function buildObjective(strategy = {}) {
   switch (strategy.type) {
     case STRATEGY_TYPE.NO_SLOT_AVAILABLE:
