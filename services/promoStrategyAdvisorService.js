@@ -724,7 +724,7 @@ function buildPromotionStrategyAdvisor({
     suggestions,
     payload,
   }).map(enrichStrategy);
-
+  const personalization = buildPersonalizationLayer(organizerProfile);
   return {
     version: ADVISOR_VERSION,
     mode: normalizedMode,
