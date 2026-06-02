@@ -120,7 +120,62 @@ function getPreferredDuration(averageDuration) {
   if (averageDuration <= 14) return "MEDIUM";
   return "LONG";
 }
+function buildBudgetProfile(averagePromoBudget) {
+  const budget = Number(averagePromoBudget);
 
+  if (!Number.isFinite(budget)) {
+    return null;
+  }
+
+  if (budget < 25) {
+    return {
+      code: "LOW",
+      label: "Budget prudente",
+    };
+  }
+
+  if (budget < 75) {
+    return {
+      code: "MEDIUM",
+      label: "Budget equilibrato",
+    };
+  }
+
+  return {
+    code: "HIGH",
+    label: "Budget importante",
+  };
+}
+
+function buildPromoBehavior({
+  promosCount = 0,
+  paidPromosCount = 0,
+}) {
+  if (!promosCount) {
+    return null;
+  }
+
+  const conversionRate = paidPromosCount / promosCount;
+
+  if (promosCount >= 10 && conversionRate >= 0.65) {
+    return {
+      code: "DECISIVE",
+      label: "Deciso",
+    };
+  }
+
+  if (conversionRate >= 0.70) {
+    return {
+      code: "SELECTIVE",
+      label: "Selettivo",
+    };
+  }
+
+  return {
+    code: "EXPLORER",
+    label: "Esploratore",
+  };
+}
 async function buildOrganizerProfile({ organizerId } = {}) {
   const normalizedOrganizerId = normalizeId(organizerId);
 
