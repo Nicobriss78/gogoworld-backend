@@ -20,6 +20,19 @@ const PROMO_STATUS = {
   ENDED: "ENDED",
 };
 
+const PROMOTION_OBJECTIVE = {
+  RECOVER_UNAVAILABLE_PERIOD: "RECOVER_UNAVAILABLE_PERIOD",
+  USE_BETTER_WINDOW: "USE_BETTER_WINDOW",
+  STRENGTHEN_PROMO_WITH_TRILLI: "STRENGTHEN_PROMO_WITH_TRILLI",
+  SECURE_LIMITED_SPACE: "SECURE_LIMITED_SPACE",
+  STAND_OUT_IN_COMPETITION: "STAND_OUT_IN_COMPETITION",
+  FINAL_EVENT_PUSH: "FINAL_EVENT_PUSH",
+  MAINTAIN_EXTENDED_VISIBILITY: "MAINTAIN_EXTENDED_VISIBILITY",
+  FOCUS_VISIBILITY: "FOCUS_VISIBILITY",
+  BUILD_EARLY_VISIBILITY: "BUILD_EARLY_VISIBILITY",
+  BALANCED_VISIBILITY: "BALANCED_VISIBILITY",
+};
+
 const STRATEGY_TYPE = {
   NO_SLOT_AVAILABLE: "NO_SLOT_AVAILABLE",
   ALTERNATIVE_OPPORTUNITY: "ALTERNATIVE_OPPORTUNITY",
@@ -84,14 +97,10 @@ function normalizeText(value) {
 }
 
 function getRequestedRange({ payload = {}, availability = {} }) {
-  const activeFrom = availability.activeFrom || payload.activeFrom || null;
-  const activeTo = availability.activeTo || payload.activeTo || null;
-  const durationDays = Number(availability.durationDays || 0);
-
   return {
-    activeFrom,
-    activeTo,
-    durationDays,
+    activeFrom: availability.activeFrom || payload.activeFrom || null,
+    activeTo: availability.activeTo || payload.activeTo || null,
+    durationDays: Number(availability.durationDays || 0),
   };
 }
 
@@ -273,6 +282,90 @@ function buildDetectedFactors({ availability = {}, demand = {}, suggestions = {}
   }
 
   return factors;
+}
+
+function buildObjective(strategy = {}) {
+  switch (strategy.type) {
+    case STRATEGY_TYPE.NO_SLOT_AVAILABLE:
+      return {
+        code: PROMOTION_OBJECTIVE.RECOVER_UNAVAILABLE_PERIOD,
+        title: "Recuperare visibilità nonostante il periodo saturo",
+        description:
+          "L’obiettivo è aiutare l’organizer a non fermarsi davanti a una finestra non disponibile, orientandolo verso una scelta alternativa o di supporto.",
+      };
+
+    case STRATEGY_TYPE.ALTERNATIVE_OPPORTUNITY:
+      return {
+        code: PROMOTION_OBJECTIVE.USE_BETTER_WINDOW,
+        title: "Sfruttare una finestra più favorevole",
+        description:
+          "L’obiettivo è ridurre lo sforzo decisionale proponendo una finestra più utile, disponibile e coerente con i vincoli dell’evento.",
+      };
+
+    case STRATEGY_TYPE.PROMO_PLUS_TRILLI:
+      return {
+        code: PROMOTION_OBJECTIVE.STRENGTHEN_PROMO_WITH_TRILLI,
+        title: "Rafforzare la promo nei momenti più utili",
+        description:
+          "L’obiettivo è mantenere la promozione come strumento principale e affiancarle un supporto live quando la pressione del periodo lo rende utile.",
+      };
+
+    case STRATEGY_TYPE.LIMITED_AVAILABILITY:
+      return {
+        code: PROMOTION_OBJECTIVE.SECURE_LIMITED_SPACE,
+        title: "Bloccare uno spazio promozionale residuo",
+        description:
+          "L’obiettivo è aiutare l’organizer a prendere una decisione quando lo spazio disponibile è ancora utilizzabile ma ridotto.",
+      };
+
+    case STRATEGY_TYPE.HIGH_COMPETITION:
+      return {
+        code: PROMOTION_OBJECTIVE.STAND_OUT_IN_COMPETITION,
+        title: "Distinguersi in un periodo competitivo",
+        description:
+          "L’obiettivo è aiutare la promo a emergere anche quando sono presenti altre promozioni attive o programmate.",
+      };
+
+    case STRATEGY_TYPE.FINAL_PUSH:
+      return {
+        code: PROMOTION_OBJECTIVE.FINAL_EVENT_PUSH,
+        title: "Concentrare l’attenzione vicino all’evento",
+        description:
+          "L’obiettivo è usare la promo come richiamo finale nei giorni più vicini alla data dell’evento.",
+      };
+
+    case STRATEGY_TYPE.COVERAGE_EXTENDED:
+      return {
+        code: PROMOTION_OBJECTIVE.MAINTAIN_EXTENDED_VISIBILITY,
+        title: "Mantenere visibilità costante",
+        description:
+          "L’obiettivo è distribuire la presenza promozionale nel tempo per accompagnare l’evento fino alla fase finale.",
+      };
+
+    case STRATEGY_TYPE.FOCUSED_COVERAGE:
+      return {
+        code: PROMOTION_OBJECTIVE.FOCUS_VISIBILITY,
+        title: "Concentrare la visibilità",
+        description:
+          "L’obiettivo è concentrare l’impatto della promo in una finestra più compatta e riconoscibile.",
+      };
+
+    case STRATEGY_TYPE.DISTRIBUTED_VISIBILITY:
+      return {
+        code: PROMOTION_OBJECTIVE.BUILD_EARLY_VISIBILITY,
+        title: "Costruire visibilità anticipata",
+        description:
+          "L’obiettivo è iniziare a dare presenza all’evento con anticipo, preparando il pubblico prima della fase finale.",
+      };
+
+    default:
+      return {
+        code: PROMOTION_OBJECTIVE.BALANCED_VISIBILITY,
+        title: "Mantenere una promozione equilibrata",
+        description:
+          "L’obiettivo è confermare una scelta coerente quando disponibilità e pressione risultano gestibili.",
+      };
+  }
 }
 
 function buildNoSlotAvailableStrategy({ payload = {}, suggestions = {} } = {}) {
@@ -562,6 +655,7 @@ function enrichAction(action = {}) {
 function enrichStrategy(strategy = {}) {
   return {
     ...strategy,
+    objective: buildObjective(strategy),
     primaryAction: enrichAction(strategy.primaryAction),
     secondaryActions: Array.isArray(strategy.secondaryActions)
       ? strategy.secondaryActions.map(enrichAction)
@@ -582,6 +676,7 @@ function buildPromotionStrategyAdvisor({
   const normalizedPromoStatus = normalizePromoStatus(promoStatus);
   const requestedRange = getRequestedRange({ payload, availability });
   const eventWindow = getEventWindow({ payload, availability });
+
   const primaryStrategy = enrichStrategy(
     selectPrimaryStrategy({ payload, availability, demand, suggestions })
   );
@@ -599,6 +694,7 @@ function buildPromotionStrategyAdvisor({
     mode: normalizedMode,
     promoStatus: normalizedPromoStatus,
     generatedAt: new Date().toISOString(),
+    objective: primaryStrategy.objective,
     context: {
       placement: payload.placement || availability.placement || null,
       geoTarget:
@@ -626,6 +722,7 @@ module.exports = {
   ADVISOR_VERSION,
   ADVISOR_MODE,
   PROMO_STATUS,
+  PROMOTION_OBJECTIVE,
   STRATEGY_TYPE,
   STRATEGY_LEVEL,
   ACTION_TYPE,
