@@ -731,8 +731,9 @@ function buildPromotionStrategyAdvisor({
     promoStatus: normalizedPromoStatus,
     generatedAt: new Date().toISOString(),
     objective: primaryStrategy.objective,
-    organizerProfile,
-    context: {
+organizerProfile,
+personalization,
+context: {
       placement: payload.placement || availability.placement || null,
       geoTarget:
         pricing?.normalizedTarget ||
