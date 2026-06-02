@@ -46,7 +46,20 @@ const ACTION_TYPE = {
   OPEN_KNOWLEDGE_CENTER: "OPEN_KNOWLEDGE_CENTER",
 };
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+const ALTERNATIVE_LIMIT = 3;
+
+const STRATEGY_PRIORITY = {
+  [STRATEGY_TYPE.NO_SLOT_AVAILABLE]: 100,
+  [STRATEGY_TYPE.ALTERNATIVE_OPPORTUNITY]: 90,
+  [STRATEGY_TYPE.PROMO_PLUS_TRILLI]: 80,
+  [STRATEGY_TYPE.LIMITED_AVAILABILITY]: 70,
+  [STRATEGY_TYPE.HIGH_COMPETITION]: 60,
+  [STRATEGY_TYPE.FINAL_PUSH]: 50,
+  [STRATEGY_TYPE.COVERAGE_EXTENDED]: 40,
+  [STRATEGY_TYPE.FOCUSED_COVERAGE]: 30,
+  [STRATEGY_TYPE.DISTRIBUTED_VISIBILITY]: 20,
+  [STRATEGY_TYPE.STANDARD_VISIBILITY]: 10,
+};
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, Number(value || 0)));
@@ -66,20 +79,8 @@ function normalizePromoStatus(value) {
   return Object.values(PROMO_STATUS).includes(status) ? status : PROMO_STATUS.DRAFT;
 }
 
-function startOfUtcDay(value) {
-  const date = value instanceof Date ? new Date(value) : new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  date.setUTCHours(0, 0, 0, 0);
-  return date;
-}
-
-function getUtcDayDistance(from, to) {
-  const start = startOfUtcDay(from);
-  const end = startOfUtcDay(to);
-
-  if (!start || !end) return null;
-
-  return Math.round((end.getTime() - start.getTime()) / DAY_MS);
+function normalizeText(value) {
+  return String(value || "").trim();
 }
 
 function getRequestedRange({ payload = {}, availability = {} }) {
@@ -121,27 +122,35 @@ function getAvailabilityStatus(availability = {}) {
     availability.status || availability.availabilityLevel || availability.availabilityStatus || ""
   ).toUpperCase();
 }
+
 function isNoSlotAvailable(availability = {}) {
   const status = getAvailabilityStatus(availability);
+  const totalDays = Number(availability.totalDays || availability.requestedDays || 0);
+  const blockedDays = Number(availability.blockedCount || availability.fullDaysCount || 0);
+  const availableDays = Number(availability.availableCount || availability.availableDaysCount || 0);
 
   return (
     availability.available === false &&
     (
       status === "UNAVAILABLE" ||
-      Number(availability.availableCount || availability.availableDaysCount || 0) === 0 ||
-      Number(availability.blockedCount || availability.fullDaysCount || 0) >=
-        Number(availability.totalDays || availability.requestedDays || 1)
+      availableDays === 0 ||
+      (totalDays > 0 && blockedDays >= totalDays)
     )
   );
 }
+
 function isLimitedAvailability(availability = {}) {
+  if (isNoSlotAvailable(availability)) return false;
+
   const status = getAvailabilityStatus(availability);
+  const threshold = Number(availability.lowAvailabilityThreshold || 0);
+  const remainingMinSlots = Number(availability.remainingMinSlots || 0);
 
   return (
     status === "LOW_AVAILABILITY" ||
     status === "PARTIALLY_AVAILABLE" ||
     Number(availability.limitedDaysCount || availability.limitedCount || 0) > 0 ||
-    Number(availability.remainingMinSlots || 0) <= Number(availability.lowAvailabilityThreshold || 0)
+    (threshold > 0 && remainingMinSlots > 0 && remainingMinSlots <= threshold)
   );
 }
 
@@ -206,12 +215,14 @@ function buildTrillAction(label = "Valuta supporto Trilli") {
 
 function buildDetectedFactors({ availability = {}, demand = {}, suggestions = {} }) {
   const factors = [];
-if (isNoSlotAvailable(availability)) {
+
+  if (isNoSlotAvailable(availability)) {
     factors.push({
       type: STRATEGY_TYPE.NO_SLOT_AVAILABLE,
       label: "Nessuno slot disponibile",
     });
-}
+  }
+
   if (isHighCompetition(demand)) {
     factors.push({
       type: STRATEGY_TYPE.HIGH_COMPETITION,
@@ -263,18 +274,33 @@ if (isNoSlotAvailable(availability)) {
 
   return factors;
 }
-function buildNoSlotAvailableStrategy() {
+
+function buildNoSlotAvailableStrategy({ payload = {}, suggestions = {} } = {}) {
+  const betterWindow = getBetterWindow(suggestions);
+  const hasAlternativeWindow = Boolean(betterWindow?.activeFrom && betterWindow?.activeTo);
+
   return {
     type: STRATEGY_TYPE.NO_SLOT_AVAILABLE,
     title: "Periodo non disponibile",
     summary: "La finestra selezionata non ha slot promozionali disponibili.",
-    reason:
-      "Il periodo scelto risulta saturo per il placement selezionato. Il GGW Consultant può aiutarti a valutare una finestra alternativa, mantenendo la promo come strumento principale.",
+    reason: hasAlternativeWindow
+      ? "Il periodo scelto risulta saturo, ma il GGW Consultant ha individuato una finestra alternativa utilizzabile."
+      : "Il periodo scelto risulta saturo per il placement selezionato. Il GGW Consultant può aiutarti a valutare una finestra alternativa, mantenendo la promo come strumento principale.",
     level: STRATEGY_LEVEL.STRONG,
-    primaryAction: buildKeepAction("Valuta una finestra alternativa"),
-    secondaryActions: [],
+    primaryAction: hasAlternativeWindow
+      ? buildApplyFieldsAction({
+          label: "Usa finestra alternativa",
+          payload: {
+            activeFrom: betterWindow.activeFrom,
+            activeTo: betterWindow.activeTo,
+            placement: payload.placement || null,
+          },
+        })
+      : buildKeepAction("Valuta una finestra alternativa"),
+    secondaryActions: hasAlternativeWindow ? [buildKeepAction("Mantieni il periodo scelto")] : [],
   };
 }
+
 function buildAlternativeOpportunityStrategy({ payload = {}, suggestions = {} }) {
   const betterWindow = getBetterWindow(suggestions);
 
@@ -406,28 +432,88 @@ function buildStandardVisibilityStrategy({ availability = {}, demand = {} }) {
   };
 }
 
-function buildAlternativeStrategies({ primaryType, availability = {}, demand = {}, suggestions = {}, payload = {} }) {
+function getStrategyPriority(strategy = {}) {
+  return STRATEGY_PRIORITY[strategy.type] || 0;
+}
+
+function hasMeaningfulAction(action = {}) {
+  return Boolean(normalizeText(action.label) && normalizeText(action.action));
+}
+
+function isMeaningfulStrategy(strategy = {}) {
+  if (!strategy || typeof strategy !== "object") return false;
+
+  const title = normalizeText(strategy.title);
+  const summary = normalizeText(strategy.summary);
+  const reason = normalizeText(strategy.reason);
+
+  if (!strategy.type || !title) return false;
+  if (title === "Strategia alternativa" && !summary && !reason) return false;
+
+  return Boolean(summary || reason || hasMeaningfulAction(strategy.primaryAction));
+}
+
+function dedupeStrategies(strategies = []) {
+  const seen = new Set();
+  const result = [];
+
+  strategies.forEach((strategy) => {
+    const key = strategy?.type || strategy?.title;
+    if (!key || seen.has(key)) return;
+
+    seen.add(key);
+    result.push(strategy);
+  });
+
+  return result;
+}
+
+function rankAlternativeStrategies(strategies = []) {
+  return strategies
+    .slice()
+    .sort((a, b) => getStrategyPriority(b) - getStrategyPriority(a))
+    .map((strategy, index) => ({
+      ...strategy,
+      alternativeRank: index + 1,
+      alternativeLabel: index === 0 ? "Alternativa consigliata" : "Altra opzione disponibile",
+      recommendedAlternative: index === 0,
+    }));
+}
+
+function buildAlternativeStrategies({
+  primaryType,
+  availability = {},
+  demand = {},
+  suggestions = {},
+  payload = {},
+}) {
+  const noSlotAvailable = isNoSlotAvailable(availability);
+
   const candidates = [
-  isNoSlotAvailable(availability) ? buildNoSlotAvailableStrategy() : null,
-  buildAlternativeOpportunityStrategy({ payload, suggestions }),({ payload, suggestions }),
+    buildAlternativeOpportunityStrategy({ payload, suggestions }),
+    noSlotAvailable ? null : isLimitedAvailability(availability) ? buildLimitedAvailabilityStrategy() : null,
     isHighCompetition(demand) && hasSuggestionItem(suggestions, "TRILL_SUPPORT")
       ? buildPromoPlusTrilliStrategy()
       : null,
-    isLimitedAvailability(availability) ? buildLimitedAvailabilityStrategy() : null,
     isHighCompetition(demand) ? buildHighCompetitionStrategy() : null,
     hasSuggestionItem(suggestions, "FINAL_PUSH") ? buildFinalPushStrategy() : null,
     hasSuggestionItem(suggestions, "COVERAGE_EXTENSION") ? buildCoverageExtendedStrategy() : null,
     hasSuggestionItem(suggestions, "COVERAGE_COMPACT") ? buildFocusedCoverageStrategy() : null,
     hasSuggestionItem(suggestions, "EARLY_VISIBILITY") ? buildDistributedVisibilityStrategy() : null,
-  ].filter(Boolean);
+  ];
 
-  return candidates.filter((strategy) => strategy.type !== primaryType);
+  const filtered = dedupeStrategies(candidates)
+    .filter(Boolean)
+    .filter((strategy) => strategy.type !== primaryType)
+    .filter((strategy) => strategy.type !== STRATEGY_TYPE.STANDARD_VISIBILITY)
+    .filter(isMeaningfulStrategy);
+
+  return rankAlternativeStrategies(filtered).slice(0, ALTERNATIVE_LIMIT);
 }
 
 function selectPrimaryStrategy({ payload = {}, availability = {}, demand = {}, suggestions = {} }) {
   if (isNoSlotAvailable(availability)) {
-    const alternativeOpportunity = buildAlternativeOpportunityStrategy({ payload, suggestions });
-    return alternativeOpportunity || buildNoSlotAvailableStrategy();
+    return buildNoSlotAvailableStrategy({ payload, suggestions });
   }
 
   const alternativeOpportunity = buildAlternativeOpportunityStrategy({ payload, suggestions });
@@ -500,6 +586,14 @@ function buildPromotionStrategyAdvisor({
     selectPrimaryStrategy({ payload, availability, demand, suggestions })
   );
 
+  const alternativeStrategies = buildAlternativeStrategies({
+    primaryType: primaryStrategy.type,
+    availability,
+    demand,
+    suggestions,
+    payload,
+  }).map(enrichStrategy);
+
   return {
     version: ADVISOR_VERSION,
     mode: normalizedMode,
@@ -517,17 +611,11 @@ function buildPromotionStrategyAdvisor({
     },
     primaryStrategy,
     detectedFactors: buildDetectedFactors({ availability, demand, suggestions }),
-    alternativeStrategies: buildAlternativeStrategies({
-      primaryType: primaryStrategy.type,
-      availability,
-      demand,
-      suggestions,
-      payload,
-    }).map(enrichStrategy),
+    alternativeStrategies,
     knowledgeLinks: buildKnowledgeLinks(),
     ui: {
       showAdvisor: true,
-      showAlternativeStrategiesCta: true,
+      showAlternativeStrategiesCta: alternativeStrategies.length > 0,
       alternativeStrategiesCtaLabel: "Mostra strategie alternative",
       showConfidencePercentage: false,
     },
