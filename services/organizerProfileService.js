@@ -251,11 +251,25 @@ async function buildOrganizerProfile({ organizerId } = {}) {
     organizerId: normalizedOrganizerId,
 
     eventStyle: null,
-    promoBehavior: null,
-    budgetProfile: null,
-    preferredPlacement: getPreferredPlacement(preferredPlacements),
-    preferredDuration: getPreferredDuration(averagePromoDurationDays),
-    trillAffinity: null,
+
+promoBehavior: buildPromoBehavior({
+  promosCount,
+  paidPromosCount,
+}),
+
+budgetProfile: buildBudgetProfile(
+  averagePromoBudget
+),
+
+preferredPlacement: getPreferredPlacement(
+  preferredPlacements
+),
+
+preferredDuration: getPreferredDuration(
+  averagePromoDurationDays
+),
+
+trillAffinity: null,
 
     signals: {
       eventsCount,
