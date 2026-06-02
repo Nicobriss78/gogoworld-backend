@@ -1158,6 +1158,11 @@ const suggestions = await generatePromoSuggestions({
   demand,
   checkAvailability: checkPromoAvailability,
 });
+
+const organizerProfile = await buildOrganizerProfile({
+  organizerId: req.user && req.user._id ? req.user._id : req.user?.id,
+});
+
 const advisor = buildPromotionStrategyAdvisor({
   mode: "CREATE",
   promoStatus: "DRAFT",
