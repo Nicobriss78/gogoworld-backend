@@ -1171,6 +1171,7 @@ const advisor = buildPromotionStrategyAdvisor({
   availability,
   demand,
   suggestions,
+  organizerProfile,
 });
 return res.json({
 ok: true,
