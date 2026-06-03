@@ -106,8 +106,8 @@ function normalizeArea(qs) {
   return { placement, country, region };
 }
 function buildBannerClickUrl(bannerId) {
-  const id = String(bannerId || "").trim();
-  return id ? `/api/banners/${encodeURIComponent(id)}/click?redirect=1` : "";
+const id = String(bannerId || "").trim();
+return id ? `/api/banners/${encodeURIComponent(id)}/click?redirect=1` : "";
 }
 // Filtro “time active”
 function timeActiveFilter() {
