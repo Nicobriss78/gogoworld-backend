@@ -316,6 +316,7 @@ exports.getActiveBannersBatch = async (req, res) => {
       title: b.title,
       imageUrl: b.imageUrl,
       targetUrl: b.targetUrl,
+      clickUrl: buildBannerClickUrl(b._id),
       placement: b.placement,
       country: b.country || null,
       region: b.region || null,
