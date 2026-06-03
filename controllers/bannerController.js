@@ -105,7 +105,10 @@ function normalizeArea(qs) {
   const region = qs.region ? String(qs.region).trim() : undefined;
   return { placement, country, region };
 }
-
+function buildBannerClickUrl(bannerId) {
+  const id = String(bannerId || "").trim();
+  return id ? `/api/banners/${encodeURIComponent(id)}/click?redirect=1` : "";
+}
 // Filtro “time active”
 function timeActiveFilter() {
   return Banner.timeActiveFilter(new Date());
@@ -114,8 +117,7 @@ function timeActiveFilter() {
 // Filtro targeting area: match se (campo non valorizzato) O (campo == richiesta)
 function areaFilter(country, region) {
   const clauses = [];
-  if (country) {
-    clauses.push({ $or: [{ country: null }, { country }] });
+  if (country) { country: null }, { country }] });
   }
   if (region) {
     clauses.push({ $or: [{ region: null }, { region }] });
