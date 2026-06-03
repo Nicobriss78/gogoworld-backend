@@ -117,11 +117,15 @@ function timeActiveFilter() {
 // Filtro targeting area: match se (campo non valorizzato) O (campo == richiesta)
 function areaFilter(country, region) {
   const clauses = [];
-  if (country) { country: null }, { country }] });
+
+  if (country) {
+    clauses.push({ $or: [{ country: null }, { country }] });
   }
+
   if (region) {
     clauses.push({ $or: [{ region: null }, { region }] });
   }
+
   return clauses.length ? { $and: clauses } : {};
 }
 
