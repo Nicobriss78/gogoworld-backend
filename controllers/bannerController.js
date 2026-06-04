@@ -369,6 +369,29 @@ exports.clickBanner = async (req, res) => {
     return res.status(500).json({ ok: false, error: "internal_error" });
   }
 };
+exports.viewBanner = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({ ok: false, error: "id is required" });
+    }
+
+    const banner = await Banner.findById(id).select("_id").lean();
+
+    if (!banner) {
+      return res.status(404).json({ ok: false, error: "not_found" });
+    }
+
+    touchDailyStat(id, "impressions").catch(() => {});
+    incTotals(id, "impressions").catch(() => {});
+
+    return res.status(204).send();
+  } catch (err) {
+    logger.error("[Banner] viewBanner error:", err);
+    return res.status(500).json({ ok: false, error: "internal_error" });
+  }
+};
 // ------------------------------------------------------------------
 // B1/2 — CRUD & Moderazione
 // ------------------------------------------------------------------
