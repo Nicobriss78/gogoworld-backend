@@ -250,6 +250,7 @@ exports.getActiveBanners = async (req, res) => {
         imageUrl: picked.imageUrl,
         targetUrl: picked.targetUrl,
         clickUrl: buildBannerClickUrl(picked._id),
+        viewUrl: buildBannerViewUrl(picked._id),
         placement: picked.placement,
         country: picked.country || null,
         region: picked.region || null,
