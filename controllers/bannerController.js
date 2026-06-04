@@ -109,6 +109,10 @@ function buildBannerClickUrl(bannerId) {
 const id = String(bannerId || "").trim();
 return id ? `/api/banners/${encodeURIComponent(id)}/click?redirect=1` : "";
 }
+function buildBannerViewUrl(bannerId) {
+  const id = String(bannerId || "").trim();
+  return id ? `/api/banners/${encodeURIComponent(id)}/view` : "";
+}
 // Filtro “time active”
 function timeActiveFilter() {
   return Banner.timeActiveFilter(new Date());
