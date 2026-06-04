@@ -57,6 +57,12 @@ router.get(
   bannerClickLimiter,
   bannerController.clickBanner
 );
+// Registra view reale su un banner
+router.post(
+  "/:id/view",
+  bannerClickLimiter,
+  bannerController.viewBanner
+);
 // ------------------------------------------------------------------
 // Organizer: lista dei MIEI banner
 // ------------------------------------------------------------------
