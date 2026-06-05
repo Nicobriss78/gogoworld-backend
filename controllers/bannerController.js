@@ -396,6 +396,47 @@ exports.viewBanner = async (req, res) => {
     return res.status(500).json({ ok: false, error: "internal_error" });
   }
 };
+exports.createCampaignSnapshotAdmin = async (req, res) => {
+  if (!requireRole(req, res, ["admin"])) return;
+
+  try {
+    const result = await createCampaignSnapshotForBanner(req.params.id);
+
+    return res.status(result.created ? 201 : 200).json({
+      ok: true,
+      created: result.created,
+      data: result.snapshot,
+    });
+  } catch (err) {
+    logger.error("[Banner] createCampaignSnapshotAdmin error:", err);
+    return res.status(err.statusCode || 500).json({
+      ok: false,
+      error: err.code || "campaign_snapshot_error",
+      message: err.message || "Campaign snapshot error",
+    });
+  }
+};
+
+exports.processEndedCampaignSnapshotsAdmin = async (req, res) => {
+  if (!requireRole(req, res, ["admin"])) return;
+
+  try {
+    const limit = req.body?.limit || req.query?.limit;
+    const result = await processEndedCampaignSnapshots({ limit });
+
+    return res.json({
+      ok: true,
+      data: result,
+    });
+  } catch (err) {
+    logger.error("[Banner] processEndedCampaignSnapshotsAdmin error:", err);
+    return res.status(500).json({
+      ok: false,
+      error: err.code || "campaign_snapshot_process_error",
+      message: err.message || "Campaign snapshot process error",
+    });
+  }
+};
 // ------------------------------------------------------------------
 // B1/2 — CRUD & Moderazione
 // ------------------------------------------------------------------
