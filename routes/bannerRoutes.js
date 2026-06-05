@@ -117,6 +117,26 @@ authorize("organizer", "admin"),
 RL.submit,
 bannerController.analyzeBannerRequest
 );
+// Admin — Campaign Memory Engine V0: crea snapshot per tutte le promo concluse non ancora memorizzate
+router.post(
+  "/campaign-snapshots/process-ended",
+  adminLimiter,
+  protect,
+  RL.adminModerate,
+  authorize("admin"),
+  bannerController.processEndedCampaignSnapshotsAdmin
+);
+
+// Admin — Campaign Memory Engine V0: crea snapshot storico per una singola promo conclusa
+router.post(
+  "/:id/campaign-snapshot",
+  adminLimiter,
+  protect,
+  RL.adminModerate,
+  authorize("admin"),
+  bannerController.createCampaignSnapshotAdmin
+);
+
 router.post(
 "/:id/mark-paid",
 adminLimiter,
