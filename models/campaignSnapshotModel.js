@@ -31,7 +31,11 @@ const campaignSnapshotSchema = new mongoose.Schema(
       default: "COMPLETED",
       index: true,
     },
-
+    snapshotVersion: {
+    type: Number,
+    default: 1,
+    index: true,
+   },
     metrics: {
       impressions: { type: Number, default: 0 },
       clicks: { type: Number, default: 0 },
