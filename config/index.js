@@ -34,6 +34,12 @@ const config = {
   IMMINENT_HOURS: Number(process.env.IMMINENT_HOURS || 72),
   SHOW_CONCLUDED_HOURS: Number(process.env.SHOW_CONCLUDED_HOURS || 12),
 
+  // Campaign Memory Engine V1 — scheduler automatico snapshot promo concluse
+  CAMPAIGN_MEMORY_SCHEDULER_ENABLED: process.env.CAMPAIGN_MEMORY_SCHEDULER_ENABLED || "false",
+  CAMPAIGN_MEMORY_SCHEDULER_INTERVAL_MS: Number(process.env.CAMPAIGN_MEMORY_SCHEDULER_INTERVAL_MS || 86400000),
+  CAMPAIGN_MEMORY_SCHEDULER_STARTUP_DELAY_MS: Number(process.env.CAMPAIGN_MEMORY_SCHEDULER_STARTUP_DELAY_MS || 60000),
+  CAMPAIGN_MEMORY_SCHEDULER_LIMIT: Number(process.env.CAMPAIGN_MEMORY_SCHEDULER_LIMIT || 25),
+
   // Future placeholders (non usati ora, per compat con Starter)
   EMAIL_PROVIDER: process.env.EMAIL_PROVIDER || "",
   EMAIL_FROM: process.env.EMAIL_FROM || "",
