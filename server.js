@@ -60,6 +60,13 @@ dbReady.then(async () => {
   } catch (e) {
     logger.warn("⚠️ Review index sync failed:", e?.message || e);
   }
+
+  try {
+    const { startCampaignMemoryScheduler } = require("./services/campaignMemoryScheduler");
+    startCampaignMemoryScheduler();
+  } catch (e) {
+    logger.error("❌ Campaign Memory scheduler init failed:", e?.message || e);
+  }
 });
 
 // Parser
