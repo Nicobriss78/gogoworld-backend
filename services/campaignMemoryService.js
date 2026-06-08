@@ -3,7 +3,7 @@
 
 const { Banner, BannerStatsDaily } = require("../models/bannerModel");
 const { CampaignSnapshot } = require("../models/campaignSnapshotModel");
-
+const { buildCampaignOutcomeScore } = require("./campaignOutcomeScoreService");
 function calculateCtr(clicks, impressions) {
   const safeClicks = Number(clicks || 0);
   const safeImpressions = Number(impressions || 0);
