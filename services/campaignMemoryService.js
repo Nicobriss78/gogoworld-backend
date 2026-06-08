@@ -87,13 +87,16 @@ function buildSnapshotPayload({ banner, dailyStats, nowDate }) {
       tags: [],
     },
 
-    outcome: {
-      visibilityScore: null,
-      engagementScore: null,
-      participationScore: null,
-      followerScore: null,
-      overallScore: null,
-    },
+    outcome: buildCampaignOutcomeScore({
+      metrics: {
+        impressions,
+        clicks,
+        ctr: calculateCtr(clicks, impressions),
+      },
+      placement: {
+        geoScope: banner.geoScope || null,
+      },
+    }),
   };
 }
 
