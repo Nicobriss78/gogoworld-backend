@@ -440,6 +440,32 @@ exports.processEndedCampaignSnapshotsAdmin = async (req, res) => {
     });
   }
 };
+exports.getCampaignAnalyticsAdmin = async (req, res) => {
+  if (!requireRole(req, res, ["admin"])) return;
+
+  try {
+    const analytics = await buildCampaignAnalytics({
+      organizerId: req.query?.organizerId,
+      eventId: req.query?.eventId,
+      country: req.query?.country,
+      region: req.query?.region,
+      placement: req.query?.placement,
+      limit: req.query?.limit,
+    });
+
+    return res.json({
+      ok: true,
+      data: analytics,
+    });
+  } catch (err) {
+    logger.error("[Banner] getCampaignAnalyticsAdmin error:", err);
+    return res.status(err.statusCode || 500).json({
+      ok: false,
+      error: err.code || "campaign_analytics_error",
+      message: err.message || "Campaign analytics error",
+    });
+  }
+};
 // ------------------------------------------------------------------
 // B1/2 — CRUD & Moderazione
 // ------------------------------------------------------------------
