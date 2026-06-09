@@ -126,7 +126,15 @@ router.post(
   authorize("admin"),
   bannerController.processEndedCampaignSnapshotsAdmin
 );
-
+// Admin — Campaign Analytics Engine V1: legge CampaignSnapshot e produce insight on-demand
+router.get(
+  "/campaign-analytics",
+  adminLimiter,
+  protect,
+  RL.adminList,
+  authorize("admin"),
+  bannerController.getCampaignAnalyticsAdmin
+);
 // Admin — Campaign Memory Engine V0: crea snapshot storico per una singola promo conclusa
 router.post(
   "/:id/campaign-snapshot",
