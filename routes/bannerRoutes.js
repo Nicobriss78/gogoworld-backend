@@ -135,6 +135,15 @@ router.get(
   authorize("admin"),
   bannerController.getCampaignAnalyticsAdmin
 );
+// Admin — Personal Intelligence Engine V1: analisi storica campagne per singolo organizer
+router.get(
+  "/campaign-intelligence/organizers/:organizerId",
+  adminLimiter,
+  protect,
+  RL.adminList,
+  authorize("admin"),
+  bannerController.getOrganizerCampaignIntelligenceAdmin
+);
 // Admin — Campaign Memory Engine V0: crea snapshot storico per una singola promo conclusa
 router.post(
   "/:id/campaign-snapshot",
