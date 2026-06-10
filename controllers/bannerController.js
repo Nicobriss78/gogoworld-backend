@@ -495,6 +495,35 @@ exports.getOrganizerCampaignIntelligenceAdmin = async (req, res) => {
     });
   }
 };
+exports.getCollectiveCampaignIntelligenceAdmin = async (req, res) => {
+  if (!requireRole(req, res, ["admin"])) return;
+
+  try {
+    const analytics = await buildCampaignAnalytics({
+      country: req.query?.country,
+      region: req.query?.region,
+      placement: req.query?.placement,
+      limit: req.query?.limit || 500,
+    });
+
+    return res.json({
+      ok: true,
+      data: {
+        intelligenceType: "COLLECTIVE_CAMPAIGN_INTELLIGENCE_V1",
+        generatedAt: new Date(),
+        analytics,
+      },
+    });
+  } catch (err) {
+    logger.error("[Banner] getCollectiveCampaignIntelligenceAdmin error:", err);
+
+    return res.status(err.statusCode || 500).json({
+      ok: false,
+      error: err.code || "collective_campaign_intelligence_error",
+      message: err.message || "Collective campaign intelligence error",
+    });
+  }
+};
 // ------------------------------------------------------------------
 // B1/2 — CRUD & Moderazione
 // ------------------------------------------------------------------
