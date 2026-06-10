@@ -138,6 +138,14 @@ router.get(
 // Admin — Personal Intelligence Engine V1: analisi storica campagne per singolo organizer
 router.get(
   "/campaign-intelligence/organizers/:organizerId",
+  router.get(
+  "/campaign-intelligence/collective",
+  adminLimiter,
+  protect,
+  RL.adminList,
+  authorize("admin"),
+  bannerController.getCollectiveCampaignIntelligenceAdmin
+);
   adminLimiter,
   protect,
   RL.adminList,
