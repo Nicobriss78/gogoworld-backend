@@ -1,5 +1,5 @@
 // backend/services/campaignAnalyticsService.js
-// Campaign Analytics Engine V1 — lettura on-demand degli snapshot storici promo
+// Campaign Analytics Engine V1.5 — lettura on-demand e insight personali dagli snapshot storici promo
 
 const mongoose = require("mongoose");
 const { CampaignSnapshot } = require("../models/campaignSnapshotModel");
@@ -8,6 +8,7 @@ const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 500;
 const TOP_LIMIT = 5;
 const MIN_SAMPLE_SIZE_FOR_RANKING = 1;
+const MIN_SAMPLE_SIZE_FOR_CONFIDENT_INSIGHT = 3;
 
 function toNumber(value, fallback = 0) {
   const number = Number(value);
@@ -66,10 +67,28 @@ function getDurationBucket(durationDays) {
   return "15_plus_days";
 }
 
+function getCtrBucket(ctr) {
+  const value = Number(ctr);
+  if (!Number.isFinite(value) || value <= 0) return "0_ctr";
+  if (value < 1) return "0_1_ctr";
+  if (value < 3) return "1_3_ctr";
+  if (value < 5) return "3_5_ctr";
+  if (value < 10) return "5_10_ctr";
+  return "10_plus_ctr";
+}
+
+function getVisibilityBucket(impressions) {
+  const value = Number(impressions);
+  if (!Number.isFinite(value) || value <= 0) return "0_impressions";
+  if (value <= 50) return "1_50_impressions";
+  if (value <= 200) return "51_200_impressions";
+  if (value <= 500) return "201_500_impressions";
+  if (value <= 1000) return "501_1000_impressions";
+  return "1000_plus_impressions";
+}
+
 function buildFilter(filters = {}) {
-  const query = {
-    snapshotStatus: "COMPLETED",
-  };
+  const query = { snapshotStatus: "COMPLETED" };
 
   const organizerId = normalizeObjectId(filters.organizerId, "organizerId");
   if (organizerId) query.organizerId = organizerId;
@@ -142,9 +161,7 @@ function buildTotals(campaigns) {
     clicks: totals.clicks,
     ctr: totals.impressions > 0 ? roundMetric((totals.clicks / totals.impressions) * 100) : 0,
     averageOverallScore:
-      totals.overallScoreCount > 0
-        ? roundMetric(totals.overallScoreSum / totals.overallScoreCount)
-        : null,
+      totals.overallScoreCount > 0 ? roundMetric(totals.overallScoreSum / totals.overallScoreCount) : null,
   };
 }
 
@@ -189,9 +206,7 @@ function buildGroupAnalytics(campaigns, keyGetter) {
       clicks: group.clicks,
       ctr: group.impressions > 0 ? roundMetric((group.clicks / group.impressions) * 100) : 0,
       averageOverallScore:
-        group.overallScoreCount > 0
-          ? roundMetric(group.overallScoreSum / group.overallScoreCount)
-          : null,
+        group.overallScoreCount > 0 ? roundMetric(group.overallScoreSum / group.overallScoreCount) : null,
       sampleSizeReliable: group.campaigns >= MIN_SAMPLE_SIZE_FOR_RANKING,
     }))
     .sort((a, b) => {
@@ -201,6 +216,47 @@ function buildGroupAnalytics(campaigns, keyGetter) {
       if (scoreB !== scoreA) return scoreB - scoreA;
       return b.ctr - a.ctr;
     });
+}
+
+function pickBestGroup(groups = []) {
+  return groups.find((group) => group.key !== "unknown" && group.campaigns > 0) || null;
+}
+
+function buildInsight(kind, group) {
+  if (!group) return null;
+
+  return {
+    kind,
+    key: group.key,
+    campaigns: group.campaigns,
+    impressions: group.impressions,
+    clicks: group.clicks,
+    ctr: group.ctr,
+    averageOverallScore: group.averageOverallScore,
+    confidence: group.campaigns >= MIN_SAMPLE_SIZE_FOR_CONFIDENT_INSIGHT ? "medium" : "low",
+  };
+}
+
+function buildCampaignInsights(campaigns, groups) {
+  const bestOverallCampaign = topBy(campaigns, "overallScore", 1)[0] || null;
+  const bestCtrCampaign = topBy(campaigns, "ctr", 1)[0] || null;
+  const sampleSize = campaigns.length;
+
+  return {
+    sampleSize,
+    confidence: sampleSize >= MIN_SAMPLE_SIZE_FOR_CONFIDENT_INSIGHT ? "medium" : "low",
+    hasEnoughData: sampleSize >= MIN_SAMPLE_SIZE_FOR_CONFIDENT_INSIGHT,
+    bestDuration: buildInsight("best_duration_bucket", pickBestGroup(groups.byDurationBucket)),
+    bestRegion: buildInsight("best_region", pickBestGroup(groups.byRegion)),
+    bestPlacement: buildInsight("best_placement", pickBestGroup(groups.byPlacement)),
+    bestCtrRange: buildInsight("best_ctr_range", pickBestGroup(groups.byCtrRange)),
+    bestVisibilityRange: buildInsight("best_visibility_range", pickBestGroup(groups.byVisibilityRange)),
+    topCampaign: bestOverallCampaign || bestCtrCampaign,
+    notes:
+      sampleSize >= MIN_SAMPLE_SIZE_FOR_CONFIDENT_INSIGHT
+        ? []
+        : ["Campione storico ancora ridotto: gli insight sono osservazioni preliminari, non regole definitive."],
+  };
 }
 
 async function buildCampaignAnalytics(filters = {}) {
@@ -214,6 +270,14 @@ async function buildCampaignAnalytics(filters = {}) {
 
   const campaigns = snapshots.map(summarizeCampaign);
 
+  const groups = {
+    byRegion: buildGroupAnalytics(campaigns, (campaign) => campaign.region),
+    byPlacement: buildGroupAnalytics(campaigns, (campaign) => campaign.placement),
+    byDurationBucket: buildGroupAnalytics(campaigns, (campaign) => getDurationBucket(campaign.durationDays)),
+    byCtrRange: buildGroupAnalytics(campaigns, (campaign) => getCtrBucket(campaign.ctr)),
+    byVisibilityRange: buildGroupAnalytics(campaigns, (campaign) => getVisibilityBucket(campaign.impressions)),
+  };
+
   return {
     generatedAt: new Date(),
     filters: {
@@ -225,19 +289,14 @@ async function buildCampaignAnalytics(filters = {}) {
       limit,
     },
     totals: buildTotals(campaigns),
+    insights: buildCampaignInsights(campaigns, groups),
     topCampaigns: {
       byCtr: topBy(campaigns, "ctr"),
       byVisibility: topBy(campaigns, "visibilityScore"),
       byEngagement: topBy(campaigns, "engagementScore"),
       byOverall: topBy(campaigns, "overallScore"),
     },
-    groups: {
-      byRegion: buildGroupAnalytics(campaigns, (campaign) => campaign.region),
-      byPlacement: buildGroupAnalytics(campaigns, (campaign) => campaign.placement),
-      byDurationBucket: buildGroupAnalytics(campaigns, (campaign) =>
-        getDurationBucket(campaign.durationDays)
-      ),
-    },
+    groups,
   };
 }
 
@@ -245,4 +304,6 @@ module.exports = {
   buildCampaignAnalytics,
   calculateDurationDays,
   getDurationBucket,
+  getCtrBucket,
+  getVisibilityBucket,
 };
