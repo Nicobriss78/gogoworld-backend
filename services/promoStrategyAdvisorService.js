@@ -1011,12 +1011,15 @@ campaignAdvisor,
 );
 
   const alternativeStrategies = buildAlternativeStrategies({
-    primaryType: primaryStrategy.type,
-    availability,
-    demand,
-    suggestions,
-    payload,
-  }).map((strategy) => enrichStrategy(strategy, personalization));
+primaryType: primaryStrategy.type,
+availability,
+demand,
+suggestions,
+payload,
+campaignAdvisor,
+}).map((strategy) => enrichStrategy(strategy, personalization));
+
+const decisionDelta = buildDecisionDelta(primaryStrategy, alternativeStrategies);
   return {
     version: ADVISOR_VERSION,
     mode: normalizedMode,
