@@ -756,7 +756,82 @@ function findHistoricalRecommendation(campaignAdvisor = null) {
     null
   );
 }
+function getHistoricalWeightMap(campaignAdvisor = null) {
+  const recommendations = Array.isArray(campaignAdvisor?.recommendations)
+    ? campaignAdvisor.recommendations
+    : [];
 
+  const confirmations = recommendations.filter(
+    (item) =>
+      item?.type === "PERSONAL_BEST_MATCH" ||
+      item?.type === "COLLECTIVE_BEST_MATCH"
+  );
+
+  const durationAlignments = recommendations.filter(
+    (item) => item?.type === "DURATION_ALIGNMENT"
+  );
+
+  const placementAlignments = recommendations.filter(
+    (item) => item?.type === "PLACEMENT_ALIGNMENT"
+  );
+
+  const regionAlignments = recommendations.filter(
+    (item) => item?.type === "REGION_ALIGNMENT"
+  );
+
+  return {
+    confirmations: confirmations.length,
+    durationAlignments: durationAlignments.length,
+    placementAlignments: placementAlignments.length,
+    regionAlignments: regionAlignments.length,
+    opportunities: Array.isArray(campaignAdvisor?.opportunities)
+      ? campaignAdvisor.opportunities.length
+      : 0,
+  };
+}
+
+function scoreStrategyWithHistory(strategy = {}, campaignAdvisor = null) {
+  const baseScore = Number(strategy?.priorityScore || 50);
+  const confidence = String(campaignAdvisor?.confidence || "none").toLowerCase();
+
+  if (confidence === "none") {
+    return {
+      ...strategy,
+      weightedScore: baseScore,
+    };
+  }
+
+  const weights = getHistoricalWeightMap(campaignAdvisor);
+
+  let weightedScore = baseScore;
+
+  if (strategy?.type === "FINAL_PUSH") {
+    weightedScore += weights.confirmations * 3;
+    weightedScore += weights.opportunities * 2;
+    weightedScore -= weights.durationAlignments * 4;
+  }
+
+  if (strategy?.type === "STANDARD_VISIBILITY") {
+    weightedScore += weights.confirmations * 2;
+    weightedScore += weights.placementAlignments * 4;
+    weightedScore += weights.regionAlignments * 4;
+  }
+
+  if (strategy?.type === "FOCUSED_COVERAGE") {
+    weightedScore += weights.regionAlignments * 5;
+    weightedScore += weights.opportunities * 2;
+  }
+
+  if (strategy?.type === "DISTRIBUTED_VISIBILITY") {
+    weightedScore += weights.opportunities * 3;
+    weightedScore += weights.confirmations * 2;
+  }
+
+  return {
+    ...strategy,
+    weightedScore,
+  };
+}
 function buildHistoricalFusionLayer(campaignAdvisor = null) {
   if (!isCampaignAdvisorReliable(campaignAdvisor)) {
     return {
