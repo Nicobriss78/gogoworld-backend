@@ -596,16 +596,21 @@ function dedupeStrategies(strategies = []) {
   return result;
 }
 
+function getStrategyDecisionScore(strategy = {}) {
+return Number(strategy.weightedScore ?? strategy.priorityScore ?? getStrategyPriority(strategy));
+}
+
 function rankAlternativeStrategies(strategies = []) {
-  return strategies
-    .slice()
-    .sort((a, b) => getStrategyPriority(b) - getStrategyPriority(a))
-    .map((strategy, index) => ({
-      ...strategy,
-      alternativeRank: index + 1,
-      alternativeLabel: index === 0 ? "Alternativa consigliata" : "Altra opzione disponibile",
-      recommendedAlternative: index === 0,
-    }));
+return strategies
+.slice()
+.sort((a, b) => getStrategyDecisionScore(b) - getStrategyDecisionScore(a))
+.map((strategy, index) => ({
+...strategy,
+decisionScore: getStrategyDecisionScore(strategy),
+alternativeRank: index + 1,
+alternativeLabel: index === 0 ? "Alternativa consigliata" : "Altra opzione disponibile",
+recommendedAlternative: index === 0,
+}));
 }
 
 function buildAlternativeStrategies({
