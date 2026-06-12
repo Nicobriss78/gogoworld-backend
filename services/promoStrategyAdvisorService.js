@@ -639,43 +639,53 @@ function buildAlternativeStrategies({
   return rankAlternativeStrategies(filtered).slice(0, ALTERNATIVE_LIMIT);
 }
 
-function selectPrimaryStrategy({ payload = {}, availability = {}, demand = {}, suggestions = {} }) {
-  if (isNoSlotAvailable(availability)) {
-    return buildNoSlotAvailableStrategy({ payload, suggestions });
-  }
+function selectPrimaryStrategy({
+payload = {},
+availability = {},
+demand = {},
+suggestions = {},
+campaignAdvisor = null,
+} = {}) {
+if (isNoSlotAvailable(availability)) {
+return buildNoSlotAvailableStrategy({ payload, suggestions });
+}
 
-  const alternativeOpportunity = buildAlternativeOpportunityStrategy({ payload, suggestions });
-  if (alternativeOpportunity) return alternativeOpportunity;
+const candidates = [
+buildAlternativeOpportunityStrategy({ payload, suggestions }),
+isHighCompetition(demand) && hasSuggestionItem(suggestions, "TRILL_SUPPORT")
+? buildPromoPlusTrilliStrategy()
+: null,
+isLimitedAvailability(availability) ? buildLimitedAvailabilityStrategy() : null,
+isHighCompetition(demand) ? buildHighCompetitionStrategy() : null,
+hasSuggestionItem(suggestions, "FINAL_PUSH") ? buildFinalPushStrategy() : null,
+hasSuggestionItem(suggestions, "COVERAGE_EXTENSION") ? buildCoverageExtendedStrategy() : null,
+hasSuggestionItem(suggestions, "COVERAGE_COMPACT") ? buildFocusedCoverageStrategy() : null,
+hasSuggestionItem(suggestions, "EARLY_VISIBILITY") ? buildDistributedVisibilityStrategy() : null,
+buildStandardVisibilityStrategy({ availability, demand }),
+];
 
-  if (isHighCompetition(demand) && hasSuggestionItem(suggestions, "TRILL_SUPPORT")) {
-    return buildPromoPlusTrilliStrategy();
-  }
+const weightedCandidates = dedupeStrategies(candidates)
+.filter(Boolean)
+.filter(isMeaningfulStrategy)
+.map((strategy) =>
+scoreStrategyWithHistory(
+{
+...strategy,
+priorityScore: getStrategyPriority(strategy),
+},
+campaignAdvisor
+)
+);
 
-  if (isLimitedAvailability(availability)) {
-    return buildLimitedAvailabilityStrategy();
-  }
+if (!weightedCandidates.length) {
+return buildStandardVisibilityStrategy({ availability, demand });
+}
 
-  if (isHighCompetition(demand)) {
-    return buildHighCompetitionStrategy();
-  }
+weightedCandidates.sort(
+(a, b) => Number(b.weightedScore || 0) - Number(a.weightedScore || 0)
+);
 
-  if (hasSuggestionItem(suggestions, "FINAL_PUSH")) {
-    return buildFinalPushStrategy();
-  }
-
-  if (hasSuggestionItem(suggestions, "COVERAGE_EXTENSION")) {
-    return buildCoverageExtendedStrategy();
-  }
-
-  if (hasSuggestionItem(suggestions, "COVERAGE_COMPACT")) {
-    return buildFocusedCoverageStrategy();
-  }
-
-  if (hasSuggestionItem(suggestions, "EARLY_VISIBILITY")) {
-    return buildDistributedVisibilityStrategy();
-  }
-
-  return buildStandardVisibilityStrategy({ availability, demand });
+return weightedCandidates[0];
 }
 function appendSentence(text, sentence) {
   const base = normalizeText(text);
