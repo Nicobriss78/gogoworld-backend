@@ -1380,6 +1380,7 @@ availability,
 demand,
 suggestions,
 advisor,
+campaignAdvisor,
 },
 });
 } catch (err) {
