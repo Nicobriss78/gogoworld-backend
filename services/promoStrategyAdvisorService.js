@@ -866,10 +866,14 @@ function buildPromotionStrategyAdvisor({
   const eventWindow = getEventWindow({ payload, availability });
 
   const personalization = buildPersonalizationLayer(organizerProfile);
+const historicalFusion = buildHistoricalFusionLayer(campaignAdvisor);
 
 const primaryStrategy = enrichStrategy(
-selectPrimaryStrategy({ payload, availability, demand, suggestions }),
-personalization
+  applyHistoricalFusion(
+    selectPrimaryStrategy({ payload, availability, demand, suggestions }),
+    historicalFusion
+  ),
+  personalization
 );
 
   const alternativeStrategies = buildAlternativeStrategies({
