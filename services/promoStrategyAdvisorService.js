@@ -724,7 +724,118 @@ function enrichAction(action = {}) {
     requiresOrganizerConfirmation: true,
   };
 }
+function getCampaignAdvisorSamples(campaignAdvisor = null) {
+  return {
+    personal: Number(campaignAdvisor?.sampleSize?.personal || 0),
+    collective: Number(campaignAdvisor?.sampleSize?.collective || 0),
+  };
+}
 
+function isCampaignAdvisorReliable(campaignAdvisor = null) {
+  const confidence = String(campaignAdvisor?.confidence || "").toLowerCase();
+  const samples = getCampaignAdvisorSamples(campaignAdvisor);
+
+  return (
+    confidence === "medium" &&
+    (samples.personal > 0 || samples.collective > 0)
+  );
+}
+
+function getCampaignAdvisorItems(campaignAdvisor = null, key) {
+  return Array.isArray(campaignAdvisor?.[key]) ? campaignAdvisor[key] : [];
+}
+
+function findHistoricalRecommendation(campaignAdvisor = null) {
+  const recommendations = getCampaignAdvisorItems(campaignAdvisor, "recommendations");
+
+  return (
+    recommendations.find((item) => item?.type === "DURATION_ALIGNMENT") ||
+    recommendations.find((item) => item?.type === "PLACEMENT_ALIGNMENT") ||
+    recommendations.find((item) => item?.type === "REGION_ALIGNMENT") ||
+    recommendations[0] ||
+    null
+  );
+}
+
+function buildHistoricalFusionLayer(campaignAdvisor = null) {
+  if (!isCampaignAdvisorReliable(campaignAdvisor)) {
+    return {
+      enabled: false,
+      reason: null,
+      source: "none",
+      confidence: campaignAdvisor?.confidence || "none",
+      sampleSize: getCampaignAdvisorSamples(campaignAdvisor),
+    };
+  }
+
+  const historicalRecommendation = findHistoricalRecommendation(campaignAdvisor);
+  const confirmations = getCampaignAdvisorItems(campaignAdvisor, "recommendations").filter(
+    (item) =>
+      item?.type === "PERSONAL_BEST_MATCH" ||
+      item?.type === "COLLECTIVE_BEST_MATCH"
+  );
+
+  const opportunities = getCampaignAdvisorItems(campaignAdvisor, "opportunities");
+  const samples = getCampaignAdvisorSamples(campaignAdvisor);
+
+  if (historicalRecommendation?.message) {
+    return {
+      enabled: true,
+      source: historicalRecommendation.source || "historical",
+      confidence: campaignAdvisor.confidence,
+      sampleSize: samples,
+      reason: `In più, il consulente storico segnala: ${historicalRecommendation.message}`,
+      recommendationType: historicalRecommendation.type || null,
+      positiveSignalsCount: confirmations.length,
+      opportunitiesCount: opportunities.length,
+    };
+  }
+
+  if (confirmations.length) {
+    return {
+      enabled: true,
+      source: "historical",
+      confidence: campaignAdvisor.confidence,
+      sampleSize: samples,
+      reason: "In più, lo storico campagne conferma alcuni elementi positivi della configurazione scelta.",
+      recommendationType: "HISTORICAL_CONFIRMATION",
+      positiveSignalsCount: confirmations.length,
+      opportunitiesCount: opportunities.length,
+    };
+  }
+
+  if (opportunities.length) {
+    return {
+      enabled: true,
+      source: "historical",
+      confidence: campaignAdvisor.confidence,
+      sampleSize: samples,
+      reason: "In più, lo storico campagne mostra opportunità utili da considerare per rafforzare la visibilità.",
+      recommendationType: "HISTORICAL_OPPORTUNITY",
+      positiveSignalsCount: confirmations.length,
+      opportunitiesCount: opportunities.length,
+    };
+  }
+
+  return {
+    enabled: false,
+    reason: null,
+    source: "none",
+    confidence: campaignAdvisor.confidence,
+    sampleSize: samples,
+  };
+}
+
+function applyHistoricalFusion(strategy = {}, historicalFusion = null) {
+  if (!historicalFusion?.enabled || !historicalFusion.reason) return strategy;
+
+  return {
+    ...strategy,
+    reason: appendSentence(strategy.reason, historicalFusion.reason),
+    historicalFusionApplied: true,
+    historicalFusion,
+  };
+}
 function enrichStrategy(strategy = {}, personalization = null) {
 const personalizedStrategy = applyBehaviorModifier(strategy, personalization);
 
