@@ -642,7 +642,17 @@ campaignAdvisor = null,
     .filter((strategy) => strategy.type !== STRATEGY_TYPE.STANDARD_VISIBILITY)
     .filter(isMeaningfulStrategy);
 
-  return rankAlternativeStrategies(filtered).slice(0, ALTERNATIVE_LIMIT);
+  const weightedAlternatives = filtered.map((strategy) =>
+scoreStrategyWithHistory(
+{
+...strategy,
+priorityScore: getStrategyPriority(strategy),
+},
+campaignAdvisor
+)
+);
+
+return rankAlternativeStrategies(weightedAlternatives).slice(0, ALTERNATIVE_LIMIT);
 }
 
 function selectPrimaryStrategy({
