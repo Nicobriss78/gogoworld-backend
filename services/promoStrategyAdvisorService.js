@@ -858,6 +858,7 @@ function buildPromotionStrategyAdvisor({
   demand = {},
   suggestions = {},
   organizerProfile = null,
+  campaignAdvisor = null,
 } = {}) {
   const normalizedMode = normalizeMode(mode);
   const normalizedPromoStatus = normalizePromoStatus(promoStatus);
