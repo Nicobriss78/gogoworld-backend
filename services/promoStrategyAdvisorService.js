@@ -891,6 +891,7 @@ const primaryStrategy = enrichStrategy(
     objective: primaryStrategy.objective,
 organizerProfile,
 personalization,
+historicalFusion,
 context: {
       placement: payload.placement || availability.placement || null,
       geoTarget:
