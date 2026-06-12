@@ -1331,8 +1331,28 @@ const suggestions = await generatePromoSuggestions({
   checkAvailability: checkPromoAvailability,
 });
 
+const organizerId = req.user && req.user._id ? req.user._id : req.user?.id;
+
 const organizerProfile = await buildOrganizerProfile({
-  organizerId: req.user && req.user._id ? req.user._id : req.user?.id,
+  organizerId,
+});
+
+const personalIntelligence = await buildCampaignAnalytics({
+  organizerId,
+  limit: 100,
+});
+
+const collectiveIntelligence = await buildCampaignAnalytics({
+  country: body.country,
+  region: body.region,
+  placement: body.placement,
+  limit: 500,
+});
+
+const campaignAdvisor = buildCampaignAdvisorEngine({
+  payload: body,
+  personalIntelligence,
+  collectiveIntelligence,
 });
 
 const advisor = buildPromotionStrategyAdvisor({
