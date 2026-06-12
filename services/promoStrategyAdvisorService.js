@@ -955,7 +955,13 @@ const historicalFusion = buildHistoricalFusionLayer(campaignAdvisor);
 
 const primaryStrategy = enrichStrategy(
   applyHistoricalFusion(
-    selectPrimaryStrategy({ payload, availability, demand, suggestions }),
+    selectPrimaryStrategy({
+payload,
+availability,
+demand,
+suggestions,
+campaignAdvisor,
+}),
     historicalFusion
   ),
   personalization
