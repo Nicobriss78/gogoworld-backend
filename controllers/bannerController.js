@@ -1364,6 +1364,7 @@ const advisor = buildPromotionStrategyAdvisor({
   demand,
   suggestions,
   organizerProfile,
+  campaignAdvisor,
 });
 return res.json({
 ok: true,
