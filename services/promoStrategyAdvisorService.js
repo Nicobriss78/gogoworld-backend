@@ -1029,6 +1029,7 @@ const decisionDelta = buildDecisionDelta(primaryStrategy, alternativeStrategies)
 organizerProfile,
 personalization,
 historicalFusion,
+decisionDelta,
 context: {
       placement: payload.placement || availability.placement || null,
       geoTarget:
