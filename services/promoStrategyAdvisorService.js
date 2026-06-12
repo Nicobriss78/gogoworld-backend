@@ -858,6 +858,33 @@ function scoreStrategyWithHistory(strategy = {}, campaignAdvisor = null) {
     weightedScore,
   };
 }
+function buildDecisionDelta(primaryStrategy = {}, alternativeStrategies = []) {
+const primaryScore = getStrategyDecisionScore(primaryStrategy);
+
+const alternatives = Array.isArray(alternativeStrategies)
+? alternativeStrategies.map((strategy) => ({
+type: strategy.type,
+title: strategy.title,
+decisionScore: getStrategyDecisionScore(strategy),
+weightedScore: Number(strategy.weightedScore ?? getStrategyDecisionScore(strategy)),
+priorityScore: Number(strategy.priorityScore ?? getStrategyPriority(strategy)),
+deltaFromPrimary: getStrategyDecisionScore(strategy) - primaryScore,
+recommendedAlternative: Boolean(strategy.recommendedAlternative),
+}))
+: [];
+
+return {
+primary: {
+type: primaryStrategy.type,
+title: primaryStrategy.title,
+decisionScore: primaryScore,
+weightedScore: Number(primaryStrategy.weightedScore ?? primaryScore),
+priorityScore: Number(primaryStrategy.priorityScore ?? getStrategyPriority(primaryStrategy)),
+},
+alternatives,
+closestAlternative: alternatives.length ? alternatives[0] : null,
+};
+}
 function buildHistoricalFusionLayer(campaignAdvisor = null) {
   if (!isCampaignAdvisorReliable(campaignAdvisor)) {
     return {
