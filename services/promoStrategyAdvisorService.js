@@ -614,11 +614,12 @@ recommendedAlternative: index === 0,
 }
 
 function buildAlternativeStrategies({
-  primaryType,
-  availability = {},
-  demand = {},
-  suggestions = {},
-  payload = {},
+primaryType,
+availability = {},
+demand = {},
+suggestions = {},
+payload = {},
+campaignAdvisor = null,
 }) {
   const noSlotAvailable = isNoSlotAvailable(availability);
 
