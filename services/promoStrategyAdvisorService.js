@@ -624,17 +624,28 @@ campaignAdvisor = null,
   const noSlotAvailable = isNoSlotAvailable(availability);
 
   const candidates = [
-    buildAlternativeOpportunityStrategy({ payload, suggestions }),
-    noSlotAvailable ? null : isLimitedAvailability(availability) ? buildLimitedAvailabilityStrategy() : null,
-    isHighCompetition(demand) && hasSuggestionItem(suggestions, "TRILL_SUPPORT")
-      ? buildPromoPlusTrilliStrategy()
+  buildAlternativeOpportunityStrategy({ payload, suggestions }),
+
+  noSlotAvailable
+    ? null
+    : isLimitedAvailability(availability)
+      ? buildLimitedAvailabilityStrategy()
       : null,
-    isHighCompetition(demand) ? buildHighCompetitionStrategy() : null,
-    hasSuggestionItem(suggestions, "FINAL_PUSH") ? buildFinalPushStrategy() : null,
-    hasSuggestionItem(suggestions, "COVERAGE_EXTENSION") ? buildCoverageExtendedStrategy() : null,
-    hasSuggestionItem(suggestions, "COVERAGE_COMPACT") ? buildFocusedCoverageStrategy() : null,
-    hasSuggestionItem(suggestions, "EARLY_VISIBILITY") ? buildDistributedVisibilityStrategy() : null,
-  ];
+
+  isHighCompetition(demand) && hasSuggestionItem(suggestions, "TRILL_SUPPORT")
+    ? buildPromoPlusTrilliStrategy()
+    : null,
+
+  isHighCompetition(demand)
+    ? buildHighCompetitionStrategy()
+    : null,
+
+  buildFinalPushStrategy(),
+  buildCoverageExtendedStrategy(),
+  buildFocusedCoverageStrategy(),
+  buildDistributedVisibilityStrategy(),
+  buildStandardVisibilityStrategy({ availability, demand }),
+];
 
   const filtered = dedupeStrategies(candidates)
     .filter(Boolean)
