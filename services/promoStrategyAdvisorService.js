@@ -978,12 +978,39 @@ function applyHistoricalFusion(strategy = {}, historicalFusion = null) {
 function enrichStrategy(strategy = {}, personalization = null) {
 const personalizedStrategy = applyBehaviorModifier(strategy, personalization);
 
+const advisorSelectionPayload = {
+strategyType: personalizedStrategy.type || "",
+decisionScore: getStrategyDecisionScore(personalizedStrategy),
+weightedScore: Number(
+personalizedStrategy.weightedScore ?? getStrategyDecisionScore(personalizedStrategy)
+),
+priorityScore: Number(
+personalizedStrategy.priorityScore ?? getStrategyPriority(personalizedStrategy)
+),
+};
+
+function enrichAdvisorSelectionAction(action = {}) {
+const enriched = enrichAction(action);
+
+return {
+...enriched,
+action:
+enriched.action === ACTION_TYPE.KEEP_CURRENT_SELECTION
+? ACTION_TYPE.APPLY_PROMO_FIELDS
+: enriched.action,
+payload: {
+...(enriched.payload || {}),
+...advisorSelectionPayload,
+},
+};
+}
+
 return {
 ...personalizedStrategy,
 objective: buildObjective(personalizedStrategy),
-primaryAction: enrichAction(personalizedStrategy.primaryAction),
+primaryAction: enrichAdvisorSelectionAction(personalizedStrategy.primaryAction),
 secondaryActions: Array.isArray(personalizedStrategy.secondaryActions)
-? personalizedStrategy.secondaryActions.map(enrichAction)
+? personalizedStrategy.secondaryActions.map(enrichAdvisorSelectionAction)
 : [],
 };
 }
