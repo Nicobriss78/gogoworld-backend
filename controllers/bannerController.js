@@ -1506,6 +1506,9 @@ activeTo: normalizedActiveTo,
 priority: body.priority !== undefined ? Number(body.priority) : 100,
 createdBy: req.user && req.user._id ? req.user._id : null,
 notes: body.notes || "",
+  selectedStrategyType: body.selectedStrategyType || "",
+selectedByAdvisor: !!body.selectedByAdvisor,
+advisorDecisionScore: Number(body.advisorDecisionScore || 0),
 });
 
 await doc.save();
