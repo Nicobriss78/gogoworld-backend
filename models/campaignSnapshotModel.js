@@ -72,6 +72,12 @@ const campaignSnapshotSchema = new mongoose.Schema(
       default: null,
     },
 
+    advisorSelection: {
+      selectedByAdvisor: { type: Boolean, default: false, index: true },
+      selectedStrategyType: { type: String, default: "", index: true },
+      advisorDecisionScore: { type: Number, default: 0 },
+    },
+
     creativeSnapshot: {
       title: { type: String, default: "" },
       imageUrl: { type: String, default: "" },
