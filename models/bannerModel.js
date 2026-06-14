@@ -247,6 +247,20 @@ revisionType: {
     // Audit
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     notes: { type: String, trim: true },
+   selectedStrategyType: {
+  type: String,
+  default: "",
+},
+
+selectedByAdvisor: {
+  type: Boolean,
+  default: false,
+},
+
+advisorDecisionScore: {
+  type: Number,
+  default: 0,
+}, 
   },
   { timestamps: true }
 );
