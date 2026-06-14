@@ -45,7 +45,7 @@ function buildSnapshotPayload({ banner, dailyStats, nowDate }) {
 
   return {
     bannerId: banner._id,
-    snapshotVersion: 2,
+    snapshotVersion: 3,
     eventId: banner.eventId || null,
     organizerId: banner.createdBy || null,
     snapshotStatus: "COMPLETED",
