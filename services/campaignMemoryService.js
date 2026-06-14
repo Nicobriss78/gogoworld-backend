@@ -80,6 +80,12 @@ function buildSnapshotPayload({ banner, dailyStats, nowDate }) {
 
     demandSnapshot: banner.demandSnapshot || null,
 
+    advisorSelection: {
+      selectedByAdvisor: !!banner.selectedByAdvisor,
+      selectedStrategyType: banner.selectedStrategyType || "",
+      advisorDecisionScore: Number(banner.advisorDecisionScore || 0),
+    },
+
     creativeSnapshot: {
       title: banner.title || "",
       imageUrl: banner.imageUrl || "",
