@@ -114,6 +114,7 @@ const notificationRoutes = require("./routes/notificationRoutes"); // NEW A9
 const checkInRoutes = require("./routes/checkInRoutes");
 const trillRoutes = require("./routes/trillRoutes");
 const geocodeRoutes = require("./routes/geocodeRoutes");
+const organizerRoutes = require("./routes/organizerRoutes");
 
 app.use("/api/users", userRoutes);
 app.use("/api/events", eventRoutes);
