@@ -128,6 +128,7 @@ app.use("/api/notifications", notificationRoutes); // NEW A9
 app.use("/api/checkins", checkInRoutes);
 app.use("/api/trills", trillRoutes);
 app.use("/api/geocode", geocodeRoutes);
+app.use("/api/organizer", organizerRoutes);
 app.use("/healthz", healthRoutes); // #HEALTHZ
 
 // Root & Health
