@@ -181,24 +181,54 @@ async function getNearbyFallbackRecipients(event, organizerId, radiusMeters) {
   });
 }
 
+function normalizeRecipientRecord(value) {
+  if (value?.userId) {
+    return {
+      userId: value.userId,
+      distanceMeters: value.distanceMeters,
+      distanceBand: value.distanceBand,
+    };
+  }
+
+  return {
+    userId: value,
+  };
+}
+
 async function resolveTrillRecipients({ trill, event }) {
+  const organizerId = event.organizer;
+  const radiusMeters = trill.radiusMeters;
+
   if (trill.targetingMode === "interested_not_checked_in") {
-    return getInterestedNotCheckedInRecipients(event);
+    const recipients = await getInterestedNotCheckedInRecipients(event);
+    return recipients.map(normalizeRecipientRecord);
   }
 
   if (trill.targetingMode === "nearby") {
-    return getNearbyFallbackRecipients(event);
+    return getNearbyFallbackRecipients(event, organizerId, radiusMeters);
   }
 
   if (trill.targetingMode === "both") {
-    const a = await getInterestedNotCheckedInRecipients(event);
-    const b = await getNearbyFallbackRecipients(event);
-    return uniqueIdList([...a, ...b]);
+    const interested = await getInterestedNotCheckedInRecipients(event);
+    const nearby = await getNearbyFallbackRecipients(event, organizerId, radiusMeters);
+
+    const map = new Map();
+
+    [...interested.map(normalizeRecipientRecord), ...nearby.map(normalizeRecipientRecord)].forEach((recipient) => {
+      const key = String(recipient.userId);
+      if (!key) return;
+
+      map.set(key, {
+        ...map.get(key),
+        ...recipient,
+      });
+    });
+
+    return [...map.values()];
   }
 
   throw buildTrillError(TRILL_REASON.TARGETING_NOT_AVAILABLE, 409);
 }
-
 /* =========================
    NOTIFICATION PAYLOAD
 ========================= */
