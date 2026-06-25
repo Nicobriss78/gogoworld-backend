@@ -147,7 +147,7 @@ function buildTrillError(code, status = 400) {
 
 async function getEventForTrill(eventId) {
   return Event.findById(eventId)
-    .select("title organizer approvalStatus dateStart dateEnd participants revokedUsers")
+    .select("title organizer approvalStatus dateStart dateEnd participants revokedUsers location lat lon")
     .lean();
 }
 
