@@ -173,25 +173,12 @@ async function getInterestedNotCheckedInRecipients(event) {
   });
 }
 
-async function getNearbyFallbackRecipients(event) {
-  const revoked = new Set(uniqueIdList(normalizeIdList(event.revokedUsers)));
-  const checkedIn = await getCheckedInUserIds(event._id);
-
-  const users = await User.find({
-    role: "participant",
-  })
-    .select("_id")
-    .limit(500)
-    .lean();
-
-  return users
-    .map((u) => String(u._id))
-    .filter((id) => {
-      if (revoked.has(id)) return false;
-      if (checkedIn.has(id)) return false;
-      if (String(event.organizer) === id) return false;
-      return true;
-    });
+async function getNearbyFallbackRecipients(event, organizerId, radiusMeters) {
+  return getNearbyGeoRecipients({
+    event,
+    organizerId,
+    radiusMeters
+  });
 }
 
 async function resolveTrillRecipients({ trill, event }) {
