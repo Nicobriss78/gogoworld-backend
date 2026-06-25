@@ -5,6 +5,7 @@ const User = require("../models/userModel");
 const TrillDelivery = require("../models/trillDeliveryModel");
 const CheckIn = require("../models/checkInModel");
 const Notification = require("../models/notificationModel");
+const { getNearbyGeoRecipients } = require("./trillGeoTargetingService");
 
 const TRILL_REASON = {
   INVALID_EVENT_ID: "INVALID_EVENT_ID",
