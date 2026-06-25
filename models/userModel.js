@@ -118,6 +118,8 @@ userSchema.index({ status: 1, createdAt: -1 });
 userSchema.index({ isBanned: 1, createdAt: -1 });
 userSchema.index({ "profile.nickname": 1 });
 userSchema.index({ "profile.region": 1 });
+userSchema.index({ "profile.locationConsent.enabled": 1 });
+userSchema.index({ "profile.lastKnownLocation": "2dsphere" });
 // Hash password solo se modificata/nuova
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
