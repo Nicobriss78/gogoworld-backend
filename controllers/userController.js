@@ -789,7 +789,89 @@ const unblockUser = asyncHandler(async (req, res) => {
 
   return res.json({ ok: true, blocked: false });
 });
+function normalizeGeoNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
 
+function normalizeLocationSource(value) {
+  const source = String(value || "browser").trim().toLowerCase();
+  return ["browser", "manual", "system"].includes(source) ? source : "browser";
+}
+
+const updateMyLocation = asyncHandler(async (req, res) => {
+  const lat = normalizeGeoNumber(req.body?.lat);
+  const lon = normalizeGeoNumber(req.body?.lon);
+  const accuracyMeters = normalizeGeoNumber(req.body?.accuracyMeters);
+  const consent = req.body?.consent === true;
+
+  if (consent !== true) {
+    return res.status(400).json({
+      ok: false,
+      error: "location_consent_required",
+    });
+  }
+
+  if (lat === null || lon === null) {
+    return res.status(400).json({
+      ok: false,
+      error: "invalid_coordinates",
+    });
+  }
+
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+    return res.status(400).json({
+      ok: false,
+      error: "invalid_coordinates_range",
+    });
+  }
+
+  if (accuracyMeters !== null && accuracyMeters < 0) {
+    return res.status(400).json({
+      ok: false,
+      error: "invalid_accuracy",
+    });
+  }
+
+  const user = await User.findById(req.user._id).select("profile");
+  if (!user) {
+    return res.status(404).json({
+      ok: false,
+      error: "user_not_found",
+    });
+  }
+
+  const now = new Date();
+
+  user.profile = user.profile || {};
+  user.profile.locationConsent = {
+    enabled: true,
+    updatedAt: now,
+  };
+
+  user.profile.lastKnownLocation = {
+    type: "Point",
+    coordinates: [lon, lat],
+    accuracyMeters: accuracyMeters === null ? undefined : Math.round(accuracyMeters),
+    source: normalizeLocationSource(req.body?.source),
+    updatedAt: now,
+  };
+
+  await user.save();
+
+  return res.json({
+    ok: true,
+    locationConsent: {
+      enabled: true,
+      updatedAt: now,
+    },
+    lastKnownLocation: {
+      updatedAt: now,
+      accuracyMeters: user.profile.lastKnownLocation.accuracyMeters,
+      source: user.profile.lastKnownLocation.source,
+    },
+  });
+});
 module.exports = {
   registerUser,
   authUser,
