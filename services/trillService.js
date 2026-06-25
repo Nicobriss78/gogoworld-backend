@@ -329,22 +329,26 @@ async function sendTrillNotifications({ user, trillId, now = new Date() }) {
 
   let delivered = 0;
 
-  for (const userId of recipients) {
-    const notif = await Notification.create(
-      buildTrillNotificationPayload({ trill, event, recipientId: userId })
-    );
+  for (const recipient of recipients) {
+const userId = recipient.userId;
 
-    await TrillDelivery.create({
-      trillId: trill._id,
-      eventId: event._id,
-      userId,
-      notificationId: notif._id,
-      deliveredAt: now,
-      status: "delivered",
-    });
+const notif = await Notification.create(
+buildTrillNotificationPayload({ trill, event, recipientId: userId })
+);
 
-    delivered++;
-  }
+await TrillDelivery.create({
+trillId: trill._id,
+eventId: event._id,
+userId,
+notificationId: notif._id,
+deliveredAt: now,
+status: "delivered",
+distanceMeters: recipient.distanceMeters,
+distanceBand: recipient.distanceBand,
+});
+
+delivered++;
+}
 
   trill.status = "sent";
   trill.sentAt = now;
