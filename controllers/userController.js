@@ -877,6 +877,7 @@ module.exports = {
   authUser,
   getUserProfile,
   enableOrganizer,
+  updateMyLocation,
   verifyEmail,
   resendVerifyEmail,
   forgotPassword,
@@ -889,7 +890,7 @@ module.exports = {
   getFollowers,
   getFollowing,
   getPublicProfile,
-  getUserActivityFeed, // A3.3
+  getUserActivityFeed,
 };
 
 
