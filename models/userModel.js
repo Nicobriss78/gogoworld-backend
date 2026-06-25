@@ -50,10 +50,36 @@ resetTokenExpires: { type: Date },
       // "public": in futuro, visibile a tutti gli utenti
       // "private": in futuro, nascosta a chiunque (anche follower)
       activityVisibility: {
-        type: String,
-        enum: ["followers-only", "public", "private"],
-        default: "followers-only"
-      }
+  type: String,
+  enum: ["followers-only", "public", "private"],
+  default: "followers-only"
+},
+
+// Posizione utente per funzioni geografiche opt-in.
+// Usata solo con consenso esplicito e solo per calcoli aggregati/operativi.
+locationConsent: {
+  enabled: { type: Boolean, default: false },
+  updatedAt: { type: Date }
+},
+
+lastKnownLocation: {
+  type: {
+    type: String,
+    enum: ["Point"],
+    default: undefined
+  },
+  coordinates: {
+    type: [Number], // [lon, lat]
+    default: undefined
+  },
+  accuracyMeters: { type: Number, min: 0 },
+  source: {
+    type: String,
+    enum: ["browser", "manual", "system"],
+    default: "browser"
+  },
+  updatedAt: { type: Date }
+}
     },
 
     // Blocchi utente (31.1) — elenco degli utenti che questo utente ha bloccato
