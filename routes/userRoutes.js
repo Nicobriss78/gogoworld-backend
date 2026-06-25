@@ -12,6 +12,7 @@ const {
   authUser,
   getUserProfile,
   enableOrganizer,
+  updateMyLocation,
   verifyEmail,
   resendVerifyEmail,
   forgotPassword,
