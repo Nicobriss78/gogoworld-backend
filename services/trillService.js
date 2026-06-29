@@ -281,46 +281,7 @@ function getTrillPriorityMeta(priority) {
 function buildTrillDeepLink(eventId) {
   return `/pages/evento-v2.html?id=${encodeURIComponent(String(eventId))}&fromView=notification`;
 }
-function getTrillPriorityMeta(priority) {
-  const normalized = normalizeTrillPriority(priority);
 
-  const map = {
-    soft: {
-      label: "Trillo",
-      weight: 10,
-      visualTone: "standard",
-      pushUrgency: "normal",
-      pinned: false,
-    },
-    live: {
-      label: "Trillo live",
-      weight: 30,
-      visualTone: "highlight",
-      pushUrgency: "normal",
-      pinned: false,
-    },
-    urgent: {
-      label: "Trillo urgente",
-      weight: 60,
-      visualTone: "urgent",
-      pushUrgency: "high",
-      pinned: true,
-    },
-    final_call: {
-      label: "Ultima chiamata",
-      weight: 80,
-      visualTone: "final_call",
-      pushUrgency: "high",
-      pinned: true,
-    },
-  };
-
-  return map[normalized] || map.live;
-}
-
-function buildTrillDeepLink(eventId) {
-  return `/pages/evento-v2.html?id=${encodeURIComponent(String(eventId))}&fromView=notification`;
-}
 function buildTrillNotificationPayload({ trill, event, recipientId }) {
   const priority = normalizeTrillPriority(trill.priority);
   const priorityMeta = getTrillPriorityMeta(priority);
