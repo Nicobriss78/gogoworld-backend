@@ -277,7 +277,8 @@ async function createTrillDraft({ user, payload = {}, now = new Date() }) {
 
   const targetingMode = normalizeTargetingMode(payload.targetingMode);
   if (!targetingMode) throw buildTrillError(TRILL_REASON.INVALID_TARGETING_MODE);
-
+  const priority = normalizeTrillPriority(payload.priority);
+  
   const message = normalizeMessage(payload.message);
   if (!message) throw buildTrillError(TRILL_REASON.INVALID_MESSAGE);
 
@@ -293,17 +294,18 @@ async function createTrillDraft({ user, payload = {}, now = new Date() }) {
   if (existing) throw buildTrillError(TRILL_REASON.DRAFT_ALREADY_EXISTS, 409);
 
   return Trill.create({
-    eventId,
-    organizerId: event.organizer,
-    createdBy: getUserId(user),
-    createdByRole: getUserRole(user),
-    type,
-    status: "draft",
-    message,
-    radiusMeters,
-    targetingMode,
-    expiresAt: event.dateEnd,
-  });
+eventId,
+organizerId: event.organizer,
+createdBy: getUserId(user),
+createdByRole: getUserRole(user),
+type,
+priority,
+status: "draft",
+message,
+radiusMeters,
+targetingMode,
+expiresAt: event.dateEnd,
+});
 }
 
 /* =========================
