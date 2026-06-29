@@ -33,6 +33,12 @@ const trillSchema = new Schema(
       default: "base",
       index: true,
     },
+        priority: {
+      type: String,
+      enum: ["soft", "live", "urgent", "final_call"],
+      default: "live",
+      index: true,
+    },
     status: {
       type: String,
       enum: ["draft", "scheduled", "sent", "blocked", "cancelled", "expired", "failed"],
