@@ -68,6 +68,15 @@ function normalizeTrillType(value) {
   const type = String(value || "base").trim().toLowerCase();
   return ["base", "boost", "promo", "admin"].includes(type) ? type : null;
 }
+function normalizeTrillPriority(value) {
+const priority = String(value || "live").trim().toLowerCase();
+
+if (["soft", "live", "urgent", "final_call"].includes(priority)) {
+return priority;
+}
+
+return "live";
+}
 
 function normalizeTargetingMode(value) {
   const mode = String(value || "nearby").trim().toLowerCase();
