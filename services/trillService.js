@@ -282,16 +282,31 @@ function buildTrillDeepLink(eventId) {
   return `/pages/evento-v2.html?id=${encodeURIComponent(String(eventId))}&fromView=notification`;
 }
 function buildTrillNotificationPayload({ trill, event, recipientId }) {
+  const priority = normalizeTrillPriority(trill.priority);
+  const priorityMeta = getTrillPriorityMeta(priority);
+  const eventId = event._id;
+
   return {
     user: recipientId,
     actor: trill.createdBy,
-    event: event._id,
+    event: eventId,
     type: "trill",
-    title: trill.title || "Trillo evento",
+    title: trill.title || priorityMeta.label,
     message: trill.message,
+    priority,
     data: {
       trillId: String(trill._id),
-      eventId: String(event._id),
+      eventId: String(eventId),
+      trillType: String(trill.type || "base"),
+      priority,
+      priorityLabel: priorityMeta.label,
+      notificationWeight: priorityMeta.weight,
+      visualTone: priorityMeta.visualTone,
+      pushReady: true,
+      pushUrgency: priorityMeta.pushUrgency,
+      pinned: priorityMeta.pinned,
+      deepLink: buildTrillDeepLink(eventId),
+      expiresAt: trill.expiresAt ? new Date(trill.expiresAt).toISOString() : null,
     },
   };
 }
