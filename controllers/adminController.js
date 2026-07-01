@@ -254,9 +254,20 @@ const approveEvent = asyncHandler(async (req, res) => {
     adminId: String(req?.user?._id || ""),
   });
 
-  res.json({ ok: true, event: ev });
+    res.json({
+    ok: true,
+    event: ev,
+    commercialEntitlements: {
+      freeEventTrillsGrant: freeTrillsGrant
+        ? {
+            created: Boolean(freeTrillsGrant.created),
+            idempotent: Boolean(freeTrillsGrant.idempotent),
+            quantity: commercialEntitlementService.FREE_EVENT_TRILLS_QUANTITY,
+          }
+        : null,
+    },
+  });
 });
-
 // POST /api/admin/events/:id/unapprove
 const unapproveEvent = asyncHandler(async (req, res) => {
   const ev = await Event.findById(req.params.id);
