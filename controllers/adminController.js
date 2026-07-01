@@ -12,6 +12,7 @@ const { logger } = require("../core/logger");
 const {
   revalidatePromosForEventDateChange,
 } = require("../services/promoEventRevalidationService");
+const commercialEntitlementService = require("../services/commercialEntitlementService");
 // -----------------------------
 // Utils
 // -----------------------------
