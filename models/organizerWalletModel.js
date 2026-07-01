@@ -168,7 +168,7 @@ const organizerWalletSchema = new Schema(
 organizerWalletSchema.index({ organizerId: 1, "balances.resourceType": 1 });
 organizerWalletSchema.index({ organizerId: 1, "balances.usableByEventId": 1 });
 organizerWalletSchema.index({ organizerId: 1, "balances.expiresAt": 1 });
-
+organizerWalletSchema.index({ organizerId: 1, appliedLedgerEntryIds: 1 });
 organizerWalletSchema.statics.RESOURCE_TYPES = RESOURCE_TYPES;
 organizerWalletSchema.statics.RESOURCE_SCOPES = RESOURCE_SCOPES;
 organizerWalletSchema.statics.GEO_SCOPE_TYPES = GEO_SCOPE_TYPES;
