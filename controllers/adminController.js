@@ -60,10 +60,29 @@ async function safeCreateActivity(payload) {
   }
 }
 
+// Commercial Foundation V1 — grant free trills su approvazione evento.
+// Non deve rompere il flusso admin: il grant è idempotente e ritentabile.
+async function safeGrantFreeEventTrillsOnApproval(event, adminUserId) {
+  try {
+    return await commercialEntitlementService.grantFreeEventTrills(event, {
+      adminId: adminUserId || null,
+      reason: "Free event trills granted by admin event approval.",
+    });
+  } catch (err) {
+    logger.warn("[commercial][free_event_trills] grant failed", {
+      eventId: event && event._id ? String(event._id) : "",
+      adminId: adminUserId ? String(adminUserId) : "",
+      code: err && err.code ? err.code : "",
+      message: err && err.message ? err.message : String(err || ""),
+    });
+
+    return null;
+  }
+}
+
 // -----------------------------
 // Eventi — Moderazione
 // -----------------------------
-
 // GET /api/admin/events?approvalStatus=&q=&organizerId=&region=&category=...
 const listModerationEvents = asyncHandler(async (req, res) => {
   const q = req.query || {};
