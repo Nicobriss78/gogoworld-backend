@@ -173,9 +173,11 @@ async function grantPurchasedResources(orderInput, options = {}) {
   for (let i = 0; i < order.resourcesToGrant.length; i += 1) {
     const resource = order.resourcesToGrant[i];
 
-    const idempotencyKey =
+        const baseIdempotencyKey =
       normalizeString(options.idempotencyKey) ||
-      `commercial_order_resource_grant:${order._id}:${i}`;
+      `commercial_order_resource_grant:${order._id}`;
+
+    const idempotencyKey = `${baseIdempotencyKey}:${i}`;
 
     const result = await commercialWalletService.grantResource({
       organizerId: order.ownerId,
