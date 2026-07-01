@@ -138,10 +138,21 @@ const organizerWalletSchema = new Schema(
       default: [],
     },
 
-    version: {
+        version: {
       type: Number,
       default: 1,
       min: 1,
+    },
+
+    appliedLedgerEntryIds: {
+      type: [
+        {
+          type: Schema.Types.ObjectId,
+          ref: "OrganizerWalletLedger",
+        },
+      ],
+      default: [],
+      index: true,
     },
 
     meta: {
