@@ -162,7 +162,7 @@ const organizerWalletSchema = new Schema(
       },
     },
   },
-  { timestamps: true }
+    { timestamps: true, optimisticConcurrency: true }
 );
 
 organizerWalletSchema.index({ organizerId: 1, "balances.resourceType": 1 });
