@@ -168,7 +168,14 @@ const approveEvent = asyncHandler(async (req, res) => {
     ev.approvedAt = now();
   }
 
-  await ev.save();
+    await ev.save();
+
+  const freeTrillsGrant = ev.organizer
+    ? await safeGrantFreeEventTrillsOnApproval(
+        ev,
+        req.user && req.user._id ? req.user._id : null
+      )
+    : null;
 
   const promoRevalidation = await revalidatePromosForEventDateChange(
     ev,
