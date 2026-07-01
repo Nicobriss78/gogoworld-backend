@@ -88,6 +88,22 @@ function sameDate(a, b) {
   return new Date(a).getTime() === new Date(b).getTime();
 }
 
+function hasAppliedLedgerEntry(wallet, ledgerEntry) {
+  const ledgerId = ledgerEntry && ledgerEntry._id ? String(ledgerEntry._id) : null;
+  if (!ledgerId) return false;
+
+  return (wallet.appliedLedgerEntryIds || []).some((entryId) => String(entryId) === ledgerId);
+}
+
+function markLedgerEntryApplied(wallet, ledgerEntry) {
+  const ledgerId = ledgerEntry && ledgerEntry._id ? ledgerEntry._id : null;
+  if (!ledgerId) return;
+
+  if (!hasAppliedLedgerEntry(wallet, ledgerEntry)) {
+    wallet.appliedLedgerEntryIds.push(ledgerId);
+  }
+}
+
 function findMatchingBalance(wallet, resource) {
   return (wallet.balances || []).find((balance) => {
     return (
@@ -117,6 +133,7 @@ async function getOrCreateWallet(organizerId) {
       $setOnInsert: {
         organizerId,
         balances: [],
+        appliedLedgerEntryIds: [],
         version: 1,
       },
     },
@@ -128,6 +145,38 @@ async function getOrCreateWallet(organizerId) {
   );
 
   return wallet;
+}
+
+async function saveWalletAfterLedger(wallet, ledgerEntry) {
+  if (hasAppliedLedgerEntry(wallet, ledgerEntry)) {
+    return {
+      wallet,
+      applied: false,
+      alreadyApplied: true,
+    };
+  }
+
+  markLedgerEntryApplied(wallet, ledgerEntry);
+
+  try {
+    await wallet.save();
+
+    return {
+      wallet,
+      applied: true,
+      alreadyApplied: false,
+    };
+  } catch (err) {
+    if (err && err.name === "VersionError") {
+      throw buildCommercialError(
+        "WALLET_CONCURRENT_UPDATE_RETRY",
+        409,
+        "Wallet was updated concurrently. Retry the operation."
+      );
+    }
+
+    throw err;
+  }
 }
 
 async function grantResource({
@@ -157,37 +206,6 @@ async function grantResource({
     metadata,
   });
 
-  const existing = await commercialLedgerService.getByIdempotencyKey(idempotencyKey);
-  if (existing) {
-    const wallet = await getOrCreateWallet(organizerId);
-    return {
-      wallet: wallet.toObject(),
-      ledgerEntry: existing,
-      created: false,
-      idempotent: true,
-    };
-  }
-
-  const wallet = await getOrCreateWallet(organizerId);
-  const balance = findMatchingBalance(wallet, resource);
-
-  if (balance) {
-    balance.quantityAvailable += qty;
-    balance.status = "available";
-    balance.metadata = resource.metadata || balance.metadata || null;
-  } else {
-    wallet.balances.push({
-      ...resource,
-      status: "available",
-      quantityAvailable: qty,
-      quantityReserved: 0,
-      quantityConsumed: 0,
-      quantityExpired: 0,
-    });
-  }
-
-  await wallet.save();
-
   const ledgerResult = await commercialLedgerService.createLedgerEntry({
     organizerId,
     movementType: isFree ? "grant" : "purchase",
@@ -211,11 +229,41 @@ async function grantResource({
     metadata,
   });
 
+  const wallet = await getOrCreateWallet(organizerId);
+
+  if (hasAppliedLedgerEntry(wallet, ledgerResult.entry)) {
+    return {
+      wallet: wallet.toObject(),
+      ledgerEntry: ledgerResult.entry,
+      created: false,
+      idempotent: true,
+    };
+  }
+
+  const balance = findMatchingBalance(wallet, resource);
+
+  if (balance) {
+    balance.quantityAvailable += qty;
+    balance.status = "available";
+    balance.metadata = resource.metadata || balance.metadata || null;
+  } else {
+    wallet.balances.push({
+      ...resource,
+      status: "available",
+      quantityAvailable: qty,
+      quantityReserved: 0,
+      quantityConsumed: 0,
+      quantityExpired: 0,
+    });
+  }
+
+  const saveResult = await saveWalletAfterLedger(wallet, ledgerResult.entry);
+
   return {
-    wallet: wallet.toObject(),
+    wallet: saveResult.wallet.toObject(),
     ledgerEntry: ledgerResult.entry,
-    created: true,
-    idempotent: false,
+    created: ledgerResult.created,
+    idempotent: ledgerResult.idempotent || saveResult.alreadyApplied,
   };
 }
 
@@ -241,9 +289,10 @@ async function reserveResource({
     usableByEventId,
   });
 
+  let wallet = await getOrCreateWallet(organizerId);
+
   const existing = await commercialLedgerService.getByIdempotencyKey(idempotencyKey);
-  if (existing) {
-    const wallet = await getOrCreateWallet(organizerId);
+  if (existing && hasAppliedLedgerEntry(wallet, existing)) {
     return {
       wallet: wallet.toObject(),
       ledgerEntry: existing,
@@ -251,8 +300,6 @@ async function reserveResource({
       idempotent: true,
     };
   }
-
-  const wallet = await getOrCreateWallet(organizerId);
 
   const candidates = (wallet.balances || [])
     .filter((balance) => {
@@ -294,8 +341,6 @@ async function reserveResource({
     );
   }
 
-  await wallet.save();
-
   const ledgerResult = await commercialLedgerService.createLedgerEntry({
     organizerId,
     movementType: "reserve",
@@ -317,11 +362,22 @@ async function reserveResource({
     metadata,
   });
 
+  if (hasAppliedLedgerEntry(wallet, ledgerResult.entry)) {
+    return {
+      wallet: wallet.toObject(),
+      ledgerEntry: ledgerResult.entry,
+      created: false,
+      idempotent: true,
+    };
+  }
+
+  const saveResult = await saveWalletAfterLedger(wallet, ledgerResult.entry);
+
   return {
-    wallet: wallet.toObject(),
+    wallet: saveResult.wallet.toObject(),
     ledgerEntry: ledgerResult.entry,
-    created: true,
-    idempotent: false,
+    created: ledgerResult.created,
+    idempotent: ledgerResult.idempotent || saveResult.alreadyApplied,
   };
 }
 
@@ -347,9 +403,10 @@ async function consumeReservedResource({
     usableByEventId,
   });
 
+  let wallet = await getOrCreateWallet(organizerId);
+
   const existing = await commercialLedgerService.getByIdempotencyKey(idempotencyKey);
-  if (existing) {
-    const wallet = await getOrCreateWallet(organizerId);
+  if (existing && hasAppliedLedgerEntry(wallet, existing)) {
     return {
       wallet: wallet.toObject(),
       ledgerEntry: existing,
@@ -357,8 +414,6 @@ async function consumeReservedResource({
       idempotent: true,
     };
   }
-
-  const wallet = await getOrCreateWallet(organizerId);
 
   const candidates = (wallet.balances || []).filter((balance) => {
     if (balance.resourceType !== resource.resourceType) return false;
@@ -391,8 +446,6 @@ async function consumeReservedResource({
     );
   }
 
-  await wallet.save();
-
   const ledgerResult = await commercialLedgerService.createLedgerEntry({
     organizerId,
     movementType: "consume",
@@ -414,11 +467,22 @@ async function consumeReservedResource({
     metadata,
   });
 
+  if (hasAppliedLedgerEntry(wallet, ledgerResult.entry)) {
+    return {
+      wallet: wallet.toObject(),
+      ledgerEntry: ledgerResult.entry,
+      created: false,
+      idempotent: true,
+    };
+  }
+
+  const saveResult = await saveWalletAfterLedger(wallet, ledgerResult.entry);
+
   return {
-    wallet: wallet.toObject(),
+    wallet: saveResult.wallet.toObject(),
     ledgerEntry: ledgerResult.entry,
-    created: true,
-    idempotent: false,
+    created: ledgerResult.created,
+    idempotent: ledgerResult.idempotent || saveResult.alreadyApplied,
   };
 }
 
@@ -444,9 +508,10 @@ async function releaseReservedResource({
     usableByEventId,
   });
 
+  let wallet = await getOrCreateWallet(organizerId);
+
   const existing = await commercialLedgerService.getByIdempotencyKey(idempotencyKey);
-  if (existing) {
-    const wallet = await getOrCreateWallet(organizerId);
+  if (existing && hasAppliedLedgerEntry(wallet, existing)) {
     return {
       wallet: wallet.toObject(),
       ledgerEntry: existing,
@@ -454,8 +519,6 @@ async function releaseReservedResource({
       idempotent: true,
     };
   }
-
-  const wallet = await getOrCreateWallet(organizerId);
 
   const candidates = (wallet.balances || []).filter((balance) => {
     if (balance.resourceType !== resource.resourceType) return false;
@@ -488,8 +551,6 @@ async function releaseReservedResource({
     );
   }
 
-  await wallet.save();
-
   const ledgerResult = await commercialLedgerService.createLedgerEntry({
     organizerId,
     movementType: "release",
@@ -511,11 +572,22 @@ async function releaseReservedResource({
     metadata,
   });
 
+  if (hasAppliedLedgerEntry(wallet, ledgerResult.entry)) {
+    return {
+      wallet: wallet.toObject(),
+      ledgerEntry: ledgerResult.entry,
+      created: false,
+      idempotent: true,
+    };
+  }
+
+  const saveResult = await saveWalletAfterLedger(wallet, ledgerResult.entry);
+
   return {
-    wallet: wallet.toObject(),
+    wallet: saveResult.wallet.toObject(),
     ledgerEntry: ledgerResult.entry,
-    created: true,
-    idempotent: false,
+    created: ledgerResult.created,
+    idempotent: ledgerResult.idempotent || saveResult.alreadyApplied,
   };
 }
 
@@ -544,10 +616,6 @@ async function expireAvailableResources({
 
     const expiresAtTime = new Date(balance.expiresAt).getTime();
     if (expiresAtTime > nowTime) continue;
-
-    balance.quantityAvailable = 0;
-    balance.quantityExpired += available;
-    balance.status = "expired";
 
     const idempotencyKey = `${idempotencyPrefix}:${organizerId}:${balance._id}`;
 
@@ -578,11 +646,32 @@ async function expireAvailableResources({
       },
     });
 
+    if (hasAppliedLedgerEntry(wallet, ledgerResult.entry)) {
+      continue;
+    }
+
+    balance.quantityAvailable = 0;
+    balance.quantityExpired += available;
+    balance.status = "expired";
+
+    markLedgerEntryApplied(wallet, ledgerResult.entry);
     expiredMovements.push(ledgerResult.entry);
   }
 
   if (expiredMovements.length > 0) {
-    await wallet.save();
+    try {
+      await wallet.save();
+    } catch (err) {
+      if (err && err.name === "VersionError") {
+        throw buildCommercialError(
+          "WALLET_CONCURRENT_UPDATE_RETRY",
+          409,
+          "Wallet was updated concurrently. Retry the operation."
+        );
+      }
+
+      throw err;
+    }
   }
 
   return {
