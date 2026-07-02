@@ -535,12 +535,15 @@ async function sendTrillNotifications({ user, trillId, now = new Date() }) {
     throw buildTrillError(TRILL_REASON.EVENT_OUTSIDE_TRILL_WINDOW, 409);
   }
 
-  const recipients = await resolveTrillRecipients({ trill, event });
+    const recipients = await resolveTrillRecipients({ trill, event });
   if (!recipients.length) throw buildTrillError(TRILL_REASON.NO_RECIPIENTS, 409);
+
+  const reservationContext = await reserveTrillResource({ user, trill, event });
 
   let delivered = 0;
 
-  for (const recipient of recipients) {
+  try {
+    for (const recipient of recipients) {
 const userId = recipient.userId;
 
 const notif = await Notification.create(
@@ -561,18 +564,30 @@ distanceBand: recipient.distanceBand,
 delivered++;
 }
 
-  trill.status = "sent";
-  trill.sentAt = now;
-  trill.recipientCount = recipients.length;
-  trill.deliveredCount = delivered;
+    await consumeReservedTrillResource({ trill, event, reservationContext });
 
-  await trill.save();
+    trill.status = "sent";
+    trill.sentAt = now;
+    trill.recipientCount = recipients.length;
+    trill.deliveredCount = delivered;
 
-  return {
-    trill,
-    recipientCount: recipients.length,
-    deliveredCount: delivered,
-  };
+    await trill.save();
+
+    return {
+      trill,
+      recipientCount: recipients.length,
+      deliveredCount: delivered,
+      commercialConsumption: reservationContext && !reservationContext.skipped
+        ? {
+            resourceType: reservationContext.resourceType,
+            isFree: Boolean(reservationContext.isFree),
+          }
+        : null,
+    };
+  } catch (err) {
+    await releaseReservedTrillResource({ trill, event, reservationContext });
+    throw err;
+  }
 }
 
 module.exports = {
