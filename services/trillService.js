@@ -313,7 +313,150 @@ function buildTrillNotificationPayload({ trill, event, recipientId }) {
     },
   };
 }
+/* =========================
+   COMMERCIAL RESOURCES
+========================= */
 
+function getPaidTrillResourceType(priority) {
+  const normalized = normalizeTrillPriority(priority);
+
+  if (normalized === "urgent") return "paid.trill.urgent";
+  if (normalized === "final_call") return "paid.trill.final_call";
+
+  return "paid.trill.live";
+}
+
+function buildCommercialTrillSource({ trill, event }) {
+  return {
+    type: "trill",
+    eventId: event._id,
+    trillId: trill._id,
+  };
+}
+
+async function reserveTrillResource({ user, trill, event }) {
+  // I trilli admin restano fuori dal wallet organizer.
+  if (isAdmin(user) || String(trill.type || "") === "admin") {
+    return {
+      skipped: true,
+      reason: "admin_trill",
+    };
+  }
+
+  const organizerId = event.organizer;
+  const source = buildCommercialTrillSource({ trill, event });
+
+  try {
+    const freeReservation = await commercialWalletService.reserveResource({
+      organizerId,
+      resourceType: "free.trill.base",
+      quantity: 1,
+      scope: "event",
+      geoScopeType: "none",
+      isFree: true,
+      usableByEventId: event._id,
+      source,
+      idempotencyKey: `trill_reserve_free:${trill._id}`,
+      reason: "Free event trill reserved before send.",
+      metadata: {
+        trillPriority: normalizeTrillPriority(trill.priority),
+        trillType: trill.type || "base",
+      },
+    });
+
+    return {
+      skipped: false,
+      resourceType: "free.trill.base",
+      scope: "event",
+      geoScopeType: "none",
+      isFree: true,
+      usableByEventId: event._id,
+      reservation: freeReservation,
+    };
+  } catch (err) {
+    if (!err || err.code !== "INSUFFICIENT_WALLET_RESOURCES") {
+      throw err;
+    }
+  }
+
+  const paidResourceType = getPaidTrillResourceType(trill.priority);
+
+  try {
+    const paidReservation = await commercialWalletService.reserveResource({
+      organizerId,
+      resourceType: paidResourceType,
+      quantity: 1,
+      scope: "organizer",
+      geoScopeType: "none",
+      isFree: false,
+      source,
+      idempotencyKey: `trill_reserve_paid:${trill._id}:${paidResourceType}`,
+      reason: "Paid organizer trill reserved before send.",
+      metadata: {
+        trillPriority: normalizeTrillPriority(trill.priority),
+        trillType: trill.type || "base",
+      },
+    });
+
+    return {
+      skipped: false,
+      resourceType: paidResourceType,
+      scope: "organizer",
+      geoScopeType: "none",
+      isFree: false,
+      usableByEventId: null,
+      reservation: paidReservation,
+    };
+  } catch (err) {
+    if (err && err.code === "INSUFFICIENT_WALLET_RESOURCES") {
+      throw buildTrillError(TRILL_REASON.TRILL_RESOURCE_NOT_AVAILABLE, 409);
+    }
+
+    throw err;
+  }
+}
+
+async function consumeReservedTrillResource({ trill, event, reservationContext }) {
+  if (!reservationContext || reservationContext.skipped) return null;
+
+  return commercialWalletService.consumeReservedResource({
+    organizerId: event.organizer,
+    resourceType: reservationContext.resourceType,
+    quantity: 1,
+    scope: reservationContext.scope,
+    geoScopeType: reservationContext.geoScopeType,
+    isFree: reservationContext.isFree,
+    usableByEventId: reservationContext.usableByEventId || null,
+    source: buildCommercialTrillSource({ trill, event }),
+    idempotencyKey: `trill_consume:${trill._id}:${reservationContext.resourceType}`,
+    reason: "Trill resource consumed after successful send.",
+    metadata: {
+      trillPriority: normalizeTrillPriority(trill.priority),
+      trillType: trill.type || "base",
+    },
+  });
+}
+
+async function releaseReservedTrillResource({ trill, event, reservationContext }) {
+  if (!reservationContext || reservationContext.skipped) return null;
+
+  return commercialWalletService.releaseReservedResource({
+    organizerId: event.organizer,
+    resourceType: reservationContext.resourceType,
+    quantity: 1,
+    scope: reservationContext.scope,
+    geoScopeType: reservationContext.geoScopeType,
+    isFree: reservationContext.isFree,
+    usableByEventId: reservationContext.usableByEventId || null,
+    source: buildCommercialTrillSource({ trill, event }),
+    idempotencyKey: `trill_release_failed_send:${trill._id}:${reservationContext.resourceType}`,
+    reason: "Trill resource released because send failed.",
+    metadata: {
+      trillPriority: normalizeTrillPriority(trill.priority),
+      trillType: trill.type || "base",
+    },
+  });
+}
 /* =========================
    CREATE DRAFT
 ========================= */
