@@ -244,6 +244,7 @@ async function getOrganizerMapSummary(organizerId) {
       isPrivate: event.isPrivate === true || event.visibility === "private",
       dateStart: event.dateStart || null,
       dateEnd: event.dateEnd || null,
+      temporalStatus: getTemporalStatus(event),
       city: event.city || "",
       region: event.region || "",
       country: event.country || "",
