@@ -50,7 +50,34 @@ function isSoonEvent(event, now = new Date()) {
   const diffMs = start.getTime() - now.getTime();
   return diffMs >= 0 && diffMs <= 48 * 60 * 60 * 1000;
 }
+function getValidEventDate(value) {
+  const date = value ? new Date(value) : null;
+  return date && !Number.isNaN(date.getTime()) ? date : null;
+}
 
+function getTemporalStatus(event, now = new Date()) {
+  const start = getValidEventDate(event?.dateStart);
+  const end = getValidEventDate(event?.dateEnd) || start;
+
+  if (!start && !end) return "unknown";
+
+  const nowTime = now.getTime();
+  const startTime = start ? start.getTime() : null;
+  const endTime = end ? end.getTime() : startTime;
+
+  if (startTime !== null && startTime > nowTime) return "upcoming";
+  if (endTime !== null && endTime < nowTime) return "past";
+  if (
+    startTime !== null &&
+    endTime !== null &&
+    startTime <= nowTime &&
+    endTime >= nowTime
+  ) {
+    return "live";
+  }
+
+  return "unknown";
+}
 function getMapOperationalStatus({ event, checkInsCount, trillsCount, activePromosCount }) {
   const approvalStatus = String(event?.approvalStatus || "pending").toLowerCase();
   const participantsCount = getParticipantsCount(event);
