@@ -224,7 +224,20 @@ const getUserProfile = asyncHandler(async (req, res) => {
         ? user.following.map((id) => String(id))
         : [],
       // (facoltativo ma utile in futuro)
-      followersCount: Array.isArray(user.followers) ? user.followers.length : 0,
+      followersCount:
+  Array.isArray(user.followers)
+    ? user.followers.length
+    : 0,
+
+locationConsent: {
+  enabled:
+    user.profile?.locationConsent
+      ?.enabled === true,
+
+  updatedAt:
+    user.profile?.locationConsent
+      ?.updatedAt || null,
+},
   });
   } else {
     res.status(404);
