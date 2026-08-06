@@ -63,6 +63,12 @@ router.post("/login", loginLimiter, authUser); // ⬅️ PATCH: applica limiter 
 // Private
 router.get("/me", protect, getUserProfile);
 router.patch("/me/location", protect, RL.locationUpdate, updateMyLocation);
+router.patch(
+  "/me/location-consent",
+  protect,
+  RL.locationConsent,
+  revokeMyLocationConsent
+);
 // Private: diagnostica ruoli/token (ritorna solo req.user)
 router.get("/whoami", protect, (req, res) => {
   res.json({ ok: true, user: req.user });
