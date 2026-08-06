@@ -971,6 +971,7 @@ module.exports = {
   getUserProfile,
   enableOrganizer,
   updateMyLocation,
+  revokeMyLocationConsent,
   verifyEmail,
   resendVerifyEmail,
   forgotPassword,
