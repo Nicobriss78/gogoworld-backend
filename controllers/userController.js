@@ -885,6 +885,86 @@ const updateMyLocation = asyncHandler(async (req, res) => {
     },
   });
 });
+// -----------------------------------------------------------------------------
+// @desc Revoca il consenso geografico e cancella la posizione salvata
+// @route PATCH /api/users/me/location-consent
+// @access Private
+// -----------------------------------------------------------------------------
+const revokeMyLocationConsent = asyncHandler(
+  async (req, res) => {
+    /*
+     * Questo endpoint gestisce esclusivamente la revoca.
+     *
+     * L'attivazione del consenso resta legata a una
+     * posizione valida ottenuta tramite /me/location.
+     */
+    if (req.body?.enabled !== false) {
+      return res.status(400).json({
+        ok: false,
+        error:
+          "invalid_location_consent_value",
+      });
+    }
+
+    const now = new Date();
+
+    /*
+     * Un'unica operazione atomica:
+     * - disabilita il consenso;
+     * - aggiorna la data della decisione;
+     * - elimina completamente la posizione salvata.
+     */
+    const user =
+      await User.findByIdAndUpdate(
+        req.user._id,
+        {
+          $set: {
+            "profile.locationConsent.enabled":
+              false,
+
+            "profile.locationConsent.updatedAt":
+              now,
+          },
+
+          $unset: {
+            "profile.lastKnownLocation":
+              1,
+          },
+        },
+        {
+          new: true,
+          runValidators: true,
+          context: "query",
+        }
+      )
+        .select(
+          "profile.locationConsent"
+        )
+        .lean();
+
+    if (!user) {
+      return res.status(404).json({
+        ok: false,
+        error: "user_not_found",
+      });
+    }
+
+    return res.json({
+      ok: true,
+
+      locationConsent: {
+        enabled: false,
+
+        updatedAt:
+          user.profile
+            ?.locationConsent
+            ?.updatedAt || now,
+      },
+
+      lastKnownLocation: null,
+    });
+  }
+);
 module.exports = {
   registerUser,
   authUser,
