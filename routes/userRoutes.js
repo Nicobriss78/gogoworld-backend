@@ -39,6 +39,17 @@ const RL = {
   sessionRole: securityRateLimit({ scope: "session_role", windowMs: 60_000, max: 20 }),
   enableOrganizer: securityRateLimit({ scope: "enable_organizer", windowMs: 60_000, max: 10 }),
   locationUpdate: securityRateLimit({ scope: "user_location_update", windowMs: 60_000, max: 12 }),
+  locationConsent:
+  securityRateLimit({
+    scope:
+      "user_location_consent",
+
+    windowMs:
+      60_000,
+
+    max:
+      10,
+  }),
   block: securityRateLimit({ scope: "user_block", windowMs: 60_000, max: 20 }),
   follow: securityRateLimit({ scope: "user_follow", windowMs: 60_000, max: 40 }),
 };
