@@ -13,6 +13,7 @@ const {
   getUserProfile,
   enableOrganizer,
   updateMyLocation,
+  revokeMyLocationConsent,
   verifyEmail,
   resendVerifyEmail,
   forgotPassword,
