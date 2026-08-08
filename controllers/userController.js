@@ -818,10 +818,23 @@ const updateMyLocation = asyncHandler(async (req, res) => {
   const accuracyMeters = normalizeGeoNumber(req.body?.accuracyMeters);
   const consent = req.body?.consent === true;
 
+  const rawConsentAction = String(
+    req.body?.consentAction || "sync"
+  )
+    .trim()
+    .toLowerCase();
+
   if (consent !== true) {
     return res.status(400).json({
       ok: false,
       error: "location_consent_required",
+    });
+  }
+
+  if (!["activate", "sync"].includes(rawConsentAction)) {
+    return res.status(400).json({
+      ok: false,
+      error: "invalid_location_consent_action",
     });
   }
 
@@ -846,7 +859,121 @@ const updateMyLocation = asyncHandler(async (req, res) => {
     });
   }
 
-  const user = await User.findById(req.user._id).select("profile");
+  const now = new Date();
+
+  const lastKnownLocation = {
+    type: "Point",
+    coordinates: [lon, lat],
+
+    accuracyMeters:
+      accuracyMeters === null
+        ? undefined
+        : Math.round(accuracyMeters),
+
+    source:
+      normalizeLocationSource(req.body?.source),
+
+    updatedAt: now,
+  };
+
+  let user = null;
+
+  /*
+   * ACTIVATE
+   *
+   * Soltanto un'attivazione esplicita può:
+   * - abilitare il consenso backend;
+   * - aggiornare la data del consenso;
+   * - salvare la posizione.
+   */
+  if (rawConsentAction === "activate") {
+    user = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        $set: {
+          "profile.locationConsent.enabled":
+            true,
+
+          "profile.locationConsent.updatedAt":
+            now,
+
+          "profile.lastKnownLocation":
+            lastKnownLocation,
+        },
+      },
+      {
+        new: true,
+        runValidators: true,
+        context: "query",
+      }
+    )
+      .select(
+        "profile.locationConsent profile.lastKnownLocation"
+      )
+      .lean();
+  } else {
+    /*
+     * SYNC
+     *
+     * Una sincronizzazione periodica non può creare
+     * né riattivare il consenso.
+     *
+     * L'update riesce soltanto se il consenso backend
+     * è già attivo nello stesso momento atomico in cui
+     * viene salvata la posizione.
+     */
+    user = await User.findOneAndUpdate(
+      {
+        _id: req.user._id,
+
+        "profile.locationConsent.enabled":
+          true,
+      },
+      {
+        $set: {
+          "profile.lastKnownLocation":
+            lastKnownLocation,
+        },
+      },
+      {
+        new: true,
+        runValidators: true,
+        context: "query",
+      }
+    )
+      .select(
+        "profile.locationConsent profile.lastKnownLocation"
+      )
+      .lean();
+
+    if (!user) {
+      /*
+       * La query può non trovare il documento perché:
+       * 1. l'utente non esiste più;
+       * 2. il consenso è disabilitato.
+       *
+       * Il secondo caso è quello normale dopo
+       * una revoca.
+       */
+      const exists = await User.exists({
+        _id: req.user._id,
+      });
+
+      if (!exists) {
+        return res.status(404).json({
+          ok: false,
+          error: "user_not_found",
+        });
+      }
+
+      return res.status(409).json({
+        ok: false,
+        error:
+          "location_consent_not_enabled",
+      });
+    }
+  }
+
   if (!user) {
     return res.status(404).json({
       ok: false,
@@ -854,34 +981,34 @@ const updateMyLocation = asyncHandler(async (req, res) => {
     });
   }
 
-  const now = new Date();
-
-  user.profile = user.profile || {};
-  user.profile.locationConsent = {
-    enabled: true,
-    updatedAt: now,
-  };
-
-  user.profile.lastKnownLocation = {
-    type: "Point",
-    coordinates: [lon, lat],
-    accuracyMeters: accuracyMeters === null ? undefined : Math.round(accuracyMeters),
-    source: normalizeLocationSource(req.body?.source),
-    updatedAt: now,
-  };
-
-  await user.save();
-
   return res.json({
     ok: true,
+
+    consentAction:
+      rawConsentAction,
+
     locationConsent: {
-      enabled: true,
-      updatedAt: now,
+      enabled:
+        user.profile?.locationConsent
+          ?.enabled === true,
+
+      updatedAt:
+        user.profile?.locationConsent
+          ?.updatedAt || null,
     },
+
     lastKnownLocation: {
-      updatedAt: now,
-      accuracyMeters: user.profile.lastKnownLocation.accuracyMeters,
-      source: user.profile.lastKnownLocation.source,
+      updatedAt:
+        user.profile?.lastKnownLocation
+          ?.updatedAt || now,
+
+      accuracyMeters:
+        user.profile?.lastKnownLocation
+          ?.accuracyMeters,
+
+      source:
+        user.profile?.lastKnownLocation
+          ?.source || "browser",
     },
   });
 });
