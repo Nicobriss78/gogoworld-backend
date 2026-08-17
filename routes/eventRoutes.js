@@ -30,7 +30,7 @@ const {
   updateEventBanner,
 } = require("../controllers/eventController");
 
-const { protect, authorize } = require("../middleware/auth");
+const { protect, optionalAuth, authorize } = require("../middleware/auth");
 const { securityRateLimit } = require("../middleware/securityRateLimit");
 const { writeLimiter, participationLimiter, adminLimiter, privateUnlockLimiter } = require("../middleware/rateLimit");
 // SECURITY (Redis shared) — Step 1.4
