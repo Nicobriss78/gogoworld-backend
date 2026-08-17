@@ -93,6 +93,44 @@ const protect = asyncHandler(async (req, res, next) => {
 });
 
 // -----------------------------------------------------------------------------
+// optionalAuth: autenticazione facoltativa per endpoint realmente pubblici.
+// - Se il Bearer token manca o non è valido, la richiesta continua come anonima.
+// - Se il token è valido, espone SOLO l’identità minima necessaria al controller.
+// - NON sostituisce `protect` e NON deve essere usato per autorizzare azioni protette.
+// -----------------------------------------------------------------------------
+const optionalAuth = (req, res, next) => {
+  if (!process.env.JWT_SECRET) {
+    return next();
+  }
+
+  const auth =
+    typeof req.headers.authorization === "string"
+      ? req.headers.authorization.trim()
+      : "";
+
+  const match = auth.match(/^Bearer\s+(.+)$/i);
+
+  if (!match || !match[1] || !match[1].trim()) {
+    return next();
+  }
+
+  try {
+    const decoded = jwt.verify(match[1].trim(), process.env.JWT_SECRET);
+
+    if (decoded?.id) {
+      req.user = {
+        _id: decoded.id,
+        id: decoded.id,
+      };
+    }
+  } catch (_) {
+    // Endpoint pubblico: token assente/scaduto/non valido = richiesta anonima.
+  }
+
+  return next();
+};
+
+// -----------------------------------------------------------------------------
 // authorize(...roles): vincola l’accesso a specifici ruoli
 // Uso: router.post("/", protect, authorize("organizer"), createEvent)
 // -----------------------------------------------------------------------------
