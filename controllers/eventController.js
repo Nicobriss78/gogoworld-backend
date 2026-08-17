@@ -61,6 +61,77 @@ function attachStatusToOne(doc, now = new Date()) {
   return { ...obj, status: computeEventStatus(obj, now) };
 }
 
+// P0-EVENTS-001 — Contratto dati della lista pubblica eventi.
+// `participants` viene letto SOLO internamente per calcolare `isJoined` e non viene
+// mai restituito dal DTO pubblico.
+const PUBLIC_EVENT_PROJECTION = [
+  "_id",
+  "title",
+  "category",
+  "subcategory",
+  "venueName",
+  "address",
+  "city",
+  "region",
+  "country",
+  "lat",
+  "lon",
+  "dateStart",
+  "dateEnd",
+  "language",
+  "target",
+  "isFree",
+  "price",
+  "currency",
+  "images",
+  "coverImage",
+  "participants",
+].join(" ");
+
+function sameObjectId(a, b) {
+  if (!a || !b) return false;
+  return String(a) === String(b);
+}
+
+function toPublicEventDto(doc, userId, now = new Date()) {
+  const obj =
+    typeof doc?.toObject === "function"
+      ? doc.toObject()
+      : { ...(doc || {}) };
+
+  const isJoined =
+    Boolean(userId) &&
+    Array.isArray(obj.participants) &&
+    obj.participants.some((participantId) =>
+      sameObjectId(participantId, userId)
+    );
+
+  return {
+    _id: obj._id,
+    title: obj.title,
+    category: obj.category,
+    subcategory: obj.subcategory,
+    venueName: obj.venueName,
+    address: obj.address,
+    city: obj.city,
+    region: obj.region,
+    country: obj.country,
+    lat: obj.lat,
+    lon: obj.lon,
+    dateStart: obj.dateStart,
+    dateEnd: obj.dateEnd,
+    language: obj.language,
+    target: obj.target,
+    isFree: obj.isFree,
+    price: obj.price,
+    currency: obj.currency,
+    images: Array.isArray(obj.images) ? obj.images : [],
+    coverImage: obj.coverImage,
+    status: computeEventStatus(obj, now),
+    isJoined,
+  };
+}
+
 // A2.3 – helper per creare Activity senza bloccare il flusso principale
 async function safeCreateActivity(payload) {
   try {
