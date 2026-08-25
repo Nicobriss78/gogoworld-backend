@@ -659,6 +659,16 @@ const getEventById = asyncHandler(async (req, res) => {
     }
   }
 
+// P0-EVENTS-002 — stato partecipazione viewer-specific.
+// Calcolato PRIMA della rimozione di participants dal payload.
+  const viewerParticipantIds = Array.isArray(event.participants)
+    ? event.participants.map(String)
+    : [];
+
+  payload.isJoined = Boolean(
+    userId && viewerParticipantIds.includes(String(userId))
+  );
+
 // 🧼 Sanitizzazione: i partecipanti NON devono vedere campi sensibili
   if (!isAdmin && !isOwner) {
     if (payload && typeof payload === "object") {
