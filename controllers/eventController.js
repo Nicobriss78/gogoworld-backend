@@ -1364,40 +1364,98 @@ function buildParticipationEventPayload(event, userId, now = new Date()) {
 // @access Private
 const joinEvent = asyncHandler(async (req, res) => {
   const event = await Event.findById(req.params.id);
+
   if (!event) {
     res.status(404);
     throw new Error("Evento non trovato");
   }
 
-  // 🔒 Blocca partecipazione se evento già concluso
+  const userId = req.user?._id;
+  const visibility = String(event.visibility || "").toLowerCase();
+  const approvalStatus = String(event.approvalStatus || "").toLowerCase();
+
+  // P0-EVENTS-002 — la partecipazione è consentita solo a eventi approvati
+  // e appartenenti ai due flussi supportati (public/private).
+  if (approvalStatus !== "approved") {
+    res.status(403);
+    throw new Error("Evento non disponibile per la partecipazione");
+  }
+
+  if (visibility !== "public" && visibility !== "private") {
+    res.status(403);
+    throw new Error("Evento non disponibile per la partecipazione");
+  }
+
+  const revoked = Array.isArray(event.revokedUsers)
+    ? event.revokedUsers.map(String)
+    : [];
+
+  if (userId && revoked.includes(String(userId))) {
+    res.status(403);
+    throw new Error("Accesso revocato dall'organizzatore");
+  }
+
+  const participants = Array.isArray(event.participants)
+    ? event.participants.map(String)
+    : [];
+
+  const isParticipant = Boolean(
+    userId && participants.includes(String(userId))
+  );
+
+  // Un evento privato NON può usare /join per creare un nuovo access grant.
+  // L'accesso nasce solo dai flussi intenzionali
+  // (codice/invito/gestione organizer).
+  if (visibility === "private" && !isParticipant) {
+    res.status(403);
+    throw new Error("Evento privato: accesso non autorizzato");
+  }
+
+  // Blocca partecipazione se evento già concluso.
   const now = new Date();
-// Evento "concluso" se:
-// - esiste dateEnd e now > dateEnd
-// - altrimenti (no dateEnd): now > fine giornata di dateStart
-const hasEnded = (() => {
-if (event.dateEnd) return new Date(event.dateEnd) < now;
-if (event.dateStart) {
-const endOfStart = new Date(event.dateStart);
-endOfStart.setHours(23, 59, 59, 999);
-return now > endOfStart;
-}
-return false;
-})();
+
+  // Evento "concluso" se:
+  // - esiste dateEnd e now > dateEnd
+  // - altrimenti (no dateEnd): now > fine giornata di dateStart
+  const hasEnded = (() => {
+    if (event.dateEnd) {
+      return new Date(event.dateEnd) < now;
+    }
+
+    if (event.dateStart) {
+      const endOfStart = new Date(event.dateStart);
+      endOfStart.setHours(23, 59, 59, 999);
+      return now > endOfStart;
+    }
+
+    return false;
+  })();
+
   if (hasEnded) {
     res.status(403);
     throw new Error("Non puoi partecipare a un evento già concluso");
   }
 
-if (!event.participants.some((p) => p.toString() === req.user._id.toString())) {
-    event.participants.push(req.user._id);
+  // Solo il flusso pubblico può creare una nuova partecipazione tramite /join.
+  if (visibility === "public" && !isParticipant) {
+    event.participants = Array.isArray(event.participants)
+      ? event.participants
+      : [];
+
+    event.participants.push(userId);
+
     await event.save();
 
     await notify("event_joined", {
-      eventId: event?._id?.toString?.() || String(event?._id || ""),
-      participantId: req.user?._id?.toString?.() || String(req.user?._id || ""),
+      eventId:
+        event?._id?.toString?.() ||
+        String(event?._id || ""),
+      participantId:
+        req.user?._id?.toString?.() ||
+        String(req.user?._id || ""),
     });
 
-// A2.3 – log Activity: partecipazione ad evento
+    // A2.3 – log Activity: partecipazione ad evento
     safeCreateActivity({
       user: req.user._id,
       type: "joined_event",
@@ -1411,13 +1469,19 @@ if (!event.participants.some((p) => p.toString() === req.user._id.toString())) {
         dateEnd: event.dateEnd,
       },
     });
-
   }
 
-  res.json({ ok: true, event });
+  const payload = buildParticipationEventPayload(
+    event,
+    userId,
+    now
+  );
+
+  res.json({
+    ok: true,
+    event: payload,
+  });
 });
-
-
 // @desc Rimuove partecipante
 // @route POST /api/events/:id/leave
 // @access Private
