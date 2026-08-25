@@ -1487,20 +1487,75 @@ const joinEvent = asyncHandler(async (req, res) => {
 // @access Private
 const leaveEvent = asyncHandler(async (req, res) => {
   const event = await Event.findById(req.params.id);
+
   if (!event) {
     res.status(404);
     throw new Error("Evento non trovato");
   }
-  event.participants = event.participants.filter(
-    (p) => p.toString() !== req.user._id.toString()
-  );
-  await event.save();
-  await notify("event_left", {
-  eventId: event?._id?.toString?.() || String(event?._id || ""),
-  participantId: req.user?._id?.toString?.() || String(req.user?._id || ""),
-});
 
-  res.json({ ok: true, event });
+  const userId = req.user?._id;
+  const visibility = String(event.visibility || "").toLowerCase();
+  const approvalStatus = String(event.approvalStatus || "").toLowerCase();
+
+  if (approvalStatus !== "approved") {
+    res.status(403);
+    throw new Error("Evento non disponibile");
+  }
+
+  if (visibility !== "public" && visibility !== "private") {
+    res.status(403);
+    throw new Error("Evento non disponibile");
+  }
+
+  const revoked = Array.isArray(event.revokedUsers)
+    ? event.revokedUsers.map(String)
+    : [];
+
+  if (userId && revoked.includes(String(userId))) {
+    res.status(403);
+    throw new Error("Accesso revocato dall'organizzatore");
+  }
+
+  const wasParticipant =
+    Array.isArray(event.participants) &&
+    event.participants.some(
+      (p) => String(p) === String(userId)
+    );
+
+  // Per un privato, anche /leave deve essere accessibile soltanto
+  // a chi possiede davvero il grant corrente.
+  // Impedisce l'uso della route come lettura laterale.
+  if (visibility === "private" && !wasParticipant) {
+    res.status(403);
+    throw new Error("Evento privato: accesso non autorizzato");
+  }
+
+  if (wasParticipant) {
+    event.participants = event.participants.filter(
+      (p) => String(p) !== String(userId)
+    );
+
+    await event.save();
+
+    await notify("event_left", {
+      eventId:
+        event?._id?.toString?.() ||
+        String(event?._id || ""),
+      participantId:
+        req.user?._id?.toString?.() ||
+        String(req.user?._id || ""),
+    });
+  }
+
+  const payload = buildParticipationEventPayload(
+    event,
+    userId
+  );
+
+  res.json({
+    ok: true,
+    event: payload,
+  });
 });
 
 // 🔎 PATCH S6: stato partecipazione (diagnostica per FE)
