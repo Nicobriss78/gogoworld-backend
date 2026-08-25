@@ -1333,6 +1333,32 @@ cache.delByPrefix("events:list:");
 res.json({ ok: true, message: "Evento eliminato" });
 });
 
+// P0-EVENTS-002 — payload sicuro per le mutazioni di partecipazione.
+// Le route join/leave non devono restituire il documento Event completo.
+function buildParticipationEventPayload(event, userId, now = new Date()) {
+  const payload = attachStatusToOne(event, now);
+
+  const participantIds = Array.isArray(event?.participants)
+    ? event.participants.map(String)
+    : [];
+
+  payload.isJoined = Boolean(
+    userId && participantIds.includes(String(userId))
+  );
+
+  delete payload.accessCode;
+  delete payload.participants;
+  delete payload.revokedUsers;
+  delete payload.flaggedBy;
+  delete payload.moderation;
+
+  if (payload?.organizer && typeof payload.organizer === "object") {
+    delete payload.organizer.email;
+  }
+
+  return normalizeEventForClient(payload);
+}
+
 // @desc Aggiunge partecipante
 // @route POST /api/events/:id/join
 // @access Private
