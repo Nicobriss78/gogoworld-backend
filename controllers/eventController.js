@@ -587,10 +587,53 @@ const events = await Event.find(filters)
 // @access Public
 const getEventById = asyncHandler(async (req, res) => {
   const event = await Event.findById(req.params.id).populate("organizer", "name email");
+
   if (!event) {
     res.status(404);
     throw new Error("Evento non trovato");
   }
+
+  // EVENTS-MODERATION-003 — boundary di moderazione sul dettaglio evento.
+  // Admin e proprietario possono consultare l'evento in qualsiasi stato
+  // per esigenze di moderazione/gestione.
+  // Tutti gli altri possono vedere soltanto eventi approvati e realmente
+  // pubblicabili (public/private), mai draft/pending/rejected/blocked.
+  const moderationUserId = req.user?._id;
+  const moderationRole = String(req.user?.role || "").toLowerCase();
+
+  const moderationOrganizerId =
+    event.organizer?._id || event.organizer;
+
+  const moderationIsAdmin =
+    moderationRole === "admin";
+
+  const moderationIsOwner =
+    Boolean(
+      moderationOrganizerId &&
+      moderationUserId &&
+      String(moderationOrganizerId) === String(moderationUserId)
+    );
+
+  const moderationApprovalStatus =
+    String(event.approvalStatus || "").toLowerCase();
+
+  const moderationVisibility =
+    String(event.visibility || "").toLowerCase();
+
+  if (!moderationIsAdmin && !moderationIsOwner) {
+    const isApproved =
+      moderationApprovalStatus === "approved";
+
+    const isParticipantVisible =
+      moderationVisibility === "public" ||
+      moderationVisibility === "private";
+
+    if (!isApproved || !isParticipantVisible) {
+      res.status(403);
+      throw new Error("Evento non disponibile");
+    }
+  }
+
   // ✅ Protezione eventi privati: solo organizer/admin/participants
   if (event.visibility === "private") {
     const userId = req.user?._id;
