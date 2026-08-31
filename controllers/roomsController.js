@@ -323,8 +323,35 @@ exports.getEventRoomMeta = async (req, res, next) => {
     const eventIdObj = new mongoose.Types.ObjectId(eventId);
     const room = await Room.findOne({ type: "event", eventId: eventIdObj }).lean();
     if (!room) return res.status(404).json({ ok: false, error: "ROOM_NOT_FOUND" });
-// Carica evento per capire se è privato
+// Carica evento per capire se è privato e se la room è pubblicabile
 const ev = await Event.findById(eventIdObj).lean();
+
+if (!ev) {
+  return res.status(404).json({
+    ok: false,
+    error: "EVENT_NOT_FOUND",
+  });
+}
+
+const roomApprovalStatus =
+  String(ev.approvalStatus || "").toLowerCase();
+
+const roomVisibility =
+  String(ev.visibility || "").toLowerCase();
+
+if (roomApprovalStatus !== "approved") {
+  return res.status(403).json({
+    ok: false,
+    error: "EVENT_NOT_APPROVED",
+  });
+}
+
+if (roomVisibility !== "public" && roomVisibility !== "private") {
+  return res.status(403).json({
+    ok: false,
+    error: "EVENT_NOT_AVAILABLE",
+  });
+}
 
 // Se l'evento è privato e l'utente non è membro della room → locked, niente roomId
 const isPrivateEvent =
