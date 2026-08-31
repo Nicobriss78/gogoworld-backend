@@ -812,12 +812,6 @@ const accessPrivateEventByCode = asyncHandler(async (req, res) => {
     }
   }
 
-  // Se ormai è passato del tutto, non ha senso “sbloccarlo” come privato
-  if (payload.status === "past") {
-    res.status(410);
-    throw new Error("Questo evento privato è già concluso");
-  }
-
   res.json({ ok: true, event: payload });
 });
 // @desc Lista eventi privati a cui ho accesso (sbloccati / invitati)
