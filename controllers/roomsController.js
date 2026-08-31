@@ -978,8 +978,38 @@ exports.unlockEvent = async (req, res, next) => {
     }
     const eventIdObj = new mongoose.Types.ObjectId(eventId);
 
-    const ev = await Event.findById(eventIdObj).lean();
-    if (!ev) return res.status(404).json({ ok: false, error: "EVENT_NOT_FOUND" });
+   const ev = await Event.findById(eventIdObj).lean();
+
+if (!ev) {
+  return res.status(404).json({
+    ok: false,
+    error: "EVENT_NOT_FOUND",
+  });
+}
+
+// ROOMS-PRIVATE-004 — il codice room non può scavalcare la moderazione.
+// Il gate viene applicato prima di creare room/membership e prima
+// di aggiungere il partecipante all'evento.
+const approvalStatus =
+  String(ev.approvalStatus || "").toLowerCase();
+
+const visibility =
+  String(ev.visibility || "").toLowerCase();
+
+if (approvalStatus !== "approved") {
+  return res.status(403).json({
+    ok: false,
+    error: "EVENT_NOT_APPROVED",
+  });
+}
+
+if (visibility !== "public" && visibility !== "private") {
+  return res.status(403).json({
+    ok: false,
+    error: "EVENT_NOT_AVAILABLE",
+  });
+}
+
 // ✅ BAN hard
 const isRevoked =
   Array.isArray(ev.revokedUsers) &&
