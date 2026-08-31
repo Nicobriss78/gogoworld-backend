@@ -63,7 +63,21 @@ async function requireEventAccessIfPrivate(room, meId) {
   const ev = await Event.findById(room.eventId).lean();
   if (!ev) return { ok: false, status: 404, error: "EVENT_NOT_FOUND" };
 
-  const isPrivateEvent = String(ev.visibility || "").toLowerCase() === "private";
+  // ROOMS-PRIVATE-004 — la room evento è accessibile solo quando
+  // l'evento è approvato e pubblicabile. Il controllo vale anche
+  // per room già esistenti/membership già create.
+  const approvalStatus = String(ev.approvalStatus || "").toLowerCase();
+  const visibility = String(ev.visibility || "").toLowerCase();
+
+  if (approvalStatus !== "approved") {
+    return { ok: false, status: 403, error: "EVENT_NOT_APPROVED" };
+  }
+
+  if (visibility !== "public" && visibility !== "private") {
+    return { ok: false, status: 403, error: "EVENT_NOT_AVAILABLE" };
+  }
+
+  const isPrivateEvent = visibility === "private";
   if (!isPrivateEvent) return { ok: true };
 
   const isRevoked =
