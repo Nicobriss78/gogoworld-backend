@@ -127,8 +127,27 @@ exports.openOrJoinEvent = async (req, res, next) => {
     if (!isValidObjectId(eventId)) return res.status(400).json({ ok: false, error: "INVALID_EVENT_ID" });
     const eventIdObj = new mongoose.Types.ObjectId(eventId);
 // Carica evento per titolo e finestra
-    const ev = await Event.findById(eventId).lean();
-    if (!ev) return res.status(404).json({ ok: false, error: "EVENT_NOT_FOUND" });
+   const ev = await Event.findById(eventId).lean();
+if (!ev) return res.status(404).json({ ok: false, error: "EVENT_NOT_FOUND" });
+
+// ROOMS-PRIVATE-004 — non creare/aprire room o membership
+// per eventi non approvati o non pubblicabili.
+const approvalStatus = String(ev.approvalStatus || "").toLowerCase();
+const visibility = String(ev.visibility || "").toLowerCase();
+
+if (approvalStatus !== "approved") {
+  return res.status(403).json({
+    ok: false,
+    error: "EVENT_NOT_APPROVED",
+  });
+}
+
+if (visibility !== "public" && visibility !== "private") {
+  return res.status(403).json({
+    ok: false,
+    error: "EVENT_NOT_AVAILABLE",
+  });
+}
 
 // Evento privato: accesso consentito solo a organizzatore o partecipanti
 const isOrganizer =
