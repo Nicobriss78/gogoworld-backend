@@ -767,6 +767,17 @@ const accessPrivateEventByCode = asyncHandler(async (req, res) => {
     }
   }
 
+  // PRIVATE-UNLOCK-005 — validazione temporale PRIMA di qualsiasi mutazione.
+  // Manteniamo invariata la semantica esistente:
+  // "concluded" resta sbloccabile come prima, "past" no.
+  const now = new Date();
+  const unlockStatus = computeEventStatus(event, now);
+
+  if (unlockStatus === "past") {
+    res.status(410);
+    throw new Error("Questo evento privato è già concluso");
+  }
+
 // ✅ Persistenza accesso: aggiungi l'utente tra i partecipanti (idempotente)
 
   if (userId) {
