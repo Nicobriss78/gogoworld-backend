@@ -792,7 +792,6 @@ const accessPrivateEventByCode = asyncHandler(async (req, res) => {
     }
   }
 
-  const now = new Date();
   const payload = attachStatusToOne(event, now);
 // 🧼 Sanitizzazione: chi sblocca come partecipante NON deve ricevere accessCode / liste utenti
   const role = String(req.user?.role || "").toLowerCase();
