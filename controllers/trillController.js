@@ -192,8 +192,12 @@ const sendTrillController = asyncHandler(async (req, res) => {
 // GET /api/trills/mine
 const listMyTrills = asyncHandler(async (req, res) => {
   const userId = getUserId(req.user);
+
   if (!userId) {
-    return res.status(401).json({ ok: false, error: "not_authorized" });
+    return res.status(401).json({
+      ok: false,
+      error: "not_authorized",
+    });
   }
 
   const limit = normalizeLimit(req.query.limit);
@@ -206,7 +210,10 @@ const listMyTrills = asyncHandler(async (req, res) => {
   })
     .sort({ createdAt: -1 })
     .limit(limit)
-    .populate("eventId", "title dateStart dateEnd city region approvalStatus")
+    .populate(
+      "eventId",
+      "title dateStart dateEnd city region approvalStatus visibility isPrivate"
+    )
     .lean();
 
   auditTrill("list_mine", req, {
