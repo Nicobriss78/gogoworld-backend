@@ -66,6 +66,12 @@ async function safeCreateActivity(payload) {
 // Commercial Foundation V1 — grant free trills su approvazione evento.
 // Non deve rompere il flusso admin: il grant è idempotente e ritentabile.
 async function safeGrantFreeEventTrillsOnApproval(event, adminUserId) {
+  // PRIVATE-PROMO-006 — gli eventi privati (e in generale non pubblici)
+  // non generano entitlement promozionali quando vengono approvati.
+  if (!isEventPromotionEligible(event)) {
+    return null;
+  }
+
   try {
     return await commercialEntitlementService.grantFreeEventTrills(event, {
       adminId: adminUserId || null,
