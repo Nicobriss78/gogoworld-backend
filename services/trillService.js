@@ -7,6 +7,9 @@ const CheckIn = require("../models/checkInModel");
 const Notification = require("../models/notificationModel");
 const { getNearbyGeoRecipients } = require("./trillGeoTargetingService");
 const commercialWalletService = require("./commercialWalletService");
+const {
+  isEventPromotionEligible,
+} = require("./eventPromotionPolicy");
 const TRILL_REASON = {
   INVALID_EVENT_ID: "INVALID_EVENT_ID",
   EVENT_NOT_FOUND: "EVENT_NOT_FOUND",
