@@ -66,6 +66,9 @@ function assertEventForFreeGrant(event) {
 
 async function grantFreeEventTrills(event, options = {}) {
   const { organizerId, eventId, expiresAt } = assertEventForFreeGrant(event);
+  // PRIVATE-PROMO-006 — defense in depth: nessun chiamante può
+  // generare grant gratuiti per eventi privati/non pubblici.
+  assertEventPromotionEligible(event);
 
   const idempotencyKey =
     normalizeString(options.idempotencyKey) || `event_approval_free_grant:${eventId}`;
