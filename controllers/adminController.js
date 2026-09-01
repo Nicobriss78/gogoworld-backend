@@ -381,6 +381,7 @@ const unblockEvent = asyncHandler(async (req, res) => {
     updatedAt: now(),
   };
   await ev.save();
+  await revalidatePromosForEventDateChange(ev, req.user._id);
   await notify("event_unblocked", {
     eventId: ev?._id?.toString?.() || String(ev?._id || ""),
     adminId: req?.user?._id?.toString?.() || String(req?.user?._id || ""),
