@@ -547,17 +547,39 @@ async function sendTrillNotifications({ user, trillId, now = new Date() }) {
     throw buildTrillError(TRILL_REASON.TRILL_NOT_SENDABLE, 409);
   }
 
-  const event = await getEventForTrill(trill.eventId);
-  if (!event) throw buildTrillError(TRILL_REASON.EVENT_NOT_FOUND, 404);
-  if (!canManageEvent(user, event)) throw buildTrillError(TRILL_REASON.FORBIDDEN, 403);
-  if (!isEventApproved(event)) throw buildTrillError(TRILL_REASON.EVENT_NOT_APPROVED, 409);
-  if (!isWithinTrillWindow(event, now)) {
-    throw buildTrillError(TRILL_REASON.EVENT_OUTSIDE_TRILL_WINDOW, 409);
-  }
+const event = await getEventForTrill(trill.eventId);
 
-    const recipients = await resolveTrillRecipients({ trill, event });
-  if (!recipients.length) throw buildTrillError(TRILL_REASON.NO_RECIPIENTS, 409);
+if (!event) {
+  throw buildTrillError(TRILL_REASON.EVENT_NOT_FOUND, 404);
+}
 
+if (!canManageEvent(user, event)) {
+  throw buildTrillError(TRILL_REASON.FORBIDDEN, 403);
+}
+
+if (!isEventApproved(event)) {
+  throw buildTrillError(TRILL_REASON.EVENT_NOT_APPROVED, 409);
+}
+
+if (!isEventPromotionEligible(event)) {
+  throw buildTrillError(TRILL_REASON.EVENT_NOT_PROMOTABLE, 409);
+}
+
+if (!isWithinTrillWindow(event, now)) {
+  throw buildTrillError(
+    TRILL_REASON.EVENT_OUTSIDE_TRILL_WINDOW,
+    409
+  );
+}
+
+const recipients = await resolveTrillRecipients({
+  trill,
+  event,
+});
+
+if (!recipients.length) {
+  throw buildTrillError(TRILL_REASON.NO_RECIPIENTS, 409);
+}
   const reservationContext = await reserveTrillResource({ user, trill, event });
 
   let delivered = 0;
