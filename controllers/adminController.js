@@ -315,8 +315,13 @@ const rejectEvent = asyncHandler(async (req, res) => {
   }
   const ev = await Event.findById(req.params.id);
   if (!ev) { res.status(404); throw new Error("Evento non trovato"); }
-  await setModeration(ev, "rejected", pick(req.body, ["reason","notes"]), req.user._id);
-  await revalidatePromosForEventDateChange(ev, req.user._id);
+await setModeration(
+  ev,
+  "rejected",
+  pick(req.body, ["reason", "notes"]),
+  req.user._id
+);
+await revalidatePromosForEventDateChange(ev, req.user._id);
   await notify("event_rejected", {
     eventId: ev?._id?.toString?.() || String(ev?._id || ""),
     reason: (req?.body?.reason || "").toString().trim(),
