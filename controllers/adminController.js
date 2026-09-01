@@ -13,6 +13,9 @@ const {
   revalidatePromosForEventDateChange,
 } = require("../services/promoEventRevalidationService");
 const commercialEntitlementService = require("../services/commercialEntitlementService");
+const {
+  isEventPromotionEligible,
+} = require("../services/eventPromotionPolicy");
 // -----------------------------
 // Utils
 // -----------------------------
