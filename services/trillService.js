@@ -471,10 +471,25 @@ async function createTrillDraft({ user, payload = {}, now = new Date() }) {
   if (!eventId) throw buildTrillError(TRILL_REASON.INVALID_EVENT_ID);
 
   const event = await getEventForTrill(eventId);
-  if (!event) throw buildTrillError(TRILL_REASON.EVENT_NOT_FOUND, 404);
-  if (!canManageEvent(user, event)) throw buildTrillError(TRILL_REASON.FORBIDDEN, 403);
-  if (!isEventApproved(event)) throw buildTrillError(TRILL_REASON.EVENT_NOT_APPROVED, 409);
-  if (!isWithinTrillWindow(event, now)) throw buildTrillError(TRILL_REASON.EVENT_OUTSIDE_TRILL_WINDOW, 409);
+if (!event) {
+  throw buildTrillError(TRILL_REASON.EVENT_NOT_FOUND, 404);
+}
+
+if (!canManageEvent(user, event)) {
+  throw buildTrillError(TRILL_REASON.FORBIDDEN, 403);
+}
+
+if (!isEventApproved(event)) {
+  throw buildTrillError(TRILL_REASON.EVENT_NOT_APPROVED, 409);
+}
+
+if (!isEventPromotionEligible(event)) {
+  throw buildTrillError(TRILL_REASON.EVENT_NOT_PROMOTABLE, 409);
+}
+
+if (!isWithinTrillWindow(event, now)) {
+  throw buildTrillError(TRILL_REASON.EVENT_OUTSIDE_TRILL_WINDOW, 409);
+}
 
   const type = normalizeTrillType(payload.type);
   if (!type) throw buildTrillError(TRILL_REASON.INVALID_TYPE);
