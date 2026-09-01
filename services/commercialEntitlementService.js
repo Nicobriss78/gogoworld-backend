@@ -7,7 +7,9 @@ const CommercialOrder = require("../models/commercialOrderModel");
 const commercialWalletService = require("./commercialWalletService");
 
 const FREE_EVENT_TRILLS_QUANTITY = 2;
-
+const {
+  assertEventPromotionEligible,
+} = require("./eventPromotionPolicy");
 function buildCommercialError(code, status = 400, message = code) {
   const err = new Error(message);
   err.code = code;
