@@ -294,6 +294,7 @@ const unapproveEvent = asyncHandler(async (req, res) => {
   };
 
   await ev.save();
+  await revalidatePromosForEventDateChange(ev, req.user._id);
   await notify("event_unapproved", {
     eventId: ev?._id?.toString?.() || String(ev?._id || ""),
     organizerId: ev?.organizer?.toString?.() || String(ev?.organizer || ""),
