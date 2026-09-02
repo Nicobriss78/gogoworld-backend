@@ -264,10 +264,34 @@ async function buildCampaignAnalytics(filters = {}) {
   const query = buildFilter(filters);
   const limit = normalizeLimit(filters.limit);
 
-  const snapshots = await CampaignSnapshot.find(query)
-    .sort({ "schedule.completedAt": -1 })
-    .limit(limit)
-    .lean();
+  // Anche le snapshot legacy vengono escluse dagli insight:
+  // il sistema non deve apprendere da campagne di eventi privati,
+  // non pubblici o non più approvati.
+  const snapshots = await CampaignSnapshot.aggregate([
+    { $match: query },
+    {
+      $lookup: {
+        from: Event.collection.name,
+        localField: "eventId",
+        foreignField: "_id",
+        as: "promotionEvent",
+      },
+    },
+    {
+      $match: {
+        promotionEvent: {
+          $elemMatch: {
+            approvalStatus: "approved",
+            visibility: "public",
+            isPrivate: { $ne: true },
+          },
+        },
+      },
+    },
+    { $sort: { "schedule.completedAt": -1 } },
+    { $limit: limit },
+    { $project: { promotionEvent: 0 } },
+  ]);
 
   const campaigns = snapshots.map(summarizeCampaign);
 
