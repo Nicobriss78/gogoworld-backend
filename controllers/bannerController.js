@@ -1305,6 +1305,8 @@ exports.createBanner = async (req, res) => {
       return res.status(400).json({ ok:false, error:"imageUrl and targetUrl must be https://" });
     }
 
+    await assertEventPromoBannerEligible(body);
+
     const doc = new Banner({
       type: body.type,
       source: body.source,
