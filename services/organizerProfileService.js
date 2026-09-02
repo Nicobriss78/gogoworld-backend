@@ -186,23 +186,29 @@ async function buildOrganizerProfile({ organizerId } = {}) {
     });
   }
 
-  const [events, promos] = await Promise.all([
-    Event.find({ organizer: normalizedOrganizerId })
-      .select("category region country createdAt dateStart")
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .lean(),
+  const events = await Event.find({
+    organizer: normalizedOrganizerId,
+    approvalStatus: "approved",
+    visibility: "public",
+    isPrivate: { $ne: true },
+  })
+    .select("_id category region country createdAt dateStart")
+    .sort({ createdAt: -1 })
+    .limit(50)
+    .lean();
 
-    Banner.find({
-      source: "organizer",
-      type: "event_promo",
-      createdBy: normalizedOrganizerId,
-    })
-      .select("placement estimatedPrice status paymentStatus region country activeFrom activeTo createdAt")
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .lean(),
-  ]);
+  const promotableEventIds = events.map((event) => event._id);
+
+  const promos = await Banner.find({
+    source: "organizer",
+    type: "event_promo",
+    createdBy: normalizedOrganizerId,
+    eventId: { $in: promotableEventIds },
+  })
+    .select("placement estimatedPrice status paymentStatus region country activeFrom activeTo createdAt")
+    .sort({ createdAt: -1 })
+    .limit(50)
+    .lean();
 
   const eventsCount = events.length;
   const promosCount = promos.length;
