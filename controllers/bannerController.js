@@ -1596,7 +1596,12 @@ now
     });
   } catch (err) {
     logger.error("[Banner] markPaidBanner error:", err);
-    return res.status(500).json({ ok:false, error:"internal_error" });
+
+    return res.status(err.statusCode || 500).json({
+      ok: false,
+      error: err.code || "internal_error",
+      message: err.message || "Internal error",
+    });
   }
 };
 // Organizer — stima prezzo promozione
