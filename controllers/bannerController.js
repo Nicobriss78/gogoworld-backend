@@ -2,6 +2,7 @@
 // Controller Banner — B1/1: fetch attivi con rotazione + tracking impression/click
 
 const { Banner, BannerStatsDaily } = require("../models/bannerModel");
+const Event = require("../models/eventModel");
 const { logger } = require("../core/logger");
 const {
 estimateBannerPrice,
