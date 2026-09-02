@@ -215,20 +215,65 @@ function getEffectivePromoStatus(banner, nowDate = new Date()) {
   return "ACTIVE";
 }
 
-function enrichPromoLifecycle(banner, nowDate = new Date()) {
-  if (!banner) return banner;
+function enrichPromoLifecycle(
+  banner,
+  nowDate = new Date()
+) {
+  if (!banner) {
+    return banner;
+  }
 
-  const persistedStatus = String(banner.status || "").toUpperCase();
-  const effectiveStatus = getEffectivePromoStatus(banner, nowDate);
-  const adminContactUserId = process.env.PROMO_ADMIN_CONTACT_USER_ID || "";
+  const persistedStatus = String(
+    banner.status || ""
+  ).toUpperCase();
+
+  const effectiveStatus =
+    getEffectivePromoStatus(banner, nowDate);
+
+  const adminContactUserId =
+    process.env.PROMO_ADMIN_CONTACT_USER_ID || "";
+
+  const linkedEvent = banner.eventId;
+
+  const hasPopulatedPromotionEvent =
+    isEventPromoBanner(banner) &&
+    linkedEvent &&
+    typeof linkedEvent === "object" &&
+    (
+      Object.prototype.hasOwnProperty.call(
+        linkedEvent,
+        "approvalStatus"
+      ) ||
+      Object.prototype.hasOwnProperty.call(
+        linkedEvent,
+        "visibility"
+      ) ||
+      Object.prototype.hasOwnProperty.call(
+        linkedEvent,
+        "isPrivate"
+      )
+    );
 
   return {
     ...banner,
+
     persistedStatus,
     status: effectiveStatus,
-    isExpired: effectiveStatus === "ENDED",
-    isActive: effectiveStatus === "ACTIVE",
+
+    isExpired:
+      effectiveStatus === "ENDED",
+
+    isActive:
+      effectiveStatus === "ACTIVE",
+
     adminContactUserId,
+
+    ...(hasPopulatedPromotionEvent
+      ? {
+          promotionEligible:
+            isEventPromotionEligible(linkedEvent),
+        }
+      : {}),
   };
 }
 
