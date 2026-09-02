@@ -1551,7 +1551,7 @@ exports.markPaidBanner = async (req, res) => {
     if (!id) return res.status(400).json({ ok:false, error:"id is required" });
 
     const banner = await Banner.findOne({ _id: id, status: "PENDING_PAYMENT" })
-      .select("activeFrom activeTo")
+      .select("activeFrom activeTo type eventId")
       .lean();
 
     if (!banner) {
@@ -1560,6 +1560,8 @@ exports.markPaidBanner = async (req, res) => {
         error:"not_found_or_not_pending_payment",
       });
     }
+
+    await assertEventPromoBannerEligible(banner);
 
     const now = new Date();
 const nextStatus = getEffectivePromoStatus(
