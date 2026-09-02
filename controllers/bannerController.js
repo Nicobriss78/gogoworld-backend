@@ -1602,7 +1602,16 @@ exports.estimateBannerRequest = async (req, res) => {
 if (!requireRole(req, res, ["organizer", "admin"])) return;
 
 try {
-const estimate = estimateBannerPrice(req.body || {});
+const body = req.body || {};
+
+if (body.eventId) {
+  await assertEventPromoBannerEligible({
+    type: "event_promo",
+    eventId: body.eventId,
+  });
+}
+
+const estimate = estimateBannerPrice(body);
 
 return res.json({
 ok: true,
