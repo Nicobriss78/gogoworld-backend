@@ -197,10 +197,10 @@ async function getOrganizerMapSummary(organizerId) {
       { $match: { eventId: { $in: eventIds }, validationStatus: "valid" } },
       { $group: { _id: "$eventId", count: { $sum: 1 } } },
     ]),
-    Trill.find({ organizerId, eventId: { $in: eventIds } })
+    Trill.find({ organizerId, eventId: { $in: promotionEventIds } })
       .select("eventId status recipientCount deliveredCount openedCount clickedCount checkInCount")
       .lean(),
-    Banner.find({ source: "organizer", eventId: { $in: eventIds } })
+    Banner.find({ source: "organizer", eventId: { $in: promotionEventIds } })
       .select("eventId status paymentStatus placement")
       .lean(),
     Room.find({ type: "event", eventId: { $in: eventIds } })
