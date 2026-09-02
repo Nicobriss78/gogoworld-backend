@@ -1346,9 +1346,25 @@ exports.updateBanner = async (req, res) => {
     if (up.imageUrl && !assertHttpsUrl(up.imageUrl)) {
       return res.status(400).json({ ok:false, error:"imageUrl must be https://" });
     }
-    if (up.targetUrl && !assertHttpsUrl(up.targetUrl)) {
+       if (up.targetUrl && !assertHttpsUrl(up.targetUrl)) {
       return res.status(400).json({ ok:false, error:"targetUrl must be https://" });
     }
+
+    const current = await Banner.findById(id)
+      .select("type eventId")
+      .lean();
+
+    if (!current) {
+      return res.status(404).json({
+        ok: false,
+        error: "not_found",
+      });
+    }
+
+    await assertEventPromoBannerEligible({
+      type: up.type !== undefined ? up.type : current.type,
+      eventId: up.eventId !== undefined ? up.eventId : current.eventId,
+    });
 
     const r = await Banner.updateOne({ _id:id }, { $set: up });
     if (r.matchedCount === 0) return res.status(404).json({ ok:false, error:"not_found" });
