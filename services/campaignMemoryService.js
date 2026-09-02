@@ -129,6 +129,14 @@ async function createCampaignSnapshotForBanner(bannerId, options = {}) {
     throw err;
   }
 
+  const event = banner.eventId
+    ? await Event.findById(banner.eventId)
+        .select("approvalStatus visibility isPrivate")
+        .lean()
+    : null;
+
+  assertEventPromotionEligible(event);
+
   const existing = await CampaignSnapshot.findOne({ bannerId: banner._id }).lean();
 
   if (existing) {
