@@ -1427,7 +1427,12 @@ return res.status(404).json({ ok: false, error: "already_processed_or_missing" }
 return res.status(204).send();
 } catch (err) {
 logger.error("[Banner] approve error:", err);
-return res.status(500).json({ ok:false, error:"internal_error" });
+
+return res.status(err.statusCode || 500).json({
+ok: false,
+error: err.code || "internal_error",
+message: err.message || "Internal error",
+});
 }
 };
 
