@@ -60,6 +60,125 @@ function now() {
 function isAlive(entry) {
   return entry && entry.expiresAt > now();
 }
+function isEventPromoBanner(banner) {
+  return (
+    String(banner?.type || "").toLowerCase() ===
+    "event_promo"
+  );
+}
+
+function buildBannerPolicyError(
+  code,
+  status,
+  message
+) {
+  const error = new Error(message || code);
+
+  error.code = code;
+  error.status = status;
+  error.statusCode = status;
+
+  return error;
+}
+
+async function assertEventPromoBannerEligible(
+  banner,
+  { status = 409 } = {}
+) {
+  // Sponsor e banner house non sono collegati a un evento:
+  // devono continuare a funzionare normalmente.
+  if (!isEventPromoBanner(banner)) {
+    return null;
+  }
+
+  if (!banner?.eventId) {
+    throw buildBannerPolicyError(
+      "EVENT_ID_REQUIRED",
+      status === 404 ? 404 : 400,
+      "eventId is required for event promotions"
+    );
+  }
+
+  const event = await Event.findById(banner.eventId)
+    .select(
+      "_id approvalStatus visibility isPrivate"
+    )
+    .lean();
+
+  if (!event) {
+    throw buildBannerPolicyError(
+      "EVENT_NOT_FOUND",
+      404,
+      "event not found"
+    );
+  }
+
+  assertEventPromotionEligible(event, {
+    status,
+  });
+
+  return event;
+}
+
+async function filterEventPromotionEligibleBanners(
+  banners = []
+) {
+  const rows = Array.isArray(banners)
+    ? banners
+    : [];
+
+  const eventPromoRows =
+    rows.filter(isEventPromoBanner);
+
+  // Se nella rotazione ci sono soltanto sponsor/house,
+  // non eseguiamo query aggiuntive sugli eventi.
+  if (!eventPromoRows.length) {
+    return rows;
+  }
+
+  const eventIds = [
+    ...new Set(
+      eventPromoRows
+        .map((banner) =>
+          String(banner?.eventId || "").trim()
+        )
+        .filter(Boolean)
+    ),
+  ];
+
+  if (!eventIds.length) {
+    return rows.filter(
+      (banner) => !isEventPromoBanner(banner)
+    );
+  }
+
+  const eligibleEvents = await Event.find({
+    _id: {
+      $in: eventIds,
+    },
+    approvalStatus: "approved",
+    visibility: "public",
+    isPrivate: {
+      $ne: true,
+    },
+  })
+    .select("_id")
+    .lean();
+
+  const eligibleEventIds = new Set(
+    eligibleEvents.map((event) =>
+      String(event._id)
+    )
+  );
+
+  return rows.filter(
+    (banner) =>
+      !isEventPromoBanner(banner) ||
+      eligibleEventIds.has(
+        String(banner.eventId || "")
+      )
+  );
+}
 const PROMO_FIXED_STATUSES = new Set([
   "DRAFT",
   "PENDING_REVIEW",
