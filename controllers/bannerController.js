@@ -561,26 +561,80 @@ entry.items =
 exports.clickBanner = async (req, res) => {
   try {
     const { id } = req.params;
-    if (!id) return res.status(400).json({ ok: false, error: "id is required" });
 
-    const banner = await Banner.findById(id).select("targetUrl isActive").lean();
-    if (!banner) return res.status(404).json({ ok: false, error: "not_found" });
-
-    // Traccia click (best-effort)
-    touchDailyStat(id, "clicks").catch(() => {});
-    incTotals(id, "clicks").catch(() => {});
-
-    const doRedirect = String(req.query.redirect || "0") === "1";
-    if (doRedirect) {
-      // Per sicurezza: se niente targetUrl valido, rispondi 204
-      if (!banner.targetUrl) return res.status(204).send();
-      return res.redirect(302, banner.targetUrl);
+    if (!id) {
+      return res.status(400).json({
+        ok: false,
+        error: "id is required",
+      });
     }
 
-    return res.status(204).send(); // NO CONTENT; FE non ha bisogno di payload
+    const banner = await Banner.findById(id)
+      .select(
+        "targetUrl isActive type eventId"
+      )
+      .lean();
+
+    if (!banner) {
+      return res.status(404).json({
+        ok: false,
+        error: "not_found",
+      });
+    }
+
+    // Anche conoscendo direttamente l'ID, una Promo
+    // privata non può generare click né redirect.
+    await assertEventPromoBannerEligible(
+      banner,
+      {
+        status: 404,
+      }
+    );
+
+    touchDailyStat(
+      id,
+      "clicks"
+    ).catch(() => {});
+
+    incTotals(
+      id,
+      "clicks"
+    ).catch(() => {});
+
+    const doRedirect =
+      String(req.query.redirect || "0") === "1";
+
+    if (doRedirect) {
+      if (!banner.targetUrl) {
+        return res.status(204).send();
+      }
+
+      return res.redirect(
+        302,
+        banner.targetUrl
+      );
+    }
+
+    return res.status(204).send();
   } catch (err) {
-    logger.error("[Banner] clickBanner error:", err);
-    return res.status(500).json({ ok: false, error: "internal_error" });
+    // La risposta pubblica non rivela che esiste
+    // una Promo collegata a un evento privato.
+    if (err?.statusCode === 404) {
+      return res.status(404).json({
+        ok: false,
+        error: "not_found",
+      });
+    }
+
+    logger.error(
+      "[Banner] clickBanner error:",
+      err
+    );
+
+    return res.status(500).json({
+      ok: false,
+      error: "internal_error",
+    });
   }
 };
 exports.viewBanner = async (req, res) => {
