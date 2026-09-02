@@ -3,6 +3,7 @@
 
 const mongoose = require("mongoose");
 const { CampaignSnapshot } = require("../models/campaignSnapshotModel");
+const Event = require("../models/eventModel");
 
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 500;
