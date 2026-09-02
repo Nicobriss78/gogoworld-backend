@@ -1,7 +1,11 @@
 const Event = require("../models/eventModel");
 const CheckIn = require("../models/checkInModel");
 const Trill = require("../models/trillModel");
-const { Banner } = require("../models/bannerModel");const Room = require("../models/roomModel");
+const { Banner } = require("../models/bannerModel");
+const Room = require("../models/roomModel");
+const {
+  isEventPromotionEligible,
+} = require("./eventPromotionPolicy");
 
 const MIN_PRIVACY_CLUSTER = 5;
 
