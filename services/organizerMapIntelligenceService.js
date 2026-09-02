@@ -188,6 +188,9 @@ async function getOrganizerMapSummary(organizerId) {
     .lean();
 
   const eventIds = events.map((event) => event._id);
+  const promotionEventIds = events
+    .filter(isEventPromotionEligible)
+    .map((event) => event._id);
 
   const [checkInRows, trills, promos, rooms] = await Promise.all([
     CheckIn.aggregate([
