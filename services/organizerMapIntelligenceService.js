@@ -290,8 +290,12 @@ async function getOrganizerMapSummary(organizerId) {
       }),
       ctas: {
         openEvent: `/pages/organizer-event-detail-v2.html?id=${encodeURIComponent(eventId)}`,
-        createTrill: `/pages/organizer-trill-create-v2.html?eventId=${encodeURIComponent(eventId)}`,
-        createPromo: `/pages/organizer-promo-create-v2.html?eventId=${encodeURIComponent(eventId)}`,
+        createTrill: promotionEligible
+          ? `/pages/organizer-trill-create-v2.html?eventId=${encodeURIComponent(eventId)}`
+          : null,
+        createPromo: promotionEligible
+          ? `/pages/organizer-promo-create-v2.html?eventId=${encodeURIComponent(eventId)}`
+          : null,
         manageAccess: `/pages/organizer-event-access-v2.html?id=${encodeURIComponent(eventId)}`,
         openRoom: eventId,
       },
