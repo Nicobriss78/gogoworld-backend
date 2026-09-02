@@ -1118,7 +1118,10 @@ now
       },
       { new: true }
     )
-      .populate("eventId", "title nome dateStart dateEnd")
+      .populate(
+  "eventId",
+  "title nome dateStart dateEnd approvalStatus visibility isPrivate"
+)
       .lean();
 
     return res.json({
