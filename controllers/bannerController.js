@@ -1085,6 +1085,8 @@ exports.payTestBannerMine = async (req, res) => {
       });
     }
 
+    await assertEventPromoBannerEligible(promo);
+
     const nextStatus = getEffectivePromoStatus(
 {
 ...promo,
