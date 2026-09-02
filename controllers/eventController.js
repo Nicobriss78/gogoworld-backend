@@ -1354,9 +1354,21 @@ const updateEvent = asyncHandler(async (req, res) => {
   }
 const updated = await event.save();
 
+// Qualsiasi modifica a un evento già moderato lo riporta in revisione.
+// Le Promo collegate vengono quindi invalidate subito: la sola
+// esclusione dalla rotazione pubblica resta un livello ulteriore
+// di difesa.
+await revalidatePromosForEventDateChange(
+  updated,
+  req.user._id
+);
 
-  cache.delByPrefix("events:list:");
-  res.json({ ok: true, event: updated });
+cache.delByPrefix("events:list:");
+
+res.json({
+  ok: true,
+  event: updated,
+});
 });
 
 // @desc Elimina un evento
