@@ -1132,9 +1132,11 @@ data: enrichPromoLifecycle(updated, now),
 });
   } catch (err) {
     logger.error("[Banner] payTestBannerMine error:", err);
-    return res.status(500).json({
+
+    return res.status(err.statusCode || 500).json({
       ok: false,
-      error: "internal_error",
+      error: err.code || "internal_error",
+      message: err.message || "Internal error",
     });
   }
 };
