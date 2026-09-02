@@ -1383,12 +1383,14 @@ const id = req.params.id;
 if (!id) return res.status(400).json({ ok:false, error:"id is required" });
 
 const banner = await Banner.findOne({ _id: id, status: "PENDING_REVIEW" })
-.select("paymentStatus paidAt activeFrom activeTo")
+.select("paymentStatus paidAt activeFrom activeTo type eventId")
 .lean();
 
 if (!banner) {
 return res.status(404).json({ ok: false, error: "already_processed_or_missing" });
 }
+
+await assertEventPromoBannerEligible(banner);
 
 const now = new Date();
 
