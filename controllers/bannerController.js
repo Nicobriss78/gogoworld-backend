@@ -642,22 +642,60 @@ exports.viewBanner = async (req, res) => {
     const { id } = req.params;
 
     if (!id) {
-      return res.status(400).json({ ok: false, error: "id is required" });
+      return res.status(400).json({
+        ok: false,
+        error: "id is required",
+      });
     }
 
-    const banner = await Banner.findById(id).select("_id").lean();
+    const banner = await Banner.findById(id)
+      .select("_id type eventId")
+      .lean();
 
     if (!banner) {
-      return res.status(404).json({ ok: false, error: "not_found" });
+      return res.status(404).json({
+        ok: false,
+        error: "not_found",
+      });
     }
 
-    touchDailyStat(id, "impressions").catch(() => {});
-    incTotals(id, "impressions").catch(() => {});
+    // Impedisce di registrare impression su una
+    // Promo collegata a un evento privato.
+    await assertEventPromoBannerEligible(
+      banner,
+      {
+        status: 404,
+      }
+    );
+
+    touchDailyStat(
+      id,
+      "impressions"
+    ).catch(() => {});
+
+    incTotals(
+      id,
+      "impressions"
+    ).catch(() => {});
 
     return res.status(204).send();
   } catch (err) {
-    logger.error("[Banner] viewBanner error:", err);
-    return res.status(500).json({ ok: false, error: "internal_error" });
+    if (err?.statusCode === 404) {
+      return res.status(404).json({
+        ok: false,
+        error: "not_found",
+      });
+    }
+
+    logger.error(
+      "[Banner] viewBanner error:",
+      err
+    );
+
+    return res.status(500).json({
+      ok: false,
+      error: "internal_error",
+    });
   }
 };
 exports.createCampaignSnapshotAdmin = async (req, res) => {
