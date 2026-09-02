@@ -5,7 +5,9 @@ const mongoose = require("mongoose");
 const { Banner } = require("../models/bannerModel");
 const Event = require("../models/eventModel");
 const { normalizeGeoTarget } = require("./bannerPricingService");
-
+const {
+  assertEventPromotionEligible,
+} = require("./eventPromotionPolicy");
 const OCCUPYING_STATUSES = [
   "PENDING_REVIEW",
   "PENDING_PAYMENT",
