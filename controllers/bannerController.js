@@ -1371,7 +1371,12 @@ exports.updateBanner = async (req, res) => {
     return res.status(204).send();
   } catch (err) {
     logger.error("[Banner] update error:", err);
-    return res.status(500).json({ ok:false, error:"internal_error" });
+
+    return res.status(err.statusCode || 500).json({
+      ok: false,
+      error: err.code || "internal_error",
+      message: err.message || "Internal error",
+    });
   }
 };
 
