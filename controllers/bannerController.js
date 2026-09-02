@@ -423,7 +423,12 @@ entry = {
 
 activeCache.set(key, entry);
     }
-
+// Rivalida anche i dati già in cache: un evento
+// potrebbe essere diventato privato durante il TTL.
+entry.items =
+  await filterEventPromotionEligibleBanners(
+    entry.items
+  );
     const picked = pickNext(entry);
     if (!picked) {
       // Nessun banner → 204 No Content per differenziare da errori
