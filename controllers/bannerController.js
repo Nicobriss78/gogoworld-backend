@@ -929,8 +929,10 @@ if (and.length) filter.$and = and;
  
 const items = await Banner.find(filter)
 .sort({ updatedAt: -1, priority: 1 })
-.populate("eventId", "title nome dateStart dateEnd")
-.lean();
+.populate(
+  "eventId",
+  "title nome dateStart dateEnd approvalStatus visibility isPrivate"
+).lean();
   
 // Campo calcolato lato BE: isExpired
 let data = items.map((b) => enrichPromoLifecycle(b, now));
