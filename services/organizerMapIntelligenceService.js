@@ -233,6 +233,7 @@ async function getOrganizerMapSummary(organizerId) {
     const point = getEventPoint(event);
     const eventTrills = trillsByEvent.get(eventId) || [];
     const eventPromos = promosByEvent.get(eventId) || [];
+    const promotionEligible = isEventPromotionEligible(event);
     const checkInsCount = checkInsByEvent.get(eventId) || 0;
     const activePromosCount = eventPromos.filter((promo) => promo.status === "ACTIVE").length;
     const operationalStatus = getMapOperationalStatus({
