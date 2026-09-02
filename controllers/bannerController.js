@@ -523,7 +523,10 @@ entry = {
 
 activeCache.set(key, entry);
     }
-
+entry.items =
+  await filterEventPromotionEligibleBanners(
+    entry.items
+  );
     const pickedList = pickNextBatch(entry, limit);
     if (!pickedList || pickedList.length === 0) {
       return res.status(204).send();
