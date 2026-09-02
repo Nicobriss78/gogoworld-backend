@@ -169,15 +169,38 @@ async function processEndedCampaignSnapshots(options = {}) {
 
   const alreadySnapshottedIds = existingSnapshots.map((item) => item.bannerId);
 
-  const endedPromos = await Banner.find({
-    _id: { $nin: alreadySnapshottedIds },
-    type: "event_promo",
-    status: { $in: ["SCHEDULED", "ACTIVE", "ENDED"] },
-    activeTo: { $ne: null, $lte: nowDate },
-  })
-    .sort({ activeTo: 1 })
-    .limit(limit)
-    .lean();
+  const endedPromos = await Banner.aggregate([
+    {
+      $match: {
+        _id: { $nin: alreadySnapshottedIds },
+        type: "event_promo",
+        status: { $in: ["SCHEDULED", "ACTIVE", "ENDED"] },
+        activeTo: { $ne: null, $lte: nowDate },
+      },
+    },
+    {
+      $lookup: {
+        from: Event.collection.name,
+        localField: "eventId",
+        foreignField: "_id",
+        as: "promotionEvent",
+      },
+    },
+    {
+      $match: {
+        promotionEvent: {
+          $elemMatch: {
+            approvalStatus: "approved",
+            visibility: "public",
+            isPrivate: { $ne: true },
+          },
+        },
+      },
+    },
+    { $sort: { activeTo: 1 } },
+    { $limit: limit },
+    { $project: { promotionEvent: 0 } },
+  ]);
 
   const results = [];
 
