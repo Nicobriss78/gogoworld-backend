@@ -163,20 +163,36 @@ function buildOverlapFilter(activeFrom, activeTo) {
 
 async function loadEventForValidation(eventId) {
   if (!eventId) {
-    throw makeValidationError("EVENT_ID_REQUIRED", "eventId is required");
+    throw makeValidationError(
+      "EVENT_ID_REQUIRED",
+      "eventId is required"
+    );
   }
 
   if (!mongoose.Types.ObjectId.isValid(eventId)) {
-    throw makeValidationError("INVALID_EVENT_ID", "eventId is invalid");
+    throw makeValidationError(
+      "INVALID_EVENT_ID",
+      "eventId is invalid"
+    );
   }
 
   const event = await Event.findById(eventId)
-    .select("dateStart dateEnd country region category subcategory")
+    .select(
+      "dateStart dateEnd country region category subcategory approvalStatus visibility isPrivate"
+    )
     .lean();
 
   if (!event) {
-    throw makeValidationError("EVENT_NOT_FOUND", "event not found", 404);
+    throw makeValidationError(
+      "EVENT_NOT_FOUND",
+      "event not found",
+      404
+    );
   }
+
+  // PRIVATE-PROMO-006 — l'Availability Engine è il boundary
+  // condiviso da analisi, submit e rivalutazione delle Promo.
+  assertEventPromotionEligible(event);
 
   return event;
 }
