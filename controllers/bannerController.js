@@ -961,8 +961,10 @@ exports.getBannerMineById = async (req, res) => {
       _id: bannerId,
       createdBy: me,
     })
-      .populate("eventId", "title nome dateStart dateEnd")
-      .lean();
+.populate(
+  "eventId",
+  "title nome dateStart dateEnd approvalStatus visibility isPrivate"
+)      .lean();
 
     if (!item) {
       return res.status(404).json({
