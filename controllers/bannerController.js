@@ -1515,8 +1515,13 @@ exports.resumeBanner = async (req, res) => {
     const id = req.params.id;
     if (!id) return res.status(400).json({ ok:false, error:"id is required" });
 
-    const b = await Banner.findById(id).select("activeFrom activeTo status").lean();
+    const b = await Banner.findById(id)
+      .select("activeFrom activeTo status type eventId")
+      .lean();
+
 if (!b) return res.status(404).json({ ok:false, error:"not_found" });
+
+await assertEventPromoBannerEligible(b);
 
 const now = new Date();
 const nextStatus = getEffectivePromoStatus(
