@@ -3,7 +3,9 @@
 
 const { Banner } = require("../models/bannerModel");
 const { logger } = require("../core/logger");
-
+const {
+  isEventPromotionEligible,
+} = require("./eventPromotionPolicy");
 const REVALIDATION_TARGET_STATUSES = [
   "PENDING_REVIEW",
   "PENDING_PAYMENT",
