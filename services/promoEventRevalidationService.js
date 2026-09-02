@@ -44,7 +44,10 @@ function isPromoIncompatibleWithEvent(promo, event) {
   return promoEndDay.getTime() > eventEndDay.getTime();
 }
 
-async function revalidatePromosForEventDateChange(event, actorId = null) {
+async function revalidatePromosForEventDateChange(
+  event,
+  actorId = null
+) {
   if (!event || !event._id) {
     return {
       checked: 0,
@@ -56,7 +59,9 @@ async function revalidatePromosForEventDateChange(event, actorId = null) {
     type: "event_promo",
     source: "organizer",
     eventId: event._id,
-    status: { $in: REVALIDATION_TARGET_STATUSES },
+    status: {
+      $in: REVALIDATION_TARGET_STATUSES,
+    },
   }).lean();
 
   if (!promos.length) {
@@ -66,8 +71,15 @@ async function revalidatePromosForEventDateChange(event, actorId = null) {
     };
   }
 
+  const eventIsPromotable =
+    isEventPromotionEligible(event);
+
   const incompatibleIds = promos
-    .filter((promo) => isPromoIncompatibleWithEvent(promo, event))
+    .filter(
+      (promo) =>
+        !eventIsPromotable ||
+        isPromoIncompatibleWithEvent(promo, event)
+    )
     .map((promo) => promo._id);
 
   if (!incompatibleIds.length) {
@@ -81,37 +93,71 @@ async function revalidatePromosForEventDateChange(event, actorId = null) {
 
   const previousStatusById = new Map(
     promos
-      .filter((promo) => incompatibleIds.some((id) => String(id) === String(promo._id)))
-      .map((promo) => [String(promo._id), promo.status])
+      .filter((promo) =>
+        incompatibleIds.some(
+          (id) => String(id) === String(promo._id)
+        )
+      )
+      .map((promo) => [
+        String(promo._id),
+        promo.status,
+      ])
   );
 
   for (const promoId of incompatibleIds) {
-    const previousStatus = previousStatusById.get(String(promoId)) || null;
+    const previousStatus =
+      previousStatusById.get(String(promoId)) || null;
 
     await Banner.updateOne(
-      { _id: promoId },
+      {
+        _id: promoId,
+      },
       {
         $set: {
           status: "INVALIDATED_BY_EVENT_CHANGE",
           isActive: false,
           invalidatedAt: now,
           invalidatedBy: actorId || null,
-          invalidatedReason:
-            "Le date dell’evento collegato sono cambiate e la promozione termina oltre la nuova fine evento.",
+
+          invalidatedReason: eventIsPromotable
+            ? "Le date dell’evento collegato sono cambiate e la promozione termina oltre la nuova fine evento."
+            : "L’evento collegato non è più pubblico e approvato, quindi non può essere promosso.",
+
           invalidatedPreviousStatus: previousStatus,
-          invalidatedEventStart: event.dateStart || event.dataStart || event.startDate || event.startAt || null,
-          invalidatedEventEnd: event.dateEnd || event.dataEnd || event.endDate || event.endAt || null,
+
+          invalidatedEventStart:
+            event.dateStart ||
+            event.dataStart ||
+            event.startDate ||
+            event.startAt ||
+            null,
+
+          invalidatedEventEnd:
+            event.dateEnd ||
+            event.dataEnd ||
+            event.endDate ||
+            event.endAt ||
+            null,
+
           invalidatedByEventId: event._id,
         },
       }
     );
   }
 
-  logger.info("[PromoEventRevalidation] invalidated promos after event date change", {
-    eventId: String(event._id),
-    checked: promos.length,
-    invalidated: incompatibleIds.length,
-  });
+  logger.info(
+    "[PromoEventRevalidation] invalidated promos after event change",
+    {
+      eventId: String(event._id),
+
+      reason: eventIsPromotable
+        ? "EVENT_DATE_CHANGE"
+        : "EVENT_NOT_PROMOTABLE",
+
+      checked: promos.length,
+      invalidated: incompatibleIds.length,
+    }
+  );
 
   return {
     checked: promos.length,
