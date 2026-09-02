@@ -397,16 +397,31 @@ exports.getActiveBanners = async (req, res) => {
       }
 
       // Ordinamento: priority ASC (più piccolo => più rilevante), poi update più recente
-      const fresh = await Banner.find(filter)
-        .sort({ priority: 1, updatedAt: -1, _id: 1 })
-        .lean();
+const freshCandidates = await Banner.find(
+  filter
+)
+  .sort({
+    priority: 1,
+    updatedAt: -1,
+    _id: 1,
+  })
+  .lean();
 
-      entry = {
-        expiresAt: now() + TTL_MS,
-        items: fresh,
-        rr: 0,
-      };
-      activeCache.set(key, entry);
+// PRIVATE-PROMO-006:
+// eventuali Promo legacy collegate a eventi
+// privati/non approvati non entrano nella rotazione.
+const fresh =
+  await filterEventPromotionEligibleBanners(
+    freshCandidates
+  );
+
+entry = {
+  expiresAt: now() + TTL_MS,
+  items: fresh,
+  rr: 0,
+};
+
+activeCache.set(key, entry);
     }
 
     const picked = pickNext(entry);
