@@ -94,6 +94,14 @@ function getMapOperationalStatus({ event, checkInsCount, trillsCount, activeProm
     };
   }
 
+  if (approvalStatus === "approved" && !isEventPromotionEligible(event)) {
+    return {
+      level: "ok",
+      label: "Privato",
+      reason: "Accesso controllato tramite codice o invito.",
+    };
+  }
+
   if (approvalStatus === "approved" && isSoonEvent(event) && checkInsCount === 0) {
     return {
       level: "critical",
