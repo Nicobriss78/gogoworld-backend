@@ -500,16 +500,28 @@ exports.getActiveBannersBatch = async (req, res) => {
       }
 
       // Ordinamento: priority ASC (più piccolo => più rilevante), poi update più recente
-      const fresh = await Banner.find(filter)
-        .sort({ priority: 1, updatedAt: -1, _id: 1 })
-        .lean();
+const freshCandidates = await Banner.find(
+  filter
+)
+  .sort({
+    priority: 1,
+    updatedAt: -1,
+    _id: 1,
+  })
+  .lean();
 
-      entry = {
-        expiresAt: now() + TTL_MS,
-        items: fresh,
-        rr: 0,
-      };
-      activeCache.set(key, entry);
+const fresh =
+  await filterEventPromotionEligibleBanners(
+    freshCandidates
+  );
+
+entry = {
+  expiresAt: now() + TTL_MS,
+  items: fresh,
+  rr: 0,
+};
+
+activeCache.set(key, entry);
     }
 
     const pickedList = pickNextBatch(entry, limit);
