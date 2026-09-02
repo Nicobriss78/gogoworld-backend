@@ -146,6 +146,10 @@ function buildSuggestions({ event, checkInsCount, trillsCount, activePromosCount
   const approvalStatus = String(event?.approvalStatus || "pending").toLowerCase();
   const participantsCount = getParticipantsCount(event);
 
+  if (!isEventPromotionEligible(event)) {
+    return suggestions;
+  }
+
   if (approvalStatus === "approved" && isSoonEvent(event) && checkInsCount === 0) {
     suggestions.push({
       type: "CREATE_TRILL",
