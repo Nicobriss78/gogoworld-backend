@@ -13,23 +13,36 @@ function toId(value) {
   return String(value?._id || value?.id || value || "").trim();
 }
 
+function isValidMapCoordinate(lat, lon) {
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lon) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lon >= -180 &&
+    lon <= 180
+  );
+}
+
 function getEventPoint(event) {
   if (
     event?.location?.type === "Point" &&
     Array.isArray(event.location.coordinates) &&
     event.location.coordinates.length === 2
   ) {
-    return {
-      lat: Number(event.location.coordinates[1]),
-      lon: Number(event.location.coordinates[0]),
-    };
+    const lat = Number(event.location.coordinates[1]);
+    const lon = Number(event.location.coordinates[0]);
+
+    if (isValidMapCoordinate(lat, lon)) {
+      return { lat, lon };
+    }
   }
 
-  if (Number.isFinite(event.lat) && Number.isFinite(event.lon)) {
-    return {
-      lat: Number(event.lat),
-      lon: Number(event.lon),
-    };
+  const lat = Number(event?.lat);
+  const lon = Number(event?.lon);
+
+  if (isValidMapCoordinate(lat, lon)) {
+    return { lat, lon };
   }
 
   return null;
