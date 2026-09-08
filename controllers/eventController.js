@@ -1205,12 +1205,47 @@ const createEvent = asyncHandler(async (req, res) => {
 
   const geoPoint = buildGeoPointFromLatLon(body.lat, body.lon);
 
+  // P1 — Event Create Authority:
+  // soltanto questi campi possono essere valorizzati dal client.
+  const editableCreateFields = [
+    "title", "description", "category", "subcategory", "type",
+    "venueName", "address", "street", "streetNumber", "postalCode",
+    "city", "province", "region", "country", "lat", "lon",
+    "dateStart", "dateEnd", "timezone", "language", "target",
+    "tags", "images", "coverImage",
+  ];
+
+  const createData = {};
+
+  for (const field of editableCreateFields) {
+    if (Object.prototype.hasOwnProperty.call(body, field)) {
+      createData[field] = body[field];
+    }
+  }
+
+  const visibility = String(body.visibility || "public")
+    .trim()
+    .toLowerCase();
+
+  const isPrivate = visibility === "private";
+  const accessCode =
+    typeof body.accessCode === "string"
+      ? body.accessCode.trim()
+      : "";
+
   const event = new Event({
-    ...body,
+    ...createData,
     ...(geoPoint ? { location: geoPoint } : {}),
+    visibility,
+    isPrivate,
+    ...(isPrivate && accessCode ? { accessCode } : {}),
     isFree,
     price,
     ...(currency ? { currency } : {}),
+
+    // Campi riservati: sempre determinati dal backend.
+    approvalStatus: "pending",
+    approvedAt: null,
     organizer: req.user._id,
   });
 
