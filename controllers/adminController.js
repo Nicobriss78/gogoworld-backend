@@ -611,9 +611,11 @@ const skip = (page - 1) * limit;
  
 const total = await User.countDocuments(where);
 const users = await User.find(where)
+.select(ADMIN_USER_SELECT)
 .sort({ role: 1, canOrganize: -1, createdAt: -1 })
 .skip(skip)
-.limit(limit);
+.limit(limit)
+.lean();
 
 res.json({
 ok: true,
@@ -621,7 +623,7 @@ page,
 limit,
 total,
 totalPages: Math.ceil(total / limit),
-users,
+users: users.map(toAdminUserDto),
 });
 });
 
