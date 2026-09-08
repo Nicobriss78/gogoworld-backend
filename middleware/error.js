@@ -139,11 +139,18 @@ function buildErrorPayload(err, req, res) {
     message = err.message;
   }
 
+  // In produzione gli errori interni non devono esporre
+  // dettagli tecnici o dati contenuti nei messaggi di MongoDB.
+  const publicError =
+    process.env.NODE_ENV === "production" && Number(status) >= 500
+      ? "Errore interno inatteso"
+      : err?.error || message || "INTERNAL_ERROR";
+
   return {
     status: status || 500,
     payload: {
       ok: false,
-      error: err?.error || message || "INTERNAL_ERROR",
+      error: publicError,
       code,
       ...(process.env.NODE_ENV !== "production" && err.stack ? { stack: err.stack } : {}),
     },
