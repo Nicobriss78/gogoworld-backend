@@ -33,6 +33,48 @@ function pick(obj, keys) {
   });
   return out;
 }
+const ADMIN_USER_SELECT = [
+  "_id",
+  "name",
+  "email",
+  "role",
+  "verified",
+  "canOrganize",
+  "isBanned",
+  "status",
+  "score",
+  "stats.attended",
+  "stats.reviewsApproved",
+  "stats.lastScoreUpdateAt",
+  "createdAt",
+  "updatedAt",
+].join(" ");
+
+function toAdminUserDto(user) {
+  const source =
+    typeof user?.toObject === "function"
+      ? user.toObject()
+      : user || {};
+
+  return {
+    _id: source._id,
+    name: source.name || "",
+    email: source.email || "",
+    role: source.role || "participant",
+    verified: source.verified === true,
+    canOrganize: source.canOrganize === true,
+    isBanned: source.isBanned === true,
+    status: source.status || "novizio",
+    score: Number(source.score || 0),
+    stats: {
+      attended: Number(source.stats?.attended || 0),
+      reviewsApproved: Number(source.stats?.reviewsApproved || 0),
+      lastScoreUpdateAt: source.stats?.lastScoreUpdateAt || null,
+    },
+    createdAt: source.createdAt || null,
+    updatedAt: source.updatedAt || null,
+  };
+}
 // -----------------------------
 // Admin Action Logger (container-friendly: STDOUT JSON)
 // -----------------------------
