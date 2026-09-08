@@ -76,7 +76,7 @@ lastKnownLocation: {
   source: {
     type: String,
     enum: ["browser", "manual", "system"],
-    default: "browser"
+    default: undefined
   },
   updatedAt: { type: Date }
 }
