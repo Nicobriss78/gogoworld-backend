@@ -638,7 +638,7 @@ const banUser = asyncHandler(async (req, res) => {
   if (!u) { res.status(404); throw new Error("Utente non trovato"); }
   u.isBanned = true;
   await u.save();
-  res.json({ ok: true, user: u });
+  res.json({ ok: true, user: toAdminUserDto(u) });
 });
 
 // POST /api/admin/users/:id/unban
@@ -647,7 +647,7 @@ const unbanUser = asyncHandler(async (req, res) => {
   if (!u) { res.status(404); throw new Error("Utente non trovato"); }
   u.isBanned = false;
   await u.save();
-  res.json({ ok: true, user: u });
+  res.json({ ok: true, user: toAdminUserDto(u) });
 });
 
 // POST /api/admin/users/:id/role { role: "participant"|"organizer"|"admin" }
@@ -669,7 +669,7 @@ const setUserRole = asyncHandler(async (req, res) => {
 
   u.role = role;
   await u.save();
-  res.json({ ok: true, user: u });
+  res.json({ ok: true, user: toAdminUserDto(u) });
 });
 
 // POST /api/admin/users/:id/can-organize { value: true|false }
@@ -680,7 +680,7 @@ const toggleCanOrganize = asyncHandler(async (req, res) => {
   if (!u) { res.status(404); throw new Error("Utente non trovato"); }
   u.canOrganize = v;
   await u.save();
-  res.json({ ok: true, user: u });
+  res.json({ ok: true, user: toAdminUserDto(u) });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
