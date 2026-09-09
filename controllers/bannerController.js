@@ -128,9 +128,11 @@ async function assertEventPromoBannerEligible(
     );
   }
 
-  const event = await Event.findById(banner.eventId)
+  const event = await Event.findById(
+    banner.eventId
+  )
     .select(
-      "_id approvalStatus visibility isPrivate"
+      "_id organizer approvalStatus visibility isPrivate"
     )
     .lean();
 
