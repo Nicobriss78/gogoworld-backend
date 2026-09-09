@@ -1730,12 +1730,17 @@ try {
 const body = req.body || {};
 
 if (body.eventId) {
-  await assertEventPromoBannerEligible({
-    type: "event_promo",
-    eventId: body.eventId,
-  });
+  await assertEventPromoBannerEligible(
+    {
+      type: "event_promo",
+      eventId: body.eventId,
+    },
+    {
+      organizerId:
+        getOrganizerEventOwnerId(req),
+    }
+  );
 }
-
 const estimate = estimateBannerPrice(body);
 
 return res.json({
