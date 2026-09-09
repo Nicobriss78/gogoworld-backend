@@ -311,6 +311,9 @@ function enrichPromoLifecycle(
 
     adminContactUserId,
 
+    paymentTestEnabled:
+      isPromoPayTestEnabled(),
+
     ...(hasPopulatedPromotionEvent
       ? {
           promotionEligible:
