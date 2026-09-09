@@ -1881,8 +1881,22 @@ return false;
 };
 
 if (!isHttps(body.imageUrl) || !isHttps(body.targetUrl)) {
-return res.status(400).json({ ok:false, error:"imageUrl and targetUrl must be https://" });
+return res.status(400).json({
+  ok: false,
+  error: "imageUrl and targetUrl must be https://",
+});
 }
+
+await assertEventPromoBannerEligible(
+  {
+    type: "event_promo",
+    eventId: body.eventId,
+  },
+  {
+    organizerId:
+      getOrganizerEventOwnerId(req),
+  }
+);
 
 const estimate = estimateBannerPrice(body);
 const availability = await checkPromoAvailability(body);
