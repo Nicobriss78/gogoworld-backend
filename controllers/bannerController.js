@@ -40,13 +40,37 @@ const {
   isEventPromotionEligible,
 } = require("../services/eventPromotionPolicy");
 // Cache semplice in RAM con TTL per lista attiva e indice round-robin per chiave
-const activeCache = new Map(); // key -> { expiresAt, items: [banner], rr: 0 }
-const TTL_MS = 60 * 1000; // 60s: abbastanza breve per B1/1
 function requireRole(req, res, roles) {
-  if (!req.user || !roles.includes(req.user.role)) {
-    res.status(403).json({ ok: false, error: "forbidden" });
+  if (!canAccessRoles(req.user, roles)) {
+    res.status(403).json({
+      ok: false,
+      error: "forbidden",
+    });
+
     return false;
   }
+
+  return true;
+}
+
+function isPromoPayTestEnabled() {
+  return config.NODE_ENV !== "production";
+}
+
+function getOrganizerEventOwnerId(req) {
+  const role = String(
+    req.user?.role || ""
+  )
+    .trim()
+    .toLowerCase();
+
+  // L'Admin mantiene la propria autorità trasversale.
+  if (role === "admin") {
+    return null;
+  }
+
+  return req.user?._id || req.user?.id || null;
+}
   return true;
 }
 function cacheKey({ placement, country, region }) {
