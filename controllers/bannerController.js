@@ -144,6 +144,18 @@ async function assertEventPromoBannerEligible(
     );
   }
 
+  if (
+    organizerId &&
+    String(event.organizer || "") !==
+      String(organizerId)
+  ) {
+    throw buildBannerPolicyError(
+      "EVENT_NOT_OWNED",
+      403,
+      "event not owned by current organizer"
+    );
+  }
+
   assertEventPromotionEligible(event, {
     status,
   });
