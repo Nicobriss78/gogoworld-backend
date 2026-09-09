@@ -1103,7 +1103,17 @@ data: enrichPromoLifecycle(updated, now),
 // Non è un checkout reale: serve solo per testare il lifecycle payment-ready.
 exports.payTestBannerMine = async (req, res) => {
   try {
-    const me = req.user && req.user._id ? req.user._id : null;
+    if (!isPromoPayTestEnabled()) {
+      return res.status(404).json({
+        ok: false,
+        error: "not_found",
+      });
+    }
+
+    const me =
+      req.user && req.user._id
+        ? req.user._id
+        : null;
     if (!me) {
       return res.status(401).json({ ok: false, error: "not_authorized" });
     }
