@@ -192,28 +192,19 @@ const authorize = (...roles) => {
       return res.status(401).json({ ok: false, error: "not_authorized" });
     }
 
-    // Ruolo mancante → deny esplicito
-    const role = String(req.user.role || "").toLowerCase();
-    if (!role) {
-      return res.status(403).json({ ok: false, error: "forbidden" });
-    }
-
     // authorize chiamato senza ruoli → deny-by-default
     if (!allowed.size) {
-      return res.status(403).json({ ok: false, error: "forbidden" });
+      return res.status(403).json({
+        ok: false,
+        error: "forbidden",
+      });
     }
 
-    // Estensione Opzione B: se serve "organizer", accetta anche canOrganize === true e gli admin
-    if (allowed.has("organizer")) {
-      if (role === "organizer" || role === "admin" || req.user.canOrganize === true) {
-        return next();
-      }
-      return res.status(403).json({ ok: false, error: "forbidden" });
-    }
-
-    // Per "admin" (o altri ruoli), match diretto in lowercase
-    if (!allowed.has(role)) {
-      return res.status(403).json({ ok: false, error: "forbidden" });
+    if (!canAccessRoles(req.user, allowed)) {
+      return res.status(403).json({
+        ok: false,
+        error: "forbidden",
+      });
     }
 
     return next();
