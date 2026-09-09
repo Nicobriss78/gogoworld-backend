@@ -1230,6 +1230,14 @@ exports.revalidateBannerMine = async (req, res) => {
       });
     }
 
+    await assertEventPromoBannerEligible(
+      current,
+      {
+        organizerId:
+          getOrganizerEventOwnerId(req),
+      }
+    );
+
     const body = req.body || {};
 
     const revalidationPayload = {
