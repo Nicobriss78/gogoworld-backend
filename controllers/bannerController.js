@@ -109,7 +109,10 @@ function buildBannerPolicyError(
 
 async function assertEventPromoBannerEligible(
   banner,
-  { status = 409 } = {}
+  {
+    status = 409,
+    organizerId = null,
+  } = {}
 ) {
   // Sponsor e banner house non sono collegati a un evento:
   // devono continuare a funzionare normalmente.
