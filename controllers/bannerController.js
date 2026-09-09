@@ -1768,6 +1768,19 @@ if (!requireRole(req, res, ["organizer", "admin"])) return;
 try {
 const body = req.body || {};
 
+if (body.eventId) {
+  await assertEventPromoBannerEligible(
+    {
+      type: "event_promo",
+      eventId: body.eventId,
+    },
+    {
+      organizerId:
+        getOrganizerEventOwnerId(req),
+    }
+  );
+}
+
 const estimate = estimateBannerPrice(body);
 const availability = await checkPromoAvailability(body);
 const demand = calculateDemandFromAvailability(availability);
