@@ -16,7 +16,54 @@ function authWarn(req, code) {
     logger.warn("[auth] deny", { code, path: req.originalUrl, ip: req.ip });
   } catch (_) {}
 }
+function normalizeRole(role) {
+  return String(role || "").trim().toLowerCase();
+}
 
+// Capability Organizer unica:
+// - l'admin è sempre abilitato;
+// - per ogni altro ruolo serve canOrganize === true.
+function hasOrganizerCapability(user) {
+  const role = normalizeRole(user?.role);
+
+  return (
+    role === "admin" ||
+    user?.canOrganize === true
+  );
+}
+
+function canAccessRoles(user, roles = []) {
+  if (!user) return false;
+
+  const allowed =
+    roles instanceof Set
+      ? roles
+      : new Set(
+          (roles || [])
+            .map(normalizeRole)
+            .filter(Boolean)
+        );
+
+  if (!allowed.size) return false;
+
+  const role = normalizeRole(user.role);
+  if (!role) return false;
+
+  if (
+    allowed.has("organizer") &&
+    hasOrganizerCapability(user)
+  ) {
+    return true;
+  }
+
+  // Il solo role="organizer" non può aggirare
+  // una revoca esplicita dell'autorizzazione.
+  if (role === "organizer") {
+    return false;
+  }
+
+  return allowed.has(role);
+}
 // -----------------------------------------------------------------------------
 // protect: richiede autenticazione Bearer JWT
 // - Decodifica il token
