@@ -1141,8 +1141,13 @@ exports.payTestBannerMine = async (req, res) => {
       });
     }
 
-    await assertEventPromoBannerEligible(promo);
-
+    await assertEventPromoBannerEligible(
+      promo,
+      {
+        organizerId:
+          getOrganizerEventOwnerId(req),
+      }
+    );
     const nextStatus = getEffectivePromoStatus(
 {
 ...promo,
