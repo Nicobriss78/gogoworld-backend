@@ -40,6 +40,9 @@ const {
   isEventPromotionEligible,
 } = require("../services/eventPromotionPolicy");
 // Cache semplice in RAM con TTL per lista attiva e indice round-robin per chiave
+const activeCache = new Map(); // key -> { expiresAt, items: [banner], rr: 0 }
+const TTL_MS = 60 * 1000; // 60s: abbastanza breve per B1/1
+
 function requireRole(req, res, roles) {
   if (!canAccessRoles(req.user, roles)) {
     res.status(403).json({
@@ -70,8 +73,6 @@ function getOrganizerEventOwnerId(req) {
   }
 
   return req.user?._id || req.user?.id || null;
-}
-  return true;
 }
 function cacheKey({ placement, country, region }) {
   const c = (country || "").toUpperCase();
