@@ -216,4 +216,6 @@ module.exports = {
   protect,
   optionalAuth,
   authorize,
+  hasOrganizerCapability,
+  canAccessRoles,
 };
