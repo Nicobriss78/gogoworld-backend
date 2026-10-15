@@ -6,6 +6,10 @@ const RoomMember = require("../models/roomMemberModel");
 const Event = require("../models/eventModel"); // esistente nel tuo progetto
 const User = require("../models/userModel");
 const { evaluateDmPermission } = require("../utils/dmPrivacy");
+const {
+  computeEventStatus,
+  getPrivateUnlockCutoff,
+} = require("../utils/eventStatus");
 const { createNotification } = require("./notificationController");
 function isValidObjectId(id) {
   return mongoose.Types.ObjectId.isValid(id);
@@ -1037,38 +1041,80 @@ if (!isPrivateEvent) {
       return res.status(403).json({ ok: false, error: "INVALID_CODE" });
     }
 
-    // Assicurati che la room esista (privata)
-    let room = await Room.findOne({ type: "event", eventId: eventIdObj }).lean();
-    if (!room) {
-      const startAt = new Date(ev.dateStart);
-      const endAt = new Date(ev.dateEnd || ev.dateStart);
-      const activeFrom = ev.chat?.activeFrom || new Date(startAt.getTime() - 48 * 3600 * 1000);
-      const activeUntil = ev.chat?.activeUntil || new Date(endAt.getTime() + 24 * 3600 * 1000);
-      room = await Room.create({
-        type: "event",
-        eventId: eventIdObj,
-        title: ev.title || "Chat evento",
-        isPrivate: true,
-        isArchived: false,
-        activeFrom,
-        activeUntil,
-        createdBy: ev.organizer || meId,
-      });
-      room = room.toObject();
+    // PRIVATE-UNLOCK-005 — stessa regola temporale dell'unlock principale.
+    // Un evento "concluded" resta sbloccabile; un evento "past" no.
+    const unlockNow = new Date();
+    if (computeEventStatus(ev, unlockNow) === "past") {
+      return res.status(410).json({ ok: false, error: "EVENT_PAST" });
     }
 
-// Upsert membership per l'utente
+    // Il grant viene applicato prima di room/membership e ricontrolla
+    // atomicamente lo stato corrente. Se nel frattempo l'evento viene
+    // revocato, moderato, scade o cambia codice, nessun dato Room viene scritto.
+    const unlockCutoff = getPrivateUnlockCutoff(unlockNow);
+    const grantResult = await Event.updateOne(
+      {
+        _id: eventIdObj,
+        approvalStatus: "approved",
+        visibility: "private",
+        accessCode: expected,
+        revokedUsers: { $ne: meId },
+        $or: [
+          { dateEnd: { $gte: unlockCutoff } },
+          { dateEnd: null, dateStart: { $gte: unlockCutoff } },
+        ],
+      },
+      { $addToSet: { participants: meId } }
+    );
+
+    const matchedCount = Number(
+      grantResult?.matchedCount ?? grantResult?.n ?? 0
+    );
+
+    if (matchedCount !== 1) {
+      return res.status(409).json({
+        ok: false,
+        error: "EVENT_STATE_CHANGED",
+      });
+    }
+
+    const startAt = new Date(ev.dateStart);
+    const endAt = new Date(ev.dateEnd || ev.dateStart);
+    const activeFrom =
+      ev.chat?.activeFrom ||
+      new Date(startAt.getTime() - 48 * 3600 * 1000);
+    const activeUntil =
+      ev.chat?.activeUntil ||
+      new Date(endAt.getTime() + 24 * 3600 * 1000);
+
+    // Upsert idempotente: evita la race find-then-create sulla room evento.
+    const room = await Room.findOneAndUpdate(
+      { type: "event", eventId: eventIdObj },
+      {
+        $setOnInsert: {
+          type: "event",
+          eventId: eventIdObj,
+          title: ev.title || "Chat evento",
+          isPrivate: true,
+          isArchived: false,
+          activeFrom,
+          activeUntil,
+          createdBy: ev.organizer || meId,
+        },
+      },
+      {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true,
+      }
+    ).lean();
+
+    // La membership è derivata dal grant appena verificato. Tutte le letture
+    // e scritture Room continuano comunque a ricontrollare revoca e participant.
     await RoomMember.updateOne(
       { roomId: room._id, userId: meId },
       { $setOnInsert: { joinedAt: new Date() } },
       { upsert: true }
-    );
-
-    // Allinea anche l'accesso evento (partecipanti)
-    // così openOrJoinEvent non tornerà più "locked"
-    await Event.updateOne(
-      { _id: eventIdObj },
-      { $addToSet: { participants: meId } }
     );
 
     return res.json({
