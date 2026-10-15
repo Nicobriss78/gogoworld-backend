@@ -3,53 +3,15 @@ const Activity = require("../models/activityModel"); // A2.3 – Activity log
 const User = require("../models/userModel");
 const { awardForAttendance } = require("../services/awards");
 const asyncHandler = require("express-async-handler");
-const { config } = require("../config");
 const { logger } = require("../core/logger"); // #CORE-LOGGER D1
 const cache = require("../adapters/cache"); // #CACHE-ADAPTER
 const { notify } = require("../services/notifications"); // #NOTIFY-ADAPTER
 const { createNotification } = require("./notificationController"); // A9.2 – notifiche in-app eventi
 const { normalizeEventForClient } = require("../utils/eventNormalizer");
+const { computeEventStatus } = require("../utils/eventStatus");
 const {
   revalidatePromosForEventDateChange,
 } = require("../services/promoEventRevalidationService");
-// ---- Stato evento derivato dal tempo corrente ----
-// Status possibili: "ongoing" (in corso), "imminent" (imminente... "concluded" (appena concluso), "past" (oltre finestra concluso)
-// Usa ENV con default sicuri; timezone rimane un fallback concettuale (date salvate in UTC)
-const IMMINENT_HOURS = Number(config.IMMINENT_HOURS || 72);
-const SHOW_CONCLUDED_HOURS = Number(config.SHOW_CONCLUDED_HOURS || 12);
-// const DEFAULT_TIMEZONE = "Europe/Rome"; // placeholder per evoluzioni future
-
-function computeEventStatus(ev, now = new Date()) {
-  try {
-    const start = ev?.date || ev?.dateStart ? new Date(ev.date || ev.dateStart) : null;
-    // endDate opzionale: se manca, usa start (evento monogiorno)
-    const end = ev?.endDate || ev?.dateEnd ? new Date(ev.endDate || ev.dateEnd) : start;
-
-    if (!start) {
-      // senza date, trattiamo come futuro per non bloccare
-      return "future";
-    }
-
-    const t = now.getTime();
-    const ts = start.getTime();
-    const te = (end ? end.getTime() : ts);
-    const msImminent = IMMINENT_HOURS * 60 * 60 * 1000;
-    const msConcluded = SHOW_CONCLUDED_HOURS * 60 * 60 * 1000;
-
-    if (t < ts) {
-      // futuro / imminente
-      return (ts - t) <= msImminent ? "imminent" : "future";
-    }
-    if (t >= ts && t <= te) {
-      return "ongoing";
-    }
-    // passato
-    return (t - te) <= msConcluded ? "concluded" : "past";
-  } catch {
-    return "future";
-  }
-}
-
 function attachStatusToArray(docs, now = new Date()) {
   if (!Array.isArray(docs)) return [];
   return docs.map(d => {
@@ -132,6 +94,31 @@ function toPublicEventDto(doc, userId, now = new Date()) {
     coverImage: obj.coverImage,
     status: computeEventStatus(obj, now),
     isJoined,
+  };
+}
+
+function toFollowingEventDto(doc, userId, now = new Date()) {
+  const obj =
+    typeof doc?.toObject === "function"
+      ? doc.toObject()
+      : { ...(doc || {}) };
+
+  const dto = toPublicEventDto(obj, userId, now);
+  const organizer = obj.organizer || null;
+  const organizerId = organizer?._id || organizer;
+  const organizerName =
+    organizer && typeof organizer === "object"
+      ? String(organizer.name || "").trim()
+      : "";
+
+  return {
+    ...dto,
+    organizer: {
+      _id: organizerId,
+      name: organizerName,
+    },
+    // Compatibilità con la pagina Seguiti attuale, senza esporre participants.
+    joined: dto.isJoined,
   };
 }
 
@@ -554,35 +541,31 @@ const listFollowingEvents = asyncHandler(async (req, res) => {
     return res.json({ ok: true, events: [] });
   }
 
-  // filtri base (riuso dei filtri generali)
+  // P0-EVENTS-003 — boundary Seguiti non sovrascrivibile dal client.
+  // Manteniamo i filtri innocui (ricerca, tassonomia, date), ma privacy e
+  // moderazione vengono sempre imposte dal server.
   const filters = buildFilters(req.query || {});
+  delete filters.visibility;
+  delete filters.approvalStatus;
+
   filters.organizer = { $in: following };
+  filters.approvalStatus = "approved";
+  filters.$or = [
+    { visibility: "public" },
+    { visibility: "private", participants: userId },
+  ];
 
-  // Visibilità di default:
-  // - includo sempre i public
-  // - includo i private solo se partecipo
-  if (!req.query.visibility) {
-    delete filters.visibility;
-    filters.$or = [
-      { visibility: "public" },
-      { visibility: "private", participants: userId }
-    ];
-  }
-
-  // Solo eventi approvati, salvo override esplicito
-  if (!req.query.approvalStatus) {
-    filters.approvalStatus = "approved";
-  }
-
-const events = await Event.find(filters)
+  const events = await Event.find(filters)
+    .select(`${PUBLIC_EVENT_PROJECTION} organizer`)
     .populate("organizer", "name")
     .sort({ dateStart: 1 });
 
   const now = new Date();
-  const payload = attachStatusToArray(events, now);
+  const payload = events.map((event) =>
+    toFollowingEventDto(event, userId, now)
+  );
 
   res.json({ ok: true, events: payload });
-
 });
 
 // @desc Evento singolo
