@@ -859,7 +859,9 @@ const canManageEventAsOwnerOrAdmin = (req, ev) => {
   const meId = req.user?._id;
   const role = req.user?.role;
   const isAdmin = role === "admin";
-  const isOrganizerOwner = ev?.organizer && String(ev.organizer) === String(meId);
+  const organizerId = ev?.organizer?._id || ev?.organizer;
+  const isOrganizerOwner =
+    organizerId && meId && String(organizerId) === String(meId);
   return !!(isAdmin || isOrganizerOwner);
 };
 
@@ -1830,6 +1832,42 @@ module.exports = {
   unbanToPrivateEvent,
   updateEventBanner,
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
