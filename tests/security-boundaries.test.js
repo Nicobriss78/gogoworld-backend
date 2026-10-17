@@ -30,6 +30,60 @@ function restoreAfter(t, target, key, original) {
   });
 }
 
+test("event owner can read access management after organizer population", async (t) => {
+  const eventId = "64b000000000000000000040";
+  const organizerId = "64b000000000000000000041";
+  const originalFindById = Event.findById;
+  restoreAfter(t, Event, "findById", originalFindById);
+
+  const populatedEvent = {
+    _id: eventId,
+    title: "Evento privato dell'organizzatore",
+    visibility: "private",
+    isPrivate: true,
+    accessCode: "OWNER-CODE",
+    organizer: {
+      _id: organizerId,
+      name: "Organizer proprietario",
+      email: "owner@example.test",
+      role: "organizer",
+    },
+    participants: [],
+    revokedUsers: [],
+  };
+
+  Event.findById = () => ({
+    select() {
+      return this;
+    },
+    populate() {
+      return this;
+    },
+    then(resolve, reject) {
+      return Promise.resolve(populatedEvent).then(resolve, reject);
+    },
+  });
+
+  const req = {
+    user: { _id: organizerId, role: "organizer" },
+    params: { id: eventId },
+  };
+  const res = createResponse();
+  let nextError;
+
+  await eventController.getEventAccess(req, res, (error) => {
+    nextError = error;
+  });
+
+  assert.equal(nextError, undefined);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.ok, true);
+  assert.equal(res.body.event._id, eventId);
+  assert.equal(res.body.event.organizer._id, organizerId);
+  assert.deepEqual(res.body.access.allowedUsers, []);
+  assert.deepEqual(res.body.access.bannedUsers, []);
+});
+
 test("following list ignores privacy overrides and returns only a safe DTO", async (t) => {
   const viewerId = "64b000000000000000000001";
   const organizerId = "64b000000000000000000002";
