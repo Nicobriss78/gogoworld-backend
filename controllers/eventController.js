@@ -761,7 +761,9 @@ const accessPrivateEventByCode = asyncHandler(async (req, res) => {
 
   if (unlockStatus === "past") {
     res.status(410);
-    throw new Error("Questo evento privato è già concluso");
+    const error = new Error("Questo evento privato è già concluso");
+    error.publicCode = "EVENT_PAST";
+    throw error;
   }
 
 // ✅ Persistenza accesso: aggiungi l'utente tra i partecipanti (idempotente)
@@ -1832,76 +1834,3 @@ module.exports = {
   unbanToPrivateEvent,
   updateEventBanner,
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
