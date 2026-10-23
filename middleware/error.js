@@ -134,6 +134,22 @@ function buildErrorPayload(err, req, res) {
     };
   }
 
+  // HTTP-ERROR-CODE-008: classifica gli errori applicativi attesi.
+  // Non copiare err.code: puo' contenere codici interni di Mongo o altre librerie.
+  const clientCodes = {
+    400: "BAD_REQUEST",
+    409: "CONFLICT",
+    410: "GONE",
+    422: "UNPROCESSABLE_ENTITY",
+  };
+  if (Object.prototype.hasOwnProperty.call(clientCodes, Number(status))) {
+    code = clientCodes[Number(status)];
+    // Eccezione pubblica, specifica e limitata al solo HTTP 410.
+    if (Number(status) === 410 && err?.publicCode === "EVENT_PAST") {
+      code = "EVENT_PAST";
+    }
+  }
+
   // ---- Fallback: mantieni il messaggio del controller se c'è ----
   if (err?.message) {
     message = err.message;
