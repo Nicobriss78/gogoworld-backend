@@ -19,6 +19,20 @@ verificationTokenExpires: { type: Date },
 // Password reset
 resetTokenHash: { type: String },
 resetTokenExpires: { type: Date },
+    // CP002 C-01 — nuovi token hashed/bounded, separati per finalità.
+    // I campi scalari legacy sopra restano leggibili durante il cutover.
+    verificationTokens: [{
+      _id: false,
+      hash: { type: String, required: true, match: /^[a-f0-9]{64}$/ },
+      expiresAt: { type: Date, required: true },
+      issuedAt: { type: Date, required: true },
+    }],
+    resetTokens: [{
+      _id: false,
+      hash: { type: String, required: true, match: /^[a-f0-9]{64}$/ },
+      expiresAt: { type: Date, required: true },
+      issuedAt: { type: Date, required: true },
+    }],
     // Admin moderation flags
     isBanned: { type: Boolean, default: false },
     // Accesso all’organizzazione concesso solo da admin
