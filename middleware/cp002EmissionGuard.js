@@ -81,7 +81,7 @@ function emissionGuard(scope, options = {}) {
 
   return async function guardNewTokenIssuance(req, res, next) {
     // Il guard è l'autorità: non considerare next() del limiter legacy un permesso.
-    if (!process.env.RATE_LIMIT_REDIS_URL || process.env.RATE_LIMIT_DISABLE_REDIS === '1') {
+    if (!process.env.RATE_LIMIT_REDIS_URL || ['1', 'true'].includes(String(process.env.RATE_LIMIT_DISABLE_REDIS || '').trim().toLowerCase())) {
       return sendUnavailable(res);
     }
 
@@ -109,6 +109,7 @@ function emissionGuard(scope, options = {}) {
       }
 
       // Solo qui è acquisito il consenso POSITIVO del controllo condiviso.
+      req.cp002EmissionAuthorized = true;
       return next();
     } catch (_error) {
       // Niente dettagli errore, email, IP o stack nei sink diagnostici.
