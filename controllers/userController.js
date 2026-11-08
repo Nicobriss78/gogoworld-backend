@@ -9,6 +9,7 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/userModel");
 const crypto = require("crypto");
 const { logger } = require("../core/logger");
+const { consumeVerifyToken } = require("../services/cp002TokenStore");
 const { createNotification } = require("./notificationController"); // A9.1 notifiche follow
 const { evaluateDmPermission } = require("../utils/dmPrivacy");
 // -----------------------------------------------------------------------------
@@ -280,26 +281,18 @@ const enableOrganizer = asyncHandler(async (req, res) => {
 // VERIFY EMAIL (GET /api/users/verify?token=...)
 // -----------------------------------------------------------------------------
 const verifyEmail = asyncHandler(async (req, res) => {
-  const token = String(req.query.token || "");
-  if (!token) {
-    res.status(400);
-    throw new Error("Missing token");
+  // POST body è il percorso nuovo; GET query rimane solo per link legacy.
+  const raw = req.method === "POST" ? req.body?.token : req.query?.token;
+  const token = typeof raw === "string" ? raw.trim() : "";
+  res.set("Cache-Control", "no-store");
+  if (!/^[a-f0-9]{64}$/i.test(token)) {
+    return res.status(400).json({ ok: false, error: "INVALID_TOKEN" });
   }
-  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
-  const now = new Date();
-  const user = await User.findOne({
-    verificationTokenHash: tokenHash,
-    verificationTokenExpires: { $gt: now },
-  });
-  if (!user) {
-    res.status(400);
-    throw new Error("Invalid or expired token");
+  const consumed = await consumeVerifyToken(token);
+  if (!consumed) {
+    return res.status(400).json({ ok: false, error: "INVALID_OR_EXPIRED_TOKEN" });
   }
-  user.verified = true;
-  user.verificationTokenHash = undefined;
-  user.verificationTokenExpires = undefined;
-  await user.save();
-  res.json({ ok: true, verified: true });
+  return res.json({ ok: true, verified: true });
 });
 // -----------------------------------------------------------------------------
 // RESEND VERIFY EMAIL (POST /api/users/verify/resend { email })
