@@ -31,6 +31,7 @@ const {
 const { protect } = require("../middleware/auth");
 const { loginLimiter, registerLimiter, verifyEmailLimiter, writeLimiter } = require("../middleware/rateLimit");
 const { securityRateLimit } = require("../middleware/securityRateLimit");
+const { emissionGuard } = require("../middleware/cp002EmissionGuard");
 
 // SECURITY (Redis shared) — Step 1.4
 // Nota: qui lo applichiamo solo alle route PROTETTE (req.user presente).
@@ -57,7 +58,7 @@ const RL = {
 // PATCH: rate limiting (login)
 
 // Public
-router.post("/", registerLimiter, registerUser);
+router.post("/", emissionGuard("register"), registerLimiter, registerUser);
 router.post("/login", loginLimiter, authUser); // ⬅️ PATCH: applica limiter al login
 
 // Private
@@ -102,8 +103,8 @@ router.get("/:userId/following", protect, getFollowing);
 
 // Public: email verify / forgot / reset
 router.get("/verify", verifyEmail);
-router.post("/verify/resend", verifyEmailLimiter, resendVerifyEmail);
-router.post("/forgot", loginLimiter, forgotPassword);
+router.post("/verify/resend", emissionGuard("verify"), verifyEmailLimiter, resendVerifyEmail);
+router.post("/forgot", emissionGuard("forgot"), loginLimiter, forgotPassword);
 router.post("/reset", writeLimiter, resetPassword);
 
 
