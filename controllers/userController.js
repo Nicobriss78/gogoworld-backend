@@ -10,6 +10,7 @@ const User = require("../models/userModel");
 const crypto = require("crypto");
 const { logger } = require("../core/logger");
 const { consumeVerifyToken } = require("../services/cp002TokenStore");
+const { requireIssueReadiness, sendPurposeLink } = require("../services/cp002EmailWorkflow");
 const { createNotification } = require("./notificationController"); // A9.1 notifiche follow
 const { evaluateDmPermission } = require("../utils/dmPrivacy");
 // -----------------------------------------------------------------------------
@@ -93,6 +94,8 @@ const registerUser = asyncHandler(async (req, res) => {
 const nicknameFrom =
     (typeof name === "string" && name.trim()) ||
     (typeof email === "string" && email.includes("@") ? email.split("@")[0] : "");
+  // C05: non creare account se la consegna dei link non e' pronta.
+  if (!requireIssueReadiness(req, res)) return;
   const userExists = await User.findOne({ email: emailRaw });
   if (userExists) {
     res.status(400);
@@ -111,37 +114,10 @@ const user = await User.create({
   });
 
 if (user) {
-    // --- email verification token (DEV: log link; PROD: placeholder "queued") ---
-    // Genera token raw + hash e scadenza (24h)
-    const rawVerify = crypto.randomBytes(32).toString("hex");
-    user.verificationTokenHash = crypto
-      .createHash("sha256")
-      .update(rawVerify)
-      .digest("hex");
-    user.verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    await user.save();
-
-    // Link pubblico: preferisci BASE_URL, poi FRONTEND_URL, poi API_PUBLIC_BASE
-    const base = (process.env.BASE_URL ||
-      process.env.FRONTEND_URL ||
-      process.env.API_PUBLIC_BASE ||
-      "").replace(/\/$/, "");
-
-    const verifyLink = `${base || ""}/pages/verify.html?token=${encodeURIComponent(rawVerify)}`;
-
-// DEV: logghiamo link completo. PROD: non logghiamo token/link.
-    // Override controllato: se RETURN_VERIFY_LINK=1, logga anche in production (solo per test)
-    const allowVerifyLinkLog =
-      process.env.NODE_ENV !== "production" || process.env.RETURN_VERIFY_LINK === "1";
-
-    if (allowVerifyLinkLog) {
-      if (logger && logger.info)
-        logger.info(`[mail][verify][register] to=${user.email} link=${verifyLink}`);
-    } else {
-      if (logger && logger.info)
-        logger.info(`[mail][verify][register] queued to=${user.email}`);
-    }
-
+    // C01/C05: il link raw esiste solo durante la preparazione/invio, mai nei log.
+    const delivery = await sendPurposeLink({
+      user, purpose: "verify", guardAuthorized: req.cp002EmissionAuthorized === true,
+    });
 
     res.status(201).json({
       _id: user._id,
@@ -149,6 +125,7 @@ if (user) {
       email: user.email,
       role: user.role,
       token: generateToken(user._id),
+      verificationEmailStatus: delivery.state === "accepted" ? "requested" : "pending",
     });
   } else {
 
@@ -301,83 +278,42 @@ const verifyEmail = asyncHandler(async (req, res) => {
 // - in PROD non logga il token/link
 // -----------------------------------------------------------------------------
 const resendVerifyEmail = asyncHandler(async (req, res) => {
-  const email = String(req.body.email || "").toLowerCase().trim();
-
-  // Validazione minima (neutra: non riveliamo nulla)
+  res.set("Cache-Control", "no-store");
+  if (!requireIssueReadiness(req, res)) return;
+  const email = typeof req.body?.email === "string"
+    ? req.body.email.trim().toLowerCase() : "";
   if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.json({ ok: true });
   }
-
   const user = await User.findOne({ email });
-  if (!user) {
-    // anti-enumerazione
-    return res.json({ ok: true });
+  if (user && user.verified !== true) {
+    await sendPurposeLink({
+      user, purpose: "verify", guardAuthorized: req.cp002EmissionAuthorized === true,
+    });
   }
-
-  if (user.verified) {
-    // già verificato (risposta neutra)
-    return res.json({ ok: true });
-  }
-
-  // Genera token raw + hash
-  const raw = crypto.randomBytes(32).toString("hex");
-  const tokenHash = crypto.createHash("sha256").update(raw).digest("hex");
-
-  // Salva hash + scadenza (24h)
-  user.verificationTokenHash = tokenHash;
-  user.verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  await user.save();
-
-  // Link pubblico: preferisci BASE_URL, poi FRONTEND_URL, poi API_PUBLIC_BASE
-  const base =
-    (process.env.BASE_URL || process.env.FRONTEND_URL || process.env.API_PUBLIC_BASE || "").replace(/\/$/, "");
-
-  const link = `${base}/pages/verify.html?token=${encodeURIComponent(raw)}`;
-
-// DEV: logghiamo il link. PROD: no token nei log.
-  // Override controllato: se RETURN_VERIFY_LINK=1, logga anche in production (solo per test)
-  const allowVerifyLinkLog =
-    process.env.NODE_ENV !== "production" || process.env.RETURN_VERIFY_LINK === "1";
-
-  if (allowVerifyLinkLog) {
-    if (logger && logger.info) logger.info(`[mail][verify] to=${email} link=${link}`);
-  } else {
-    if (logger && logger.info) logger.info(`[mail][verify] queued to=${email}`);
-  }
-
-
+  // Risposta identica per email inesistenti/verificate/delivery incerta.
   return res.json({ ok: true });
 });
-
 // -----------------------------------------------------------------------------
 // FORGOT PASSWORD (POST /api/users/forgot { email })
 // -----------------------------------------------------------------------------
 const forgotPassword = asyncHandler(async (req, res) => {
-  const email = String(req.body.email || "").toLowerCase().trim();
-  if (!email) {
-    res.status(400);
-    throw new Error("Email richiesta");
-  }
-  const user = await User.findOne({ email });
-  if (!user) {
-    // Non riveliamo se esiste o meno
+  res.set("Cache-Control", "no-store");
+  if (!requireIssueReadiness(req, res)) return;
+  const email = typeof req.body?.email === "string"
+    ? req.body.email.trim().toLowerCase() : "";
+  if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.json({ ok: true });
   }
-  const raw = crypto.randomBytes(32).toString("hex");
-  const tokenHash = crypto.createHash("sha256").update(raw).digest("hex");
-  user.resetTokenHash = tokenHash;
-  user.resetTokenExpires = new Date(Date.now() + 60 * 60 * 1000); // 1h
-  await user.save();
-
-  const base = process.env.FRONTEND_URL || process.env.API_PUBLIC_BASE || "";
-  const link = `${base}/reset.html?token=${encodeURIComponent(raw)}`;
-  // In DEV logghiamo, in PROD il tuo MailAdapter invierà davvero
-  if (logger && logger.info) {
-    logger.info(`[mail][reset] to=${email} link=${link}`);
+  const user = await User.findOne({ email });
+  if (user) {
+    await sendPurposeLink({
+      user, purpose: "reset", guardAuthorized: req.cp002EmissionAuthorized === true,
+    });
   }
-  res.json({ ok: true });
+  // L'esito non conferma esistenza dell'account o consegna.
+  return res.json({ ok: true });
 });
-
 // -----------------------------------------------------------------------------
 // RESET PASSWORD (POST /api/users/reset { token, password })
 // -----------------------------------------------------------------------------
