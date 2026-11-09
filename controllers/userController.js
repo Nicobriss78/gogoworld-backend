@@ -318,32 +318,20 @@ const forgotPassword = asyncHandler(async (req, res) => {
 // -----------------------------------------------------------------------------
 // RESET PASSWORD (POST /api/users/reset { token, password })
 // -----------------------------------------------------------------------------
-const resetPassword = asyncHandler(async (req, res) => {
-const token = String(req.body.token || "").trim();
-  const newPassword = String(req.body.password || "");
-
-  if (!token || token.length < 10 || token.length > 200) {
-    return res.status(400).json({ ok: false, error: "INVALID_TOKEN" });
-  }
-  if (!newPassword || newPassword.length < 8 || newPassword.length > 72) {
-    return res.status(400).json({ ok: false, error: "INVALID_PASSWORD" });
-  }
-
-  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
-  const now = new Date();
-  const user = await User.findOne({
-    resetTokenHash: tokenHash,
-    resetTokenExpires: { $gt: now },
+// CP002 C-03 / NO-GO implementativo R-A: blocco TEMPORANEO sul solo branch.
+// Il reset legacy usa User.save() senza barriera R-A persistente e senza
+// transizione unica con tokens bounded. Non esiste un controllo atomico
+// autorizzato: rifiutiamo tutte le richieste invece di simulare protezione.
+// Ripristinare la funzionalita' soltanto sostituendo questo stub con il
+// consumer CAS legacy+bounded coordinato con R-A, nei gate separati.
+const resetPassword = asyncHandler(async (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.set('Retry-After', '60');
+  return res.status(503).json({
+    ok: false,
+    code: 'RECOVERY_TEMPORARILY_UNAVAILABLE',
+    error: 'temporarily_unavailable',
   });
-  if (!user) {
-    res.status(400);
-    throw new Error("Invalid or expired token");
-  }
-  user.password = newPassword;
-  user.resetTokenHash = undefined;
-  user.resetTokenExpires = undefined;
-  await user.save();
-  res.json({ ok: true, reset: true });
 });
 
 // --- GET /api/users/search?query=... (auth) ---
