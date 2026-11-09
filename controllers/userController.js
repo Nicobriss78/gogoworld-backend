@@ -299,7 +299,8 @@ const resendVerifyEmail = asyncHandler(async (req, res) => {
 // -----------------------------------------------------------------------------
 const forgotPassword = asyncHandler(async (req, res) => {
   res.set("Cache-Control", "no-store");
-  if (!requireIssueReadiness(req, res)) return;
+  // C-03: finche' R-A non ha un consumer atomico, rifiuta nuove emissioni.
+  if (!requireIssueReadiness(req, res, "reset")) return;
   const email = typeof req.body?.email === "string"
     ? req.body.email.trim().toLowerCase() : "";
   if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
