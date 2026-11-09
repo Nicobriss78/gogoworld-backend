@@ -280,8 +280,11 @@ const verifyEmail = asyncHandler(async (req, res) => {
 const resendVerifyEmail = asyncHandler(async (req, res) => {
   res.set("Cache-Control", "no-store");
   if (!requireIssueReadiness(req, res)) return;
-  const email = typeof req.body?.email === "string"
-    ? req.body.email.trim().toLowerCase() : "";
+  // La variante /me/verify/resend usa soltanto l'identita' autenticata;
+  // non consentire al client di selezionare l'email di un altro account.
+  const claimedEmail = req.user?.email ?? req.body?.email;
+  const email = typeof claimedEmail === "string"
+    ? claimedEmail.trim().toLowerCase() : "";
   if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.json({ ok: true });
   }
