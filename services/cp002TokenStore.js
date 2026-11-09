@@ -4,7 +4,6 @@
 // Campi legacy conservati; new issuance spento fino a cutover esplicito.
 // NON contiene ingressi HTTP, invii email, configurazioni o log sensibili.
 const crypto = require('crypto');
-const bcrypt = require('bcryptjs');
 const User = require('../models/userModel');
 
 const MAX_VALID = 3;
@@ -158,26 +157,14 @@ async function consumeVerifyToken(raw) {
  * L'hold persistente R-A dovra' essere verificato nella stessa operazione:
  * non collegare questo helper a /reset prima dell'integrazione R-A.
  */
-async function consumeResetToken(raw, newPassword, options = {}) {
-  const hash = hashToken(raw);
-  if (!hash || typeof newPassword !== 'string' ||
-      newPassword.length < 8 || newPassword.length > 72) return false;
-  if (typeof options.isRecoveryAllowed !== 'function') {
-    return false; // fail-closed fino a una interfaccia R-A verificabile
-  }
-  if (await options.isRecoveryAllowed() !== true) return false;
-
-  const digest = await bcrypt.hash(newPassword, await bcrypt.genSalt(10));
-  const cfg = PURPOSE.reset;
-  const result = await User.updateOne(
-    { ...validTokenFilter(cfg, hash, new Date()) },
-    {
-      $set: { password: digest, [cfg.list]: [] },
-      $unset: { [cfg.legacyHash]: '', [cfg.legacyExpires]: '' },
-      $inc: { __v: 1 },
-    },
-  );
-  return result.modifiedCount === 1;
+async function consumeResetToken(_raw, _newPassword, _options = {}) {
+  // CP002 C-03: BLOCCO TECNICO VOLONTARIO.
+  // Non esiste ancora il predicato R-A persistente da includere
+  // nella STESSA operazione CAS. Un callback di pre-check non basta:
+  // fra check e update il blocco potrebbe diventare attivo.
+  // La futura corsia R-A dovra' sostituire questa implementazione
+  // con un filtro atomico verificato e coprire anche rollback/restore.
+  return false;
 }
 
 /** Revoca una sola emissione certamente rifiutata, senza toccare concorrenti. */
