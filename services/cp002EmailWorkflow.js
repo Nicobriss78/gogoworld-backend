@@ -55,8 +55,20 @@ function unavailable(res) {
   });
 }
 
-function requireIssueReadiness(req, res) {
-  if (req.cp002EmissionAuthorized !== true || !workflowReadiness().ready) {
+// Il consumer reset atomico con barriera R-A persistente NON esiste ancora.
+// Non emettere link reset inutilizzabili, anche se qualcuno abilita i flag
+// del provider o del frontend prima del gate R-A.
+function purposeIssuanceReadiness(purpose) {
+  if (!TASKS[purpose]) return { ready: false, reason: 'unknown_purpose' };
+  if (purpose === 'reset') {
+    return { ready: false, reason: 'atomic_reset_consumer_not_ready' };
+  }
+  return workflowReadiness();
+}
+
+function requireIssueReadiness(req, res, purpose = 'verify') {
+  if (req.cp002EmissionAuthorized !== true ||
+      !purposeIssuanceReadiness(purpose).ready) {
     unavailable(res);
     return false;
   }
@@ -79,7 +91,7 @@ function publicLink(purpose, raw) {
  */
 async function sendPurposeLink({ user, purpose, guardAuthorized }) {
   if (!user || !TASKS[purpose] || guardAuthorized !== true ||
-      !workflowReadiness().ready) {
+      !purposeIssuanceReadiness(purpose).ready) {
     return { state: 'not_ready' };
   }
   let issue = null;
