@@ -6,6 +6,7 @@ dotenv.config();
 const path = require("path");
 const { config } = require("./config");
 const { logger } = require("./core/logger"); // #CORE-LOGGER B1
+const { redactText, sanitizeSentryEvent } = require("./core/cp002LogSanitizer");
 // Sentry (server-only). DSN/ENV/RELEASE da variabili d'ambiente.
 // Nessun effetto se @sentry/node non è installato o DSN assente.
 let Sentry = null;
@@ -16,6 +17,7 @@ if (Sentry && process.env.SENTRY_DSN) {
     environment: process.env.SENTRY_ENV || (config.NODE_ENV || "production"),
     release: process.env.SENTRY_RELEASE || undefined,
     tracesSampleRate: 0, // "light": niente tracing
+    beforeSend: sanitizeSentryEvent, // CP002: rimuovi URL/token/credenziali prima di inviare
   });
   global.Sentry = Sentry;
 }
@@ -32,7 +34,7 @@ const hpp = require("hpp");
 // Log opzionale (non bloccante)
 let morgan = null;
 try { morgan = require("morgan"); } catch { /* opzionale */ }
-if (morgan) app.use(morgan("dev"));
+if (morgan) app.use(morgan(":method :status :response-time ms")); // no URL o query/token
 
 // DB prima delle routes
 const connectDB = require("./db");
@@ -137,7 +139,7 @@ app.get("/", (_req, res) => res.json({ ok: true, name: "GoGo.World API", version
 
 // 404
 app.use((req, res, _next) => {
-  res.status(404).json({ ok: false, error: "NOT_FOUND", path: req.originalUrl });
+  res.status(404).json({ ok: false, error: "NOT_FOUND" }); // no originalUrl/query sensibili
 });
 // Sentry error handler (se inizializzato) — deve stare prima del nostro handler
 if (global.Sentry) app.use(global.Sentry.Handlers.errorHandler());
@@ -148,13 +150,13 @@ app.use(errorHandler);
 process.on("unhandledRejection", (reason) => {
   try {
     if (global.Sentry) global.Sentry.captureException(reason);
-    logger.error("UnhandledRejection:", reason && reason.message ? reason.message : String(reason));
+    logger.error("UnhandledRejection:", redactText(reason && reason.message ? reason.message : String(reason)));
   } catch {}
 });
 process.on("uncaughtException", (err) => {
   try {
     if (global.Sentry) global.Sentry.captureException(err);
-    logger.error("UncaughtException:", err && err.message ? err.message : String(err));
+    logger.error("UncaughtException:", redactText(err && err.message ? err.message : String(err)));
   } catch {}
 });
 
