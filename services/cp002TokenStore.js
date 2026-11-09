@@ -94,12 +94,15 @@ async function issueBoundedToken({ userId, purpose, guardAuthorized }) {
       issuedAt: new Date(now),
       source: 'bounded',
     };
-    const all = validExisting(doc, cfg, now).concat(entry);
-    all.sort((a, b) =>
+    // Il nuovo token DEVE essere incluso nel cap, anche se altri
+    // issuedAt sono nel futuro per clock skew o dati precedenti anomali.
+    // Solo i precedenti validi competono per i MAX_VALID-1 posti rimasti.
+    const previous = validExisting(doc, cfg, now);
+    previous.sort((a, b) =>
       asTime(a.issuedAt) - asTime(b.issuedAt) ||
       a.hash.localeCompare(b.hash) ||
       a.source.localeCompare(b.source));
-    const retained = all.slice(-MAX_VALID);
+    const retained = previous.slice(-(MAX_VALID - 1)).concat(entry);
     const keepLegacy = retained.some((x) => x.source === 'legacy');
     const tokens = retained.filter((x) => x.source === 'bounded')
       .map(({ hash, expiresAt, issuedAt }) => ({ hash, expiresAt, issuedAt }));
@@ -108,6 +111,12 @@ async function issueBoundedToken({ userId, purpose, guardAuthorized }) {
     const filter = {
       _id: doc._id,
       __v: Number.isSafeInteger(doc.__v) ? version : { $exists: false },
+      // Una scrittura legacy sui campi scalari potrebbe non incrementare
+      // __v. Richiedi anche corrispondenza esatta del loro stato letto.
+      [cfg.legacyHash]: Object.prototype.hasOwnProperty.call(doc, cfg.legacyHash)
+        ? doc[cfg.legacyHash] : { $exists: false },
+      [cfg.legacyExpires]: Object.prototype.hasOwnProperty.call(doc, cfg.legacyExpires)
+        ? doc[cfg.legacyExpires] : { $exists: false },
       ...(purpose === 'verify' ? { verified: { $ne: true } } : {}),
     };
     const update = {
