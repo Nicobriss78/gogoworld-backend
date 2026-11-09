@@ -104,6 +104,7 @@ router.get("/:userId/following", protect, getFollowing);
 // Public: email verify / forgot / reset
 router.get("/verify", verifyEmail);
 router.post("/verify", verifyEmail); // CP002: token nel body, nessun token nell'URL
+router.post("/me/verify/resend", protect, emissionGuard("verify"), verifyEmailLimiter, resendVerifyEmail); // CP002: reinvio autenticato, email solo da req.user
 router.post("/verify/resend", emissionGuard("verify"), verifyEmailLimiter, resendVerifyEmail);
 router.post("/forgot", emissionGuard("forgot"), loginLimiter, forgotPassword);
 router.post("/reset", writeLimiter, resetPassword);
