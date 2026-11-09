@@ -1,3 +1,5 @@
+const { redactText, isSensitivePath } = require('../core/cp002LogSanitizer');
+
 // middleware/error.js
 // Handler centralizzato degli errori applicativi (R2: messaggi normalizzati)
 
@@ -175,6 +177,16 @@ function buildErrorPayload(err, req, res) {
 
 function errorHandler(err, req, res, _next) { // eslint-disable-line
   const { status, payload } = buildErrorPayload(err, req, res);
+  // Anche in dev non riflettere token/link nei body dei messaggi di errore.
+  if (typeof payload.error === 'string') payload.error = redactText(payload.error);
+  if (isSensitivePath(req.originalUrl || req.url)) {
+    delete payload.stack;
+    // Errore non previsto sul flusso sensibile: non ritrasmettere dettagli.
+    if (status >= 500) payload.error = 'Errore interno inatteso';
+  } else if (typeof payload.stack === 'string') {
+    payload.stack = redactText(payload.stack);
+  }
+  res.set('Cache-Control', 'no-store');
   res.status(status).json(payload);
 }
 
