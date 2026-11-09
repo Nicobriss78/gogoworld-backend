@@ -11,9 +11,10 @@ const jwt = require("jsonwebtoken");
 const asyncHandler = require("express-async-handler");
 const User = require("../models/userModel");
 const { logger } = require("../core/logger");
+const { sanitizedPath } = require("../core/cp002LogSanitizer");
 function authWarn(req, code) {
   try {
-    logger.warn("[auth] deny", { code, path: req.originalUrl, ip: req.ip });
+    logger.warn("[auth] deny", { code, path: sanitizedPath(req.originalUrl), ip: req.ip });
   } catch (_) {}
 }
 function normalizeRole(role) {
