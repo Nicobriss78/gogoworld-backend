@@ -25,7 +25,9 @@ function sanitizedPath(value) {
 function isSensitivePath(value) {
   const path = sanitizedPath(value);
   return /^\/api\/users\/?$/.test(path) ||
-    /^\/api\/users\/(?:verify(?:\/resend)?|forgot|reset)(?:\/|$)/.test(path);
+    /^\/api\/users\/(?:verify(?:\/resend)?|forgot|reset)(?:\/|$)/.test(path) ||
+    // F09: anche il reinvio autenticato richiede redazione Sentry completa.
+    /^\/api\/users\/me\/verify\/resend\/?$/.test(path);
 }
 
 function sanitizeSentryEvent(event) {
